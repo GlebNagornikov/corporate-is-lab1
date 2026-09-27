@@ -15,9 +15,7 @@ class Employee(models.Model):
     hired_at = models.DateField()
     department = models.ForeignKey(
         Department,
-        on_delete=models.SET_NULL,
-        null=True,
-        blank=True,
+        on_delete=models.PROTECT,
         related_name="employees",
     )
 
