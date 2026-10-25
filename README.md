@@ -7,7 +7,7 @@
 - Python 3 + Django
 - Django REST Framework
 - PostgreSQL 16 (через Docker Compose)
-- psycopg2-binary, python-dotenv
+- psycopg2-binary, django-environ
 
 ## Как запустить проект локально
 
@@ -28,14 +28,28 @@
    pip install -r requirements.txt
    ```
 
-4. Создать файл `.env` в корне проекта со следующим содержимым:
+4. Скопировать пример конфигурации и заполнить `.env`:
+   ```bash
+   cp .env.example .env
    ```
-   POSTGRES_DB=corporate_is
-   POSTGRES_USER=corporate_is
-   POSTGRES_PASSWORD=corporate_is_password
-   POSTGRES_HOST=localhost
-   POSTGRES_PORT=5432
+   Для локальной базы из `docker-compose.yml`:
+   ```dotenv
+   SECRET_KEY=<новый-секретный-ключ>
+   DATABASE_URL=postgres://corporate_is:corporate_is_password@localhost:5432/corporate_is
+   ALLOWED_HOSTS=localhost,127.0.0.1
+   DB_CONN_MAX_AGE=60
    ```
+   Сгенерировать ключ:
+   ```bash
+   python -c "from django.core.management.utils import get_random_secret_key; print(get_random_secret_key())"
+   ```
+   Подставить результат вместо `<новый-секретный-ключ>`. Настоящий `.env` не коммитить; `.env.example` содержит только образец. Если проброшенный порт PostgreSQL изменён, указать его в `DATABASE_URL`.
+
+   `manage.py` по умолчанию использует `config.settings.dev`; WSGI и ASGI — `config.settings.prod`. Проверить prod-настройки можно командой:
+   ```bash
+   python manage.py check --deploy --settings=config.settings.prod
+   ```
+   Для реальной отправки писем в prod дополнительно требуется настроить SMTP-сервер; выбор SMTP-backend сам по себе отправку не настраивает.
 
 5. Поднять базу данных:
    ```bash
