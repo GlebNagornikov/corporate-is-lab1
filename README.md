@@ -164,3 +164,8 @@ curl -X DELETE http://127.0.0.1:8000/api/employees/2/
 ```bash
 docker compose exec db psql -U corporate_is -d corporate_is -c "SELECT full_name, department_id FROM employees_employee;"
 ```
+
+
+## Catalog extras (Lab 5)
+
+Implementation notes and verification: [docs/catalog-extras.md](docs/catalog-extras.md).

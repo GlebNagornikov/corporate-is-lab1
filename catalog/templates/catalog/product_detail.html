@@ -10,6 +10,15 @@
   <div class="col-md-5 mb-3">
     {% if product.image %}<img src="{{ product.image.url }}" class="img-fluid rounded" alt="{{ product.name }}">
     {% else %}<div class="bg-secondary-subtle rounded d-flex align-items-center justify-content-center" style="height:300px">нет фото</div>{% endif %}
+    <div class="row row-cols-2 g-2 mt-2">
+      {% for photo in product.images.all %}
+        <div class="col">
+          <a href="{{ photo.image.url }}">
+            <img src="{{ photo.image.url }}" class="img-fluid rounded" alt="{{ photo.alt_text|default:product.name }}" loading="lazy">
+          </a>
+        </div>
+      {% endfor %}
+    </div>
   </div>
   <div class="col-md-7">
     <h1 class="h3">{{ product.name }}</h1>

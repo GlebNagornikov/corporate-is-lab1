@@ -1,7 +1,7 @@
 from django.contrib import admin
 from django.utils.html import format_html
 
-from .models import Category, Product, Review
+from .models import Category, Product, ProductImage, Review
 
 
 @admin.register(Category)
@@ -13,10 +13,26 @@ class CategoryAdmin(admin.ModelAdmin):
     prepopulated_fields = {"slug": ("name",)}
 
 
+class ProductImageInline(admin.TabularInline):
+    model = ProductImage
+    extra = 1
+    fields = ("image", "alt_text", "position", "image_preview")
+    readonly_fields = ("image_preview",)
+
+    @admin.display(description="Превью")
+    def image_preview(self, obj):
+        if not obj.image:
+            return "—"
+        return format_html(
+            '<img src="{}" alt="{}" style="max-height:100px">', obj.image.url, obj.alt_text
+        )
+
+
 @admin.register(Product)
 class ProductAdmin(admin.ModelAdmin):
+    inlines = (ProductImageInline,)
     list_display = ("name", "sku", "category", "price", "old_price", "stock", "is_active")
-    list_editable = ("price", "stock", "is_active")
+    list_editable = ("price", "old_price", "stock", "is_active")
     list_filter = ("is_active", "category")
     list_select_related = ("category",)
     search_fields = ("name", "sku")

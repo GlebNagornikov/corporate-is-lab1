@@ -1,3 +1,4 @@
+{% load catalog_highlights %}
 <div class="card h-100">
   {% if product.image %}
     <img src="{{ product.image.url }}" class="card-img-top" alt="{{ product.name }}">
@@ -5,7 +6,8 @@
     <div class="card-img-top bg-secondary-subtle d-flex align-items-center justify-content-center" style="height:160px">нет фото</div>
   {% endif %}
   <div class="card-body d-flex flex-column">
-    <a href="{{ product.get_absolute_url }}" class="card-title h6 text-decoration-none">{{ product.name }}</a>
+    <a href="{{ product.get_absolute_url }}" class="card-title h6 text-decoration-none">{% if product.name_headline %}{{ product.name_headline|search_highlight }}{% else %}{{ product.name }}{% endif %}</a>
+    {% if product.description_headline %}<p class="small text-muted">{{ product.description_headline|search_highlight }}</p>{% endif %}
     <div class="small text-muted mb-2">
       {% if product.rating %}★ {{ product.rating|floatformat:1 }} ({{ product.reviews_count }}){% else %}нет отзывов{% endif %}
     </div>

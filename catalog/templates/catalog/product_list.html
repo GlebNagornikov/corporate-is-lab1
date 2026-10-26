@@ -35,6 +35,9 @@
       </div>
       <label class="form-label small">Сортировка</label>
       {{ filter.form.ordering }}
+      <label class="form-label small mt-2" for="{{ filter.form.rating_min.id_for_label }}">Минимальный рейтинг</label>
+      {{ filter.form.rating_min }}
+      {{ filter.form.rating_min.errors }}
       <button class="btn btn-sm btn-primary mt-2 w-100">Применить</button>
     </form>
   </aside>
