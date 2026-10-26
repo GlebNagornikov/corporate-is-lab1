@@ -9,65 +9,75 @@
 - PostgreSQL 16 (через Docker Compose)
 - psycopg2-binary, django-environ
 
-## Как запустить проект локально
+## Запуск в Docker
 
-1. Склонировать репозиторий:
+Для запуска нужны Git и Docker с Compose. Python на хосте для запуска приложения не требуется.
+
+1. Склонировать репозиторий и перейти в его корень:
    ```bash
    git clone git@github.com:GlebNagornikov/corporate-is-lab1.git
    cd corporate-is-lab1
    ```
 
-2. Создать и активировать виртуальное окружение:
-   ```bash
-   python3 -m venv venv
-   source venv/bin/activate
-   ```
-
-3. Установить зависимости:
-   ```bash
-   pip install -r requirements.txt
-   ```
-
-4. Скопировать пример конфигурации и заполнить `.env`:
+2. При первом запуске скопировать пример конфигурации:
    ```bash
    cp .env.example .env
    ```
-   Для локальной базы из `docker-compose.yml`:
-   ```dotenv
-   SECRET_KEY=<новый-секретный-ключ>
-   DATABASE_URL=postgres://corporate_is:corporate_is_password@localhost:5432/corporate_is
-   ALLOWED_HOSTS=localhost,127.0.0.1
-   DB_CONN_MAX_AGE=60
-   ```
-   Сгенерировать ключ:
-   ```bash
-   python -c "from django.core.management.utils import get_random_secret_key; print(get_random_secret_key())"
-   ```
-   Подставить результат вместо `<новый-секретный-ключ>`. Настоящий `.env` не коммитить; `.env.example` содержит только образец. Если проброшенный порт PostgreSQL изменён, указать его в `DATABASE_URL`.
+   Заполнить `SECRET_KEY` и `POSTGRES_PASSWORD`; тот же пароль указать в `DATABASE_URL`. Значение `SECRET_KEY` заключить в одинарные кавычки, чтобы Docker Compose не подставлял переменные вместо символов `$`. Настоящий `.env` не коммитить.
 
-   `manage.py` по умолчанию использует `config.settings.dev`; WSGI и ASGI — `config.settings.prod`. Проверить prod-настройки можно командой:
-   ```bash
-   python manage.py check --deploy --settings=config.settings.prod
-   ```
-   Для реальной отправки писем в prod дополнительно требуется настроить SMTP-сервер; выбор SMTP-backend сам по себе отправку не настраивает.
+   Если база уже существует, сохранить прежние `.env`, `SECRET_KEY` и параметры доступа к базе: изменение `POSTGRES_*` не меняет пользователя и пароль в существующем томе PostgreSQL.
 
-5. Поднять базу данных:
-   ```bash
-   docker compose up -d
-   ```
+   `DATABASE_URL` в `.env` оставляется с `localhost` для команд с хоста. В контейнере `web` Compose переопределяет хост базы на `db`. Если порт PostgreSQL на хосте занят другим проектом, изменить `POSTGRES_HOST_PORT` и порт в `DATABASE_URL` на одинаковое свободное значение, например `5433`.
 
-6. Применить миграции и создать суперпользователя:
+3. Собрать образ и запустить Django вместе с PostgreSQL:
    ```bash
-   python manage.py migrate
-   python manage.py createsuperuser
+   docker compose up -d --build
+   docker compose exec web python manage.py migrate
+   docker compose exec web python manage.py createsuperuser
    ```
+   Создание суперпользователя нужно при первом запуске новой базы; при сохранённой базе можно использовать существующую учётную запись.
 
-7. Запустить сервер разработки:
-   ```bash
-   python manage.py runserver
-   ```
+Сайт: http://localhost:8000/, admin panel: http://localhost:8000/admin/, REST API: http://localhost:8000/api/.
+У корневого адреса `/` может быть ответ 404: для проверки приложения открыть `/admin/` или `/api/employees/`.
 
-Проект будет доступен на `http://127.0.0.1:8000/`, admin panel — на `http://127.0.0.1:8000/admin/`, REST API — на `http://127.0.0.1:8000/api/`.
+### Проверка и повседневная работа
+
+```bash
+docker compose ps
+docker compose logs web --tail 30
+docker compose exec web python manage.py test
+```
+
+У `db` должен быть статус `healthy`, у `web` — `Up`; в логах Django — успешная проверка настроек и запуск сервера. Изменения кода подхватываются через bind mount, после изменения зависимостей нужно повторить `docker compose up -d --build`.
+
+`docker compose down` сохраняет том базы. **Не выполнять `docker compose down -v`, если данные нужны: эта команда удаляет том PostgreSQL.** Для сохранения прежнего тома также нельзя менять имя Compose-проекта. Команды выполнять из обычной папки репозитория, а не из служебной папки `docker-desktop-bind-mounts`; если имя папки изменилось, для существующего стенда использовать `docker compose -p corporate-is-lab1 ...` во всех командах.
+
+### Для разработки на хосте: IDE и pre-commit
+
+Виртуальное окружение нужно для подсказок IDE и Git-хуков; само приложение запускается в Docker. Команды для Linux, WSL и macOS:
+
+```bash
+python -m venv venv && source venv/bin/activate
+pip install -r requirements/dev.txt
+pre-commit install
+pre-commit run --all-files
+```
+
+Если доступна только команда `python3`, использовать её вместо `python`. На Windows PowerShell окружение активируется командой `venv\Scripts\Activate.ps1`.
+
+Ruff проверяет код и форматирование; pre-commit запускает проверки перед коммитом. Если хук исправил файлы, проверить diff, повторить `git add` для нужных файлов и повторить коммит.
+
+`manage.py` по умолчанию использует `config.settings.dev`; WSGI и ASGI — `config.settings.prod`. Проверка prod-настроек:
+
+```bash
+docker compose exec web python manage.py check --deploy --settings=config.settings.prod
+```
+
+Для реальной отправки писем в prod дополнительно требуется настроить SMTP-сервер; выбор SMTP-backend сам по себе отправку не настраивает.
+
+### Ветки
+
+`main` — релизы, `develop` — разработка, задачи — `feature/*` от `develop`. Изменения отправляются через Pull Request в `develop` и сливаются через **Create a merge commit**, без squash и rebase.
 
 ## Приложения
 
@@ -104,7 +114,7 @@ queryset = Employee.objects.select_related("department")
 
 ## REST API
 
-API построен на Django REST Framework (`ModelViewSet` + `DefaultRouter`). После запуска сервера (`python manage.py runserver`) в браузере открывается browsable API: `http://127.0.0.1:8000/api/`.
+API построен на Django REST Framework (`ModelViewSet` + `DefaultRouter`). После запуска контейнеров (`docker compose up -d --build`) в браузере открывается browsable API: `http://127.0.0.1:8000/api/`.
 
 | Метод | URL | Действие |
 |-------|-----|----------|
