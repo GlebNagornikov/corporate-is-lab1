@@ -1,0 +1,62 @@
+{% extends "base.html" %}
+{% block title %}{{ current_category|default:"Каталог" }}{% endblock %}
+{% block content %}
+<div class="row">
+  <aside class="col-md-3 mb-4">
+    <h2 class="h6">Категории</h2>
+    <ul class="list-unstyled">
+      <li><a href="{% url 'catalog:product_list' %}">Все товары</a></li>
+      {% for root in menu_categories %}
+        <li class="mt-2"><a class="fw-bold {% if root == current_category %}text-danger{% endif %}" href="{{ root.get_absolute_url }}">{{ root.name }}</a>
+          <ul class="list-unstyled ms-3">
+            {% for child in root.children.all %}
+              <li><a class="{% if child == current_category %}text-danger{% endif %}" href="{{ child.get_absolute_url }}">{{ child.name }}</a></li>
+            {% endfor %}
+          </ul>
+        </li>
+      {% endfor %}
+    </ul>
+
+    <form method="get" class="mt-4">
+      {% if request.GET.category %}<input type="hidden" name="category" value="{{ request.GET.category }}">{% endif %}
+      {% if request.GET.q %}<input type="hidden" name="q" value="{{ request.GET.q }}">{% endif %}
+      <label class="form-label small">Цена, ₽</label>
+      <div class="d-flex gap-2 mb-2">
+        <input class="form-control form-control-sm" name="price_min" placeholder="от" value="{{ request.GET.price_min }}">
+        <input class="form-control form-control-sm" name="price_max" placeholder="до" value="{{ request.GET.price_max }}">
+      </div>
+      <div class="form-check">
+        <input class="form-check-input" type="checkbox" name="in_stock" value="true" id="in_stock" {% if request.GET.in_stock %}checked{% endif %}>
+        <label class="form-check-label" for="in_stock">В наличии</label>
+      </div>
+      <div class="form-check mb-2">
+        <input class="form-check-input" type="checkbox" name="on_sale" value="true" id="on_sale" {% if request.GET.on_sale %}checked{% endif %}>
+        <label class="form-check-label" for="on_sale">Со скидкой</label>
+      </div>
+      <label class="form-label small">Сортировка</label>
+      {{ filter.form.ordering }}
+      <button class="btn btn-sm btn-primary mt-2 w-100">Применить</button>
+    </form>
+  </aside>
+
+  <section class="col-md-9">
+    <h1 class="h4 mb-3">
+      {% if request.GET.q %}Поиск: «{{ request.GET.q }}»{% else %}{{ current_category|default:"Все товары" }}{% endif %}
+      <small class="text-muted">— {{ paginator.count }}</small>
+    </h1>
+    {% if suggestions %}
+      <p>Ничего не найдено. Возможно, вы искали:
+        {% for product in suggestions %}<a href="{{ product.get_absolute_url }}">{{ product.name }}</a>{% if not forloop.last %}, {% endif %}{% endfor %}
+      </p>
+    {% endif %}
+    <div class="row row-cols-1 row-cols-sm-2 row-cols-lg-3 g-3 mb-4">
+      {% for product in products %}
+        <div class="col">{% include "catalog/_product_card.html" %}</div>
+      {% empty %}
+        {% if not suggestions %}<p>Товаров не найдено.</p>{% endif %}
+      {% endfor %}
+    </div>
+    {% include "includes/pagination.html" %}
+  </section>
+</div>
+{% endblock %}
