@@ -1,12 +1,14 @@
 from django.conf import settings
 from django.contrib.postgres.indexes import GinIndex
 from django.contrib.postgres.search import (
+    SearchHeadline,
     SearchQuery,
     SearchRank,
     SearchVector,
     SearchVectorField,
     TrigramWordSimilarity,
 )
+from django.core.exceptions import ValidationError
 from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models
 from django.db.models import Avg, Count, F, Q
@@ -62,7 +64,26 @@ class ProductQuerySet(models.QuerySet):
         query = SearchQuery(text, config="russian", search_type="websearch")
         return (
             self.filter(search_vector=query)
-            .annotate(rank=SearchRank(F("search_vector"), query))
+            .annotate(
+                rank=SearchRank(F("search_vector"), query),
+                name_headline=SearchHeadline(
+                    "name",
+                    query,
+                    config="russian",
+                    highlight_all=True,
+                    start_sel="<mark>",
+                    stop_sel="</mark>",
+                ),
+                description_headline=SearchHeadline(
+                    "description",
+                    query,
+                    config="russian",
+                    start_sel="<mark>",
+                    stop_sel="</mark>",
+                    max_words=30,
+                    min_words=10,
+                ),
+            )
             .order_by("-rank")
         )
 
@@ -126,6 +147,11 @@ class Product(models.Model):
     def get_absolute_url(self):
         return reverse("catalog:product_detail", args=[self.slug])
 
+    def clean(self):
+        super().clean()
+        if self.price is not None and self.old_price is not None and self.old_price <= self.price:
+            raise ValidationError({"old_price": "Старая цена должна быть больше текущей."})
+
     @property
     def in_stock(self):
         return self.stock > 0
@@ -135,6 +161,23 @@ class Product(models.Model):
         if not self.old_price:
             return 0
         return round((1 - self.price / self.old_price) * 100)
+
+
+class ProductImage(models.Model):
+    product = models.ForeignKey(
+        Product, on_delete=models.CASCADE, related_name="images", verbose_name="Товар"
+    )
+    image = models.ImageField("Фото", upload_to="products/gallery/%Y/%m/")
+    alt_text = models.CharField("Описание фото", max_length=200, blank=True)
+    position = models.PositiveIntegerField("Порядок", default=0)
+
+    class Meta:
+        ordering = ["position", "pk"]
+        verbose_name = "фото товара"
+        verbose_name_plural = "фото товара"
+
+    def __str__(self):
+        return self.alt_text or f"Фото товара #{self.product_id}"
 
 
 class Review(models.Model):

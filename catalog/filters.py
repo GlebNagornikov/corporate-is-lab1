@@ -12,6 +12,13 @@ class ProductFilter(django_filters.FilterSet):
     price_max = django_filters.NumberFilter(field_name="price", lookup_expr="lte", label="Цена до")
     in_stock = django_filters.BooleanFilter(method="filter_in_stock", label="В наличии")
     on_sale = django_filters.BooleanFilter(method="filter_on_sale", label="Со скидкой")
+    rating_min = django_filters.NumberFilter(
+        field_name="rating",
+        lookup_expr="gte",
+        label="Минимальный рейтинг",
+        min_value=0,
+        max_value=5,
+    )
     ordering = django_filters.OrderingFilter(
         fields=(
             ("price", "price"),
