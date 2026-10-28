@@ -131,7 +131,7 @@ class CatalogApiTests(CatalogTestCase):
 
     def test_review_via_api_requires_auth(self):
         url = f"/api/catalog/products/{self.laptop.slug}/reviews/"
-        self.assertEqual(self.api.post(url, {"rating": 4, "text": "ok"}).status_code, 403)
+        self.assertEqual(self.api.post(url, {"rating": 4, "text": "ok"}).status_code, 401)
         self.api.force_authenticate(self.user)
         self.assertEqual(self.api.post(url, {"rating": 4, "text": "ok"}).status_code, 201)
         self.assertEqual(self.api.post(url, {"rating": 4, "text": "ещё"}).status_code, 400)

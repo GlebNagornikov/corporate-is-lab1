@@ -3,6 +3,7 @@ import logging
 from rest_framework import viewsets
 
 from .models import Department, Employee
+from .permissions import StrictDjangoModelPermissions
 from .serializers import DepartmentSerializer, EmployeeSerializer
 
 # Create your views here.
@@ -11,8 +12,9 @@ logger = logging.getLogger(__name__)
 
 
 class EmployeeViewSet(viewsets.ModelViewSet):
-    queryset = Employee.objects.select_related("department")
+    queryset = Employee.objects.select_related("department").order_by("full_name")
     serializer_class = EmployeeSerializer
+    permission_classes = [StrictDjangoModelPermissions]
 
     def perform_create(self, serializer):
         employee = serializer.save()
@@ -34,5 +36,6 @@ class EmployeeViewSet(viewsets.ModelViewSet):
 
 
 class DepartmentViewSet(viewsets.ModelViewSet):
-    queryset = Department.objects.all()
+    queryset = Department.objects.order_by("name")
     serializer_class = DepartmentSerializer
+    permission_classes = [StrictDjangoModelPermissions]

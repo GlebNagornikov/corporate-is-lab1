@@ -1,5 +1,6 @@
 from datetime import timedelta
 from decimal import Decimal
+from unittest.mock import patch
 
 from django.contrib.auth import get_user_model
 from django.core import mail
@@ -131,3 +132,20 @@ class OrderServiceTests(TestCase):
             change_status(order, Order.Status.DELIVERED, by=self.manager)
         with self.assertRaises(OrderError):
             cancel_by_customer(order, self.user)
+
+    def test_email_failure_is_logged_without_rolling_back_order(self):
+        add_to_cart(self.cart, self.book, 2)
+        with (
+            patch("orders.notifications.send_mail", side_effect=OSError("SMTP unavailable")),
+            self.assertLogs("orders.notifications", level="ERROR") as logs,
+            self.captureOnCommitCallbacks(execute=True),
+        ):
+            order = self.order()
+        self.assertTrue(Order.objects.filter(pk=order.pk).exists())
+        self.assertEqual(order.total, Decimal("2000"))
+        self.book.refresh_from_db()
+        self.assertEqual(self.book.stock, 3)
+        self.assertFalse(self.cart.items.exists())
+        self.assertEqual(len(logs.records), 1)
+        self.assertIn(str(order.pk), logs.records[0].getMessage())
+        self.assertIsNotNone(logs.records[0].exc_info)
