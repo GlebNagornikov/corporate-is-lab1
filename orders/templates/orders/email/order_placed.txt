@@ -1,0 +1,13 @@
+{% autoescape off %}Здравствуйте, {{ order.full_name }}!
+
+Ваш заказ №{{ order.pk }} оформлен.
+{% for item in order.items.all %}
+- {{ item.product_name }} × {{ item.quantity }} = {{ item.total }} ₽{% endfor %}
+
+Товары: {{ order.subtotal }} ₽{% if order.discount %}
+Скидка: −{{ order.discount }} ₽{% endif %}
+Доставка ({{ order.get_delivery_method_display|lower }}): {{ order.delivery_cost }} ₽
+Итого: {{ order.total }} ₽
+
+Мы сообщим, когда менеджер подтвердит заказ.
+{% endautoescape %}
