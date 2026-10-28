@@ -1,6 +1,7 @@
 from django.contrib import messages
 from django.core.exceptions import ValidationError
 from django.shortcuts import get_object_or_404, redirect, render
+from django.utils.http import url_has_allowed_host_and_scheme
 from django.views.decorators.http import require_POST
 
 from catalog.models import Product
@@ -34,7 +35,12 @@ def cart_add(request, product_id):
             messages.success(request, f"«{product.name}» в корзине: {added} шт.")
         else:
             messages.error(request, f"«{product.name}» нет в наличии.")
-    return redirect(request.POST.get("next") or "cart:detail")
+    next_url = request.POST.get("next", "")
+    if not url_has_allowed_host_and_scheme(
+        next_url, allowed_hosts={request.get_host()}, require_https=request.is_secure()
+    ):
+        next_url = "cart:detail"
+    return redirect(next_url)
 
 
 @require_POST
