@@ -1,3 +1,4 @@
+from django.contrib import messages
 from django.contrib.auth.signals import user_logged_in
 from django.dispatch import receiver
 
@@ -12,4 +13,9 @@ def merge_guest_cart(sender, request, user, **kwargs):
     cart_id = request.session.pop(CART_SESSION_KEY, None)
     guest_cart = Cart.objects.filter(pk=cart_id, user__isnull=True).first() if cart_id else None
     if guest_cart:
-        merge_carts(guest_cart, Cart.objects.get_or_create(user=user)[0])
+        skipped = merge_carts(guest_cart, Cart.objects.get_or_create(user=user)[0])
+        if skipped and hasattr(request, "_messages"):
+            messages.warning(
+                request,
+                "Недоступные товары не перенесены в корзину: " + ", ".join(skipped),
+            )

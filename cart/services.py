@@ -41,6 +41,11 @@ def add_to_cart(cart, product, quantity=1):
 @transaction.atomic
 def merge_carts(source, target):
     """Переносит товары гостя пользователю и удаляет гостевую корзину."""
+    skipped = []
     for item in source.items.select_related("product"):
+        if not item.product.is_active or item.product.stock <= 0:
+            skipped.append(item.product.name)
+            continue
         add_to_cart(target, item.product, item.quantity)
     source.delete()
+    return skipped
