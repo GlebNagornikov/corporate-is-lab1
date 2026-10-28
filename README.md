@@ -169,3 +169,22 @@ docker compose exec db psql -U corporate_is -d corporate_is -c "SELECT full_name
 ## Catalog extras (Lab 5)
 
 Implementation notes and verification: [docs/catalog-extras.md](docs/catalog-extras.md).
+
+
+## Лабораторная №6: корзина, заказы и панель менеджера (части 2–5)
+
+Реконструированы части 2–4 и выполнена часть 5: корзина, оформление, промокоды, кабинет, Mailpit, панель менеджера, группа с 12 правами и тесты. JWT/API и покрытие из частей 6–7 ещё не реализованы.
+
+После первого запуска выполнить:
+
+```powershell
+docker compose exec web python manage.py migrate
+docker compose exec web python manage.py setup_groups
+docker compose exec web python manage.py test
+```
+
+Все 51 тест проходят; первый полный прогон после части 5 — 13.420 с (без создания тестовой БД). В проекте было 33 теста лабораторной №5, добавлено 12 из методички и 6 проверок админки/прав.
+
+Менеджер — staff, не superuser, член группы «Менеджеры магазина», связан с карточкой сотрудника отдела продаж. В новом окружении его создают в admin после `setup_groups`. Локальные пароли не входят в репозиторий.
+
+Подробности: [часть 5](docs/lab6-part5.md). История реконструкции незапушенных частей 2–4: [контрольная точка](docs/lab6-restoration.md).

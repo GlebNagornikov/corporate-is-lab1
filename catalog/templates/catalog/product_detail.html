@@ -27,6 +27,14 @@
     <p class="fs-3 fw-bold">{{ product.price|floatformat:"2g" }} ₽
       {% if product.old_price %}<s class="fs-5 text-muted">{{ product.old_price|floatformat:"2g" }} ₽</s>{% endif %}</p>
     <p>{% if product.in_stock %}В наличии: {{ product.stock }} шт.{% else %}<span class="text-danger">Нет в наличии</span>{% endif %}</p>
+    {% if product.in_stock %}
+      <form method="post" action="{% url 'cart:add' product.pk %}" class="d-flex gap-2 mb-3" style="max-width:260px">
+        {% csrf_token %}
+        <input type="number" name="quantity" value="1" min="1" max="{{ product.stock }}" class="form-control">
+        <input type="hidden" name="next" value="{{ request.path }}">
+        <button class="btn btn-success text-nowrap">В корзину</button>
+      </form>
+    {% endif %}
     <p>{{ product.description|linebreaksbr }}</p>
   </div>
 </div>
