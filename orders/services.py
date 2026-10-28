@@ -40,6 +40,8 @@ def place_order(
     items = list(cart.items.all())
     if not items:
         raise OrderError("Корзина пуста.")
+    if delivery_method == Order.Delivery.COURIER and not address.strip():
+        raise OrderError("Для доставки курьером укажите адрес.")
     # Блокируем товары в одинаковом порядке, чтобы избежать взаимоблокировок.
     products = {
         p.pk: p

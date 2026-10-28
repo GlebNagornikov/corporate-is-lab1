@@ -14,10 +14,12 @@ class CategoryViewSet(viewsets.ReadOnlyModelViewSet):
     serializer_class = CategorySerializer
     lookup_field = "slug"
     pagination_class = None
+    permission_classes = [permissions.AllowAny]
 
 
 class ProductViewSet(viewsets.ReadOnlyModelViewSet):
     serializer_class = ProductSerializer
+    permission_classes = [permissions.AllowAny]
     lookup_field = "slug"
     filter_backends = [DjangoFilterBackend]
     filterset_class = ProductFilter
