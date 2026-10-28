@@ -48,6 +48,8 @@ INSTALLED_APPS = [
     "employees",
     "accounts",
     "catalog",
+    "cart",
+    "orders",
 ]
 
 AUTH_USER_MODEL = "accounts.User"
@@ -75,6 +77,7 @@ TEMPLATES = [
                 "django.contrib.auth.context_processors.auth",
                 "django.contrib.messages.context_processors.messages",
                 "catalog.context_processors.categories",
+                "cart.context_processors.cart",
             ],
         },
     },
@@ -145,9 +148,15 @@ REST_FRAMEWORK = {
 
 MAILERS = {
     "default": {
-        "BACKEND": "django.core.mail.backends.console.EmailBackend",
+        "BACKEND": "django.core.mail.backends.smtp.EmailBackend",
+        "OPTIONS": {
+            "host": env("EMAIL_HOST", default="localhost"),
+            "port": env.int("EMAIL_PORT", default=1025),
+        },
     },
 }
+
+DEFAULT_FROM_EMAIL = env("DEFAULT_FROM_EMAIL", default="Магазин <shop@example.com>")
 
 LOG_LEVEL = env("LOG_LEVEL", default="INFO")
 
@@ -170,6 +179,7 @@ LOGGING = {
     "loggers": {
         "django": {"handlers": ["console"], "level": "INFO", "propagate": False},
         "employees": {"handlers": ["console"], "level": LOG_LEVEL, "propagate": False},
+        "orders": {"handlers": ["console"], "level": LOG_LEVEL, "propagate": False},
     },
 }
 

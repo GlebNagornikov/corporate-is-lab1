@@ -169,3 +169,10 @@ docker compose exec db psql -U corporate_is -d corporate_is -c "SELECT full_name
 ## Catalog extras (Lab 5)
 
 Implementation notes and verification: [docs/catalog-extras.md](docs/catalog-extras.md).
+
+
+## Лабораторная №6: контрольная точка перед частью 5
+
+Части 2–4 реконструированы локально по методичке поверх опубликованного `develop`; оригинальные незапушенные изменения и старая БД с другого ПК недоступны. Корзина, оформление, промокоды, личный кабинет и Mailpit готовы. Панель менеджера, группы, новые тесты и JWT/API ещё не добавлены.
+
+Продолжать с части 5, шага 1 (`orders/admin.py`). Подробности восстановления, проверок и запуска: [docs/lab6-restoration.md](docs/lab6-restoration.md).
