@@ -9,7 +9,7 @@ from catalog.inventory import refresh_inventory
 from catalog.models import Product, ProductVariant
 
 from .models import Order, OrderItem, OrderStatusLog, PromoCode
-from .notifications import send_order_placed, send_status_changed
+from .tasks import queue_order_email
 
 logger = logging.getLogger(__name__)
 COURIER_COST = Decimal("500")
@@ -139,7 +139,7 @@ def place_order(
     )
     cart.items.all().delete()
     invalidate_catalog()
-    transaction.on_commit(lambda: send_order_placed(order.pk))
+    queue_order_email(order, "placed")
     logger.info("Оформлен заказ №%s на сумму %s, покупатель %s", order.pk, order.total, user)
     return order
 
@@ -172,7 +172,7 @@ def change_status(order, new_status, *, by, comment="", payment_verified=False):
     OrderStatusLog.objects.create(
         order=order, from_status=old_status, to_status=new_status, changed_by=by, comment=comment
     )
-    transaction.on_commit(lambda: send_status_changed(order.pk))
+    queue_order_email(order, "status")
     logger.info("Заказ №%s: %s → %s (%s)", order.pk, old_status, new_status, by)
     return order
 

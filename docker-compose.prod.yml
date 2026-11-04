@@ -12,6 +12,16 @@ x-app: &app
     EMAIL_PORT: 1025
 
 services:
+  worker:
+    <<: *app
+    entrypoint: []
+    command: ["celery", "-A", "config", "worker", "--loglevel=INFO", "--concurrency=2"]
+    restart: unless-stopped
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      redis:
+        condition: service_healthy
   redis:
     image: redis:7-alpine
     restart: unless-stopped

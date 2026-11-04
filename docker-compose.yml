@@ -1,6 +1,24 @@
 name: corporate-is-lab1
 
 services:
+  worker:
+    build:
+      context: .
+      target: dev
+    env_file: .env
+    environment:
+      DJANGO_SETTINGS_MODULE: config.settings.dev
+      DATABASE_URL: postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
+      EMAIL_HOST: mailpit
+      EMAIL_PORT: 1025
+    command: ["celery", "-A", "config", "worker", "--loglevel=INFO", "--concurrency=2"]
+    volumes:
+      - .:/app
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
   redis:
     image: redis:7-alpine
     restart: unless-stopped

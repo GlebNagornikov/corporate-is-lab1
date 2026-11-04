@@ -47,7 +47,9 @@ def deliver_restock(product_id):
 
 
 def queue_restock(product_id):
-    transaction.on_commit(lambda: deliver_restock(product_id))
+    from .tasks import send_restock
+
+    transaction.on_commit(lambda: send_restock.delay(product_id))
 
 
 class SubscriptionForm(forms.Form):
