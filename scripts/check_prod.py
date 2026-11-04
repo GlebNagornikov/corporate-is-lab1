@@ -20,7 +20,10 @@ class NoRedirect(urllib.request.HTTPRedirectHandler):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--purchase", action="store_true", help="Create a user and courier order")
-    parser.add_argument("--expected-version", default="1.0.0", help="Expected deployed version")
+    parser.add_argument("--expected-version", default="1.0.1", help="Expected deployed version")
+    parser.add_argument("--phone", default="+79991234567", help="Phone submitted on checkout")
+    parser.add_argument("--expected-phone", default="+79991234567", help="Expected saved phone")
+    parser.add_argument("--check-invalid-phone", action="store_true", help="Reject phone 123 first")
     args = parser.parse_args()
     # This checker is deliberately restricted to the self-signed localhost lab.
     context = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
@@ -107,12 +110,28 @@ def main():
     )
     assert status == 302, ("cart", status)
     token = csrf("/orders/checkout/")
+    if args.check_invalid_phone:
+        status, _, body = request(
+            "/orders/checkout/",
+            {
+                "csrfmiddlewaretoken": token,
+                "full_name": "Lab 7 HTTPS Check",
+                "phone": "123",
+                "email": email,
+                "delivery_method": "courier",
+                "address": "Local lab, test address",
+            },
+        )
+        assert status == 200 and "id_phone_error" in body, "Invalid phone must show field error"
+        assert "Введите российский номер телефона" in body
+        token = csrf("/orders/checkout/")
+        print("PASS: invalid phone rejected with field error; cart retained")
     status, headers, _ = request(
         "/orders/checkout/",
         {
             "csrfmiddlewaretoken": token,
             "full_name": "Lab 7 HTTPS Check",
-            "phone": "+79991234567",
+            "phone": args.phone,
             "email": email,
             "delivery_method": "courier",
             "address": "Local lab, test address",
@@ -126,6 +145,9 @@ def main():
     )
     order_url = headers["Location"]
     assert request(order_url)[0] == 200
+    status, _, body = request("/api" + order_url)
+    assert status == 200 and json.loads(body)["phone"] == args.expected_phone
+    print(f"PASS: saved order phone {args.expected_phone}")
     for _ in range(10):
         status, _, body = request("http://localhost:8026/api/v1/messages")
         assert status == 200
