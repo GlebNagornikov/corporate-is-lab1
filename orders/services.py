@@ -35,12 +35,29 @@ def delivery_cost_for(method, amount):
 
 @transaction.atomic
 def place_order(
-    *, user, cart, delivery_method, full_name, phone, email, address="", comment="", promo_code=""
+    *,
+    user,
+    cart,
+    delivery_method,
+    full_name,
+    phone,
+    email,
+    address="",
+    comment="",
+    promo_code="",
+    address_book=None,
 ):
     """Оформляет заказ: списывает остатки, применяет промокод, очищает корзину."""
     items = list(cart.items.select_related("product", "variant"))
     if not items:
         raise OrderError("Корзина пуста.")
+    if address_book is not None:
+        from accounts.models import Address
+
+        selected = Address.objects.filter(pk=address_book.pk, user=user).first()
+        if selected is None:
+            raise OrderError("Это не ваш адрес.")
+        address = selected.snapshot
     if delivery_method == Order.Delivery.COURIER and not address.strip():
         raise OrderError("Для доставки курьером укажите адрес.")
     # Блокируем товары в одинаковом порядке, чтобы избежать взаимоблокировок.

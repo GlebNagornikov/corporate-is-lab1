@@ -1,0 +1,7 @@
+{% extends "base.html" %}
+{% block content %}<h1>Адресная книга</h1>
+{% for address in addresses %}<div class="card p-3 mb-2">{{ address }} {% if address.is_primary %}<strong>Основной</strong>{% endif %}<a href="{% url 'address-edit' address.pk %}">Изменить</a><form method="post" action="{% url 'address-edit' address.pk %}">{% csrf_token %}<button name="action" value="delete" class="btn btn-outline-danger">Удалить</button></form></div>{% endfor %}
+<h2>{% if editing %}Изменить адрес{% else %}Добавить адрес{% endif %}</h2>
+<form method="post">{% csrf_token %}{{ form.as_p }}<button class="btn btn-primary">Сохранить</button></form>
+<a href="{% url 'addresses' %}">Добавить другой адрес</a>
+{% endblock %}
