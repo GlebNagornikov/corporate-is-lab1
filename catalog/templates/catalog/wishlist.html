@@ -1,0 +1,10 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>Избранное</h1>
+{% for favorite in favorites %}
+<div class="card p-3 mb-2">
+{% if favorite.product.is_active %}<a href="{{ favorite.product.get_absolute_url }}">{{ favorite.product.name }}</a>{% else %}{{ favorite.product.name }} — нет в продаже{% endif %}
+<form method="post" action="{% url 'wishlist-change' favorite.product_id %}">{% csrf_token %}<input type="hidden" name="action" value="remove"><button class="btn btn-outline-danger">Удалить</button></form>
+</div>
+{% empty %}<p>В избранном пока ничего нет.</p>{% endfor %}
+{% endblock %}
