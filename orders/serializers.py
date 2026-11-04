@@ -1,6 +1,8 @@
+from django.core.exceptions import ValidationError
 from rest_framework import serializers
 
 from .models import Order, OrderItem, OrderStatusLog
+from .validators import normalize_phone
 
 
 class OrderItemSerializer(serializers.ModelSerializer):
@@ -63,6 +65,12 @@ class CheckoutSerializer(serializers.ModelSerializer):
             "comment",
             "promo_code",
         ]
+
+    def validate_phone(self, value):
+        try:
+            return normalize_phone(value)
+        except ValidationError as error:
+            raise serializers.ValidationError(error.messages) from error
 
 
 class StatusChangeSerializer(serializers.Serializer):

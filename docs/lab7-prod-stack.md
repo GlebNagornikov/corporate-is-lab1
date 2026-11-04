@@ -1,7 +1,7 @@
-# Лабораторная №7: части 1–3
+# Лабораторная №7: части 1–4
 
 Выпущен релиз `1.0.0`: версия в коде, тег Git `v1.0.0` и образ `shop-web:1.0.0`
-совпадают. Стенд разработки работает отдельно. Hotfix и откат относятся к следующим частям.
+совпадают. Стенд разработки работает отдельно. В части 4 выпущен hotfix `1.0.1` и проверен откат.
 
 ## Как устроен стенд
 
@@ -34,7 +34,7 @@ Copy-Item .env.prod.example .env.prod
 New-Item -ItemType Directory -Force nginx/certs
 ```
 
-В `.env.prod` оставить `APP_VERSION=1.0.0`, заменить `SECRET_KEY` длинным случайным
+В `.env.prod` оставить `APP_VERSION=1.0.1`, заменить `SECRET_KEY` длинным случайным
 ключом (отличным от dev) и `POSTGRES_PASSWORD` случайным паролем. Для URL базы удобен
 пароль из букв, цифр, `_` и `-`; остальные спецсимволы в DATABASE_URL требуют URL-кодирования.
 Например, с установленным Python дважды выполнить `python -c "import secrets; print(secrets.token_urlsafe(50))"`.
@@ -171,3 +171,45 @@ python scripts/check_prod.py --expected-version 1.0.0
 Проверить, что прежние товары, пользователи и заказы сохранились в томах.
 Для полного сценария покупки запустить `python scripts/check_prod.py --purchase`:
 он оставляет новый тестовый заказ и письмо в Mailpit.
+
+
+## Hotfix 1.0.1 и откат (часть 4)
+
+Ветка `hotfix/1.0.1` создаётся от main. Общая `orders.validators.normalize_phone`
+приводит телефон в форме и API к `+7XXXXXXXXXX`; неверный номер даёт ошибку поля
+(HTML) или HTTP 400 с ключом phone (API). Исправление и выпуск версии — два коммита.
+PR в main сливается merge-коммитом, на нём ставится аннотированный тег `v1.0.1`.
+Исправление также возвращается merge-коммитом в develop, затем hotfix-ветка удаляется.
+
+Образ `shop-web:1.0.1` собран из чистого checkout `v1.0.1`. В `.env.prod` после
+обновления `APP_VERSION=1.0.1`; исходники основной папки на develop, локальные правки
+в образ не добавляются. Старые телефоны в исторических заказах не переписываются.
+Миграций в hotfix нет.
+
+Проверить нормализацию и отказ в реальном HTTPS-сценарии (нужен Python):
+
+```powershell
+python scripts/check_prod.py --expected-version 1.0.1 --purchase --check-invalid-phone --phone "8 (913) 555-12-34" --expected-phone "+79135551234"
+```
+
+Скрипт сначала проверяет ошибку поля для 123, затем оформляет заказ с нормализованным
+номером и проверяет сохранённый телефон через API и письмо в Mailpit.
+В админке открыть новый заказ: телефон `+79135551234`.
+
+Откат выполняется переключением готовых образов, без сборки:
+
+```powershell
+# В .env.prod установить APP_VERSION=1.0.0
+docker compose -f docker-compose.prod.yml --env-file .env.prod up -d --no-build
+curl.exe -k https://localhost/healthz/
+# Ожидается 1.0.0. Старые и новые заказы остаются в БД.
+# Вернуть в .env.prod APP_VERSION=1.0.1
+docker compose -f docker-compose.prod.yml --env-file .env.prod up -d --no-build
+curl.exe -k https://localhost/healthz/
+# Ожидается 1.0.1.
+```
+
+После каждой команды дождаться healthy у web. Если nginx удерживает адрес прежнего
+контейнера и отвечает 502, выполнить `docker compose -f docker-compose.prod.yml --env-file .env.prod restart nginx`.
+Это не пересобирает образы и не удаляет данные. После отката и возврата проверить
+`check --deploy`, `/healthz/`, сохранность заказов, а также `docker images shop-web`.
