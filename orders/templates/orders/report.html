@@ -1,0 +1,12 @@
+{% extends "base.html" %}
+{% block content %}<h1>Отчёт продаж</h1>
+<form method="get">{{ form.as_p }}<button class="btn btn-primary">Показать</button> <button name="format" value="csv" class="btn btn-outline-primary">Скачать CSV</button></form>
+{% if report %}
+<p>Заказов: {{ report.summary.count }}. Выручка: {{ report.summary.revenue }} ₽. Средний чек: {{ report.summary.average|floatformat:2 }} ₽.</p>
+<p>Выручка — сумма заказов с учётом скидок и доставки, кроме отменённых. Оплата не является фильтром. Топ товаров — стоимость позиций до скидки на заказ и доставки.</p>
+<h2>По статусам</h2>{% for row in report.statuses %}<p>{{ row.status }}: {{ row.count }}</p>{% endfor %}
+<h2>По доставке</h2>{% for row in report.deliveries %}<p>{{ row.delivery_method }}: {{ row.count }} / {{ row.revenue }} ₽</p>{% endfor %}
+<h2>По дням</h2>{% for row in report.daily %}<p>{{ row.day|date:"Y-m-d" }}: {{ row.count }} / {{ row.revenue }} ₽</p>{% endfor %}
+<h2>Топ-10 по количеству</h2>{% for row in report.top_quantity %}<p>{{ row.name }}: {{ row.quantity }}</p>{% endfor %}
+<h2>Топ-10 по стоимости позиций</h2>{% for row in report.top_revenue %}<p>{{ row.name }}: {{ row.revenue }} ₽</p>{% endfor %}
+{% endif %}{% endblock %}

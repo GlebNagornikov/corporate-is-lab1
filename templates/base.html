@@ -14,7 +14,7 @@
       <input class="form-control me-2" type="search" name="q" placeholder="Поиск товаров"
              value="{{ request.GET.q }}">
     </form>
-    <ul class="navbar-nav"><li><a class="nav-link" href="{% url 'addresses' %}">Адреса</a></li><li><a class="nav-link" href="{% url 'comparison' %}">Сравнение</a></li><li class="nav-item"><a class="nav-link" href="{% url 'wishlist' %}">Избранное</a></li>
+    <ul class="navbar-nav">{% if perms.orders.view_order %}<li><a class="nav-link" href="{% url 'sales-report' %}">Отчёт</a></li>{% endif %}<li><a class="nav-link" href="{% url 'addresses' %}">Адреса</a></li><li><a class="nav-link" href="{% url 'comparison' %}">Сравнение</a></li><li class="nav-item"><a class="nav-link" href="{% url 'wishlist' %}">Избранное</a></li>
       <li class="nav-item"><a class="nav-link" href="{% url 'cart:detail' %}">Корзина{% if cart_count %} <span class="badge bg-success">{{ cart_count }}</span>{% endif %}</a></li>
       {% if user.is_authenticated %}
         <li class="nav-item"><a class="nav-link" href="{% url 'orders:list' %}">Мои заказы</a></li>
