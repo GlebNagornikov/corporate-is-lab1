@@ -20,6 +20,7 @@ class NoRedirect(urllib.request.HTTPRedirectHandler):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--purchase", action="store_true", help="Create a user and courier order")
+    parser.add_argument("--expected-version", default="1.0.0", help="Expected deployed version")
     args = parser.parse_args()
     # This checker is deliberately restricted to the self-signed localhost lab.
     context = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
@@ -51,7 +52,7 @@ def main():
     status, headers, _ = request("http://localhost/")
     assert status == 301 and headers["Location"] == "https://localhost/"
     status, _, body = request("/healthz/")
-    assert status == 200 and json.loads(body) == {"status": "ok", "version": "0.9.0"}
+    assert status == 200 and json.loads(body) == {"status": "ok", "version": args.expected_version}
     status, headers, body = request("/")
     assert status == 200 and "nginx" in headers["Server"]
     assert headers["X-Frame-Options"] == "DENY"

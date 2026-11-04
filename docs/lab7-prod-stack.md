@@ -1,7 +1,7 @@
-# Лабораторная №7: части 1–2
+# Лабораторная №7: части 1–3
 
-До части 3: версия приложения и образа `0.9.0`. Релизные ветки, теги, hotfix и откат
-пока не выполняются. Существующий стенд разработки продолжает работать отдельно.
+Выпущен релиз `1.0.0`: версия в коде, тег Git `v1.0.0` и образ `shop-web:1.0.0`
+совпадают. Стенд разработки работает отдельно. Hotfix и откат относятся к следующим частям.
 
 ## Как устроен стенд
 
@@ -34,7 +34,7 @@ Copy-Item .env.prod.example .env.prod
 New-Item -ItemType Directory -Force nginx/certs
 ```
 
-В `.env.prod` оставить `APP_VERSION=0.9.0`, заменить `SECRET_KEY` длинным случайным
+В `.env.prod` оставить `APP_VERSION=1.0.0`, заменить `SECRET_KEY` длинным случайным
 ключом (отличным от dev) и `POSTGRES_PASSWORD` случайным паролем. Для URL базы удобен
 пароль из букв, цифр, `_` и `-`; остальные спецсимволы в DATABASE_URL требуют URL-кодирования.
 Например, с установленным Python дважды выполнить `python -c "import secrets; print(secrets.token_urlsafe(50))"`.
@@ -89,7 +89,7 @@ docker images shop-web
 docker compose exec web python manage.py test --settings=config.settings.test
 ```
 
-Ожидаются: HTTP 301 на HTTPS; JSON `{"status":"ok","version":"0.9.0"}`;
+Ожидаются: HTTP 301 на HTTPS; JSON `{"status":"ok","version":"1.0.0"}`;
 главная 200, Server nginx, X-Frame-Options DENY, HSTS max-age=60;
 CSS 200 с Content-Type text/css; чужой Origin 403; check --deploy без замечаний;
 миграции применены. Импорт debug_toolbar **должен завершиться с ModuleNotFoundError**.
@@ -122,3 +122,52 @@ docker compose -f docker-compose.prod.yml --env-file .env.prod down
 
 Не добавлять `-v`: это удалит базу, статику и загруженные изображения.
 После изменения пароля в `.env.prod` существующая БД не меняет пароль автоматически.
+
+
+## Релиз 1.0.0 (часть 3)
+
+Релизная ветка `release/1.0.0` создана от develop. В ней поднята версия,
+заполнен [CHANGELOG](../CHANGELOG.md#100--2026-11-04), выполнены тесты и проверка миграций.
+PR в main сливается merge-коммитом; на этот коммит ставится аннотированный тег
+`v1.0.0`. Изменения релиза возвращаются отдельным merge-коммитом в develop,
+после чего release-ветка удаляется локально и на GitHub.
+
+Для развёртывания нужен чистый checkout тега: незакоммиченные файлы не должны попадать
+в релизный образ. Если в основной папке есть незавершённая работа, создать отдельный
+checkout через `git worktree add --detach <папка-релиза> v1.0.0` и собирать образ там.
+`.env.prod` и сертификат при этом сохраняются отдельно от исходников.
+
+Обычный порядок для чистой основной папки:
+
+```powershell
+git checkout v1.0.0
+# В .env.prod установить APP_VERSION=1.0.0
+docker compose -f docker-compose.prod.yml --env-file .env.prod up -d --build
+curl.exe -k https://localhost/healthz/
+docker images shop-web
+git checkout develop
+```
+
+Если используется отдельный checkout тега, собрать из него образ
+`docker build --target prod -t shop-web:1.0.0 <папка-релиза>`, а затем из основной папки
+выполнить `docker compose -f docker-compose.prod.yml --env-file .env.prod up -d --no-build`.
+Это запускает уже собранный из тега образ без добавления локальных правок.
+Образ выпущенного релиза повторно не пересобирают: исправления получают новую версию.
+
+Проверка истории и развёртывания:
+
+```powershell
+git cat-file -t v1.0.0
+git show --no-patch v1.0.0
+git log --oneline --graph --all -15
+curl.exe -k https://localhost/healthz/
+docker compose -f docker-compose.prod.yml --env-file .env.prod ps -a
+docker compose -f docker-compose.prod.yml --env-file .env.prod exec web python manage.py check --deploy
+python scripts/check_prod.py --expected-version 1.0.0
+```
+
+Тип объекта тега должен быть `tag`, версия в HTTPS-ответе — `1.0.0`,
+`db` и `web` healthy, `migrate` Exited (0). В images остаются `0.9.0` и `1.0.0`.
+Проверить, что прежние товары, пользователи и заказы сохранились в томах.
+Для полного сценария покупки запустить `python scripts/check_prod.py --purchase`:
+он оставляет новый тестовый заказ и письмо в Mailpit.
