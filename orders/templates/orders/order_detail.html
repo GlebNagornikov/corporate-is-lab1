@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+{% block title %}Заказ №{{ order.pk }}{% endblock %}
+{% block content %}
+<h1 class="h3">Заказ №{{ order.pk }} <span class="badge bg-secondary">{{ order.get_status_display }}</span></h1>
+<p class="text-muted">от {{ order.created_at|date:"d.m.Y H:i" }} · {{ order.get_delivery_method_display }}{% if order.address %}: {{ order.address }}{% endif %}</p>
+<table class="table bg-white">
+  <thead><tr><th>Товар</th><th>Цена</th><th>Кол-во</th><th>Сумма</th></tr></thead>
+  <tbody>
+  {% for item in order.items.all %}
+    <tr><td>{{ item.product_name }}</td><td>{{ item.price|floatformat:"2g" }} ₽</td><td>{{ item.quantity }}</td><td>{{ item.total|floatformat:"2g" }} ₽</td></tr>
+  {% endfor %}
+  </tbody>
+</table>
+<dl class="row col-md-5">
+  <dt class="col-7">Товары</dt><dd class="col-5">{{ order.subtotal|floatformat:"2g" }} ₽</dd>
+  {% if order.discount %}<dt class="col-7">Скидка</dt><dd class="col-5">−{{ order.discount|floatformat:"2g" }} ₽</dd>{% endif %}
+  <dt class="col-7">Доставка</dt><dd class="col-5">{{ order.delivery_cost|floatformat:"2g" }} ₽</dd>
+  <dt class="col-7">Итого</dt><dd class="col-5 fw-bold">{{ order.total|floatformat:"2g" }} ₽</dd>
+</dl>
+{% if order.can_be_cancelled_by_customer %}
+  <form method="post" action="{% url 'orders:cancel' order.pk %}">{% csrf_token %}
+    <button class="btn btn-outline-danger" onclick="return confirm('Отменить заказ?')">Отменить заказ</button>
+  </form>
+{% endif %}
+<h2 class="h5 mt-4">История</h2>
+<ul>
+  {% for entry in order.history.all %}
+    <li>{{ entry.created_at|date:"d.m.Y H:i" }} — {{ entry.get_to_status_display }}{% if entry.comment %} ({{ entry.comment }}){% endif %}</li>
+  {% endfor %}
+</ul>
+<a href="{% url 'orders:list' %}">← Все заказы</a>
+{% endblock %}

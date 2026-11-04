@@ -1,0 +1,35 @@
+{% extends "base.html" %}
+{% block title %}Корзина{% endblock %}
+{% block content %}
+<h1 class="h3 mb-3">Корзина</h1>
+{% if items %}
+<table class="table align-middle bg-white">
+  <thead><tr><th>Товар</th><th>Цена</th><th style="width:180px">Количество</th><th>Сумма</th><th></th></tr></thead>
+  <tbody>
+  {% for item in items %}
+    <tr>
+      <td><a href="{{ item.product.get_absolute_url }}">{{ item.product.name }}</a></td>
+      <td>{{ item.product.price|floatformat:"2g" }} ₽</td>
+      <td>
+        <form method="post" action="{% url 'cart:update' item.product.pk %}" class="d-flex gap-1">{% csrf_token %}
+          <input type="number" name="quantity" value="{{ item.quantity }}" min="0" max="{{ item.product.stock }}" class="form-control form-control-sm">
+          <button class="btn btn-sm btn-outline-secondary">OK</button>
+        </form>
+      </td>
+      <td>{{ item.total|floatformat:"2g" }} ₽</td>
+      <td>
+        <form method="post" action="{% url 'cart:update' item.product.pk %}">{% csrf_token %}
+          <input type="hidden" name="quantity" value="0">
+          <button class="btn btn-sm btn-link text-danger">удалить</button>
+        </form>
+      </td>
+    </tr>
+  {% endfor %}
+  </tbody>
+</table>
+<p class="fs-4">Итого: <strong>{{ total|floatformat:"2g" }} ₽</strong></p>
+<a href="{% url 'orders:checkout' %}" class="btn btn-success">Оформить заказ</a>
+{% else %}
+<p>Корзина пуста. <a href="{% url 'catalog:product_list' %}">Перейти в каталог</a></p>
+{% endif %}
+{% endblock %}

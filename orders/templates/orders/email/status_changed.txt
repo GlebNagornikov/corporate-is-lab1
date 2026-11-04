@@ -1,0 +1,4 @@
+{% autoescape off %}Здравствуйте, {{ order.full_name }}!
+
+Статус заказа №{{ order.pk }}: {{ order.get_status_display }}.
+{% endautoescape %}
