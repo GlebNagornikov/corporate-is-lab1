@@ -12,7 +12,7 @@ select = ["E", "F", "I", "B", "DJ"]
 
 [tool.coverage.run]
 source = ["."]
-omit = ["*/migrations/*", "*/tests/*", "config/*", "manage.py"]
+omit = ["*/migrations/*", "*/tests/*", "*/tests.py", "config/*", "manage.py"]
 
 [tool.coverage.report]
 skip_covered = true
