@@ -12,6 +12,9 @@ from django.shortcuts import get_object_or_404, render
 from django.urls import path
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_POST
+from drf_spectacular.utils import OpenApiParameter, extend_schema, inline_serializer
+from rest_framework import permissions, serializers
+from rest_framework.views import APIView
 
 from .models import Order, Payment
 from .services import OrderError, change_status
@@ -88,7 +91,31 @@ def webhook(request):
     return JsonResponse({"status": payment.status})
 
 
+class PaymentWebhookAPI(APIView):
+    authentication_classes = []
+    permission_classes = [permissions.AllowAny]
+
+    @extend_schema(
+        description="HMAC-SHA256 от точного тела. Неверная подпись — 403; успех идемпотентен.",
+        parameters=[
+            OpenApiParameter("X-Payment-Signature", str, OpenApiParameter.HEADER, required=True)
+        ],
+        request=inline_serializer(
+            name="PaymentWebhookInput",
+            fields={
+                "payment_id": serializers.UUIDField(),
+                "outcome": serializers.ChoiceField(choices=["success", "failed"]),
+            },
+        ),
+        responses=inline_serializer(
+            name="PaymentWebhookResult", fields={"status": serializers.CharField()}
+        ),
+    )
+    def post(self, request):
+        return webhook(request._request)
+
+
 urlpatterns = [
     path("payments/gateway/<int:pk>/", gateway, name="payment-gateway"),
-    path("payments/webhook/", webhook, name="payment-webhook"),
+    path("payments/webhook/", PaymentWebhookAPI.as_view(), name="payment-webhook"),
 ]

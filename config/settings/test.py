@@ -6,3 +6,7 @@ CACHES = {"default": {"BACKEND": "django.core.cache.backends.locmem.LocMemCache"
 TEST_RUNNER = "config.test_runner.IsolatedCacheRunner"
 CELERY_TASK_ALWAYS_EAGER = True
 CELERY_TASK_EAGER_PROPAGATES = False
+CACHES["throttles"] = {
+    "BACKEND": "django.core.cache.backends.locmem.LocMemCache",
+    "LOCATION": "test-throttles",
+}
