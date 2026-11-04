@@ -20,7 +20,7 @@ class NoRedirect(urllib.request.HTTPRedirectHandler):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--purchase", action="store_true", help="Create a user and courier order")
-    parser.add_argument("--expected-version", default="1.1.0", help="Expected deployed version")
+    parser.add_argument("--expected-version", default="1.1.1", help="Expected deployed version")
     parser.add_argument("--phone", default="+79991234567", help="Phone submitted on checkout")
     parser.add_argument("--expected-phone", default="+79991234567", help="Expected saved phone")
     parser.add_argument("--check-invalid-phone", action="store_true", help="Reject phone 123 first")
