@@ -112,7 +112,13 @@ class ReviewAdmin(admin.ModelAdmin):
     @admin.action(description="Опубликовать выбранные отзывы")
     def publish(self, request, queryset):
         queryset.update(is_published=True)
+        from .caching import invalidate_catalog
+
+        invalidate_catalog()
 
     @admin.action(description="Скрыть выбранные отзывы")
     def hide(self, request, queryset):
         queryset.update(is_published=False)
+        from .caching import invalidate_catalog
+
+        invalidate_catalog()

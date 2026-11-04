@@ -178,6 +178,9 @@ class ProductImageTests(CatalogTestCase):
     def test_images_are_prefetched(self):
         for index in range(5):
             ProductImage.objects.create(product=self.laptop, image=f"gallery/{index}.png")
+        from catalog.context_processors import categories
+
+        categories(None)
         with self.assertNumQueries(4):
             response = self.client.get(self.laptop.get_absolute_url())
         self.assertEqual(response.status_code, 200)
