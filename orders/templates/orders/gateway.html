@@ -1,0 +1,13 @@
+{% extends "base.html" %}
+{% block content %}<h1>Учебный платёжный шлюз</h1><p>Заказ №{{ order.pk }}, к оплате {{ order.total }} ₽. Настоящие деньги не списываются.</p>
+{% if payload %}
+<p id="payment-result">Передаём результат оплаты…</p>
+{{ payload|json_script:"payment-body" }}{{ signature|json_script:"payment-signature" }}
+<script>
+fetch("{% url 'payment-webhook' %}", {method: "POST", headers: {"Content-Type": "application/json", "X-Payment-Signature": JSON.parse(document.getElementById("payment-signature").textContent)}, body: JSON.parse(document.getElementById("payment-body").textContent)})
+.then(async response => { if (!response.ok) throw new Error(await response.text()); window.location.href = "{{ order.get_absolute_url }}"; })
+.catch(() => { document.getElementById("payment-result").textContent = "Не удалось передать результат. Вернитесь к заказу и проверьте статус."; });
+</script>
+{% else %}<form method="post">{% csrf_token %}<button name="outcome" value="success" class="btn btn-success">Успех</button> <button name="outcome" value="failed" class="btn btn-danger">Отказ</button></form>{% endif %}
+<a href="{{ order.get_absolute_url }}">Вернуться к заказу</a>
+{% endblock %}

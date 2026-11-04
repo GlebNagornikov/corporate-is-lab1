@@ -10,7 +10,7 @@ from cart.models import Cart
 from cart.services import add_to_cart
 from catalog.models import Category, Product
 from orders.models import Order
-from orders.services import OrderError, place_order
+from orders.services import OrderError, change_status, place_order
 
 User = get_user_model()
 CUSTOMER = {
@@ -97,12 +97,13 @@ class OrderApiTests(APITestCase):
         response = self.client.post(url, {"status": "confirmed"})
         self.assertEqual(response.status_code, 403)
         self.assertIn("только менеджеры", str(response.data["detail"]))
+        change_status(Order.objects.get(pk=order_id), "paid", by=self.buyer, payment_verified=True)
         self.client.force_authenticate(self.manager)
         self.assertEqual(len(self.client.get("/api/orders/").data["results"]), 1)
         response = self.client.post(url, {"status": "confirmed", "comment": "Позвонили"})
         self.assertEqual(response.status_code, 200, response.data)
         self.assertEqual(Order.objects.get().status, "confirmed")
-        self.assertEqual(len(response.data["history"]), 2)
+        self.assertEqual(len(response.data["history"]), 3)
         self.assertEqual(response.data["history"][-1]["changed_by"], str(self.manager))
         self.assertEqual(self.client.post(url, {"status": "new"}).status_code, 400)
         self.assertEqual(self.client.post(url, {"status": "unknown"}).status_code, 400)
@@ -179,6 +180,7 @@ class OrderApiTests(APITestCase):
         self.assertEqual(self.client.post(f"/api/orders/{order_id}/cancel/").status_code, 400)
         order_id = self.buy(self.buyer)
         self.client.force_authenticate(self.manager)
+        change_status(Order.objects.get(pk=order_id), "paid", by=self.buyer, payment_verified=True)
         self.client.post(f"/api/orders/{order_id}/status/", {"status": "confirmed"})
         self.client.force_authenticate(self.buyer)
         self.assertEqual(self.client.post(f"/api/orders/{order_id}/cancel/").status_code, 400)
@@ -194,6 +196,7 @@ class OrderApiTests(APITestCase):
         first = self.buy(self.buyer)
         second = self.buy(self.other)
         self.client.force_authenticate(self.manager)
+        change_status(Order.objects.get(pk=first), "paid", by=self.buyer, payment_verified=True)
         self.client.post(f"/api/orders/{first}/status/", {"status": "confirmed"})
         response = self.client.get("/api/orders/", {"status": "new"})
         self.assertEqual([row["id"] for row in response.data["results"]], [second])

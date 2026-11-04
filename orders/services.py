@@ -143,8 +143,10 @@ def place_order(
 
 
 @transaction.atomic
-def change_status(order, new_status, *, by, comment=""):
+def change_status(order, new_status, *, by, comment="", payment_verified=False):
     order = Order.objects.select_for_update().get(pk=order.pk)
+    if new_status == Order.Status.PAID and not payment_verified:
+        raise OrderError("Оплата подтверждается только платёжным шлюзом.")
     if not order.can_change_to(new_status):
         raise OrderError(
             f"Заказ №{order.pk}: нельзя перейти из «{order.get_status_display()}» "
