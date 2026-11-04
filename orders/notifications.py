@@ -14,6 +14,7 @@ def _send(order, template, subject):
         send_mail(subject, body, None, [order.email])
     except OSError:
         logger.exception("Не удалось отправить письмо по заказу №%s", order.pk)
+        raise
 
 
 def send_order_placed(order_id):
@@ -21,8 +22,10 @@ def send_order_placed(order_id):
     _send(order, "orders/email/order_placed.txt", f"Заказ №{order.pk} оформлен")
 
 
-def send_status_changed(order_id):
+def send_status_changed(order_id, status_snapshot=None):
     order = Order.objects.get(pk=order_id)
+    if status_snapshot:
+        order.status = status_snapshot
     _send(
         order,
         "orders/email/status_changed.txt",

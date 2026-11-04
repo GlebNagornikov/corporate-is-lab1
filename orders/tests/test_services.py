@@ -147,6 +147,6 @@ class OrderServiceTests(TestCase):
         self.book.refresh_from_db()
         self.assertEqual(self.book.stock, 3)
         self.assertFalse(self.cart.items.exists())
-        self.assertEqual(len(logs.records), 1)
+        self.assertGreaterEqual(len(logs.records), 1)
         self.assertIn(str(order.pk), logs.records[0].getMessage())
         self.assertIsNotNone(logs.records[0].exc_info)

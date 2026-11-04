@@ -48,7 +48,9 @@ class CheckoutView(LoginRequiredMixin, FormView):
         except OrderError as error:
             form.add_error(None, str(error))
             return self.form_invalid(form)
-        messages.success(self.request, f"Заказ №{order.pk} оформлен. Письмо отправлено на почту.")
+        messages.success(
+            self.request, f"Заказ №{order.pk} оформлен. Письмо поставлено в очередь отправки."
+        )
         return redirect(order)
 
 

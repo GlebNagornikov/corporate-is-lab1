@@ -143,6 +143,17 @@ class OrderItem(models.Model):
         return self.price * self.quantity
 
 
+class EmailNotification(models.Model):
+    order = models.ForeignKey(Order, on_delete=models.CASCADE, related_name="email_notifications")
+    kind = models.CharField(max_length=20, choices=[("placed", "Заказ"), ("status", "Статус")])
+    status_snapshot = models.CharField(max_length=20, blank=True)
+    sent = models.BooleanField(default=False, db_index=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"{self.order}: {self.kind}"
+
+
 class Payment(models.Model):
     import uuid
 
