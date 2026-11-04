@@ -1,5 +1,5 @@
 from django.core.exceptions import ValidationError
-from django.db.models import Sum
+from django.db.models import Min, Sum
 
 from .models import Product, ProductVariant
 
@@ -28,6 +28,10 @@ def refresh_inventory(product_id):
         product_id=product_id, is_default=False, is_active=True
     )
     if variants.exists():
-        Product.objects.filter(pk=product_id).update(
-            stock=variants.aggregate(n=Sum("stock"))["n"] or 0
-        )
+        values = variants.aggregate(n=Sum("stock"), price=Min("price"))
+        product = Product.objects.get(pk=product_id)
+        product.stock = values["n"] or 0
+        product.price = values["price"]
+        if product.old_price is not None and product.old_price <= product.price:
+            product.old_price = None
+        product.save(update_fields=["stock", "price", "old_price"])

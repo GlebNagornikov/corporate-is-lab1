@@ -42,6 +42,7 @@
   </div>
 </div>
 
+<form method="post" action="{% url 'restock' product.pk %}" class="my-3">{% csrf_token %}{% if not product.in_stock %}<label>Сообщить о поступлении <input type="email" name="email" value="{{ user.email }}" required class="form-control"></label><button class="btn btn-outline-primary">Подписаться</button>{% endif %}</form>
 <h2 class="h5 mt-4">Отзывы</h2>
 {% for review in reviews %}
   <div class="border rounded p-2 mb-2 bg-white">
