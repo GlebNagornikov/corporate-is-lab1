@@ -6,3 +6,6 @@ media/
 staticfiles/
 .coverage
 htmlcov/
+.env.prod
+nginx/certs/
+backups/
