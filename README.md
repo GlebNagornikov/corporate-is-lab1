@@ -1,357 +1,230 @@
-# Corporate IS
+# Corporate IS: учебный интернет-магазин
 
-Учебный проект курса «Разработка корпоративных ИС»: Django + PostgreSQL в Docker Compose (лабораторная работа №1), модели со связями и REST API на Django REST Framework (лабораторная работа №2).
+Проект курса «Разработка корпоративных ИС», лабораторные №1–6. Идея мини-ИС: магазин с каталогом товаров, поиском, корзиной, заказами, личным кабинетом покупателя и рабочим местом менеджера. Приложение `employees` сохраняет учёт сотрудников и отделов из первых лабораторных; пользователь может быть связан с карточкой сотрудника.
 
-## Стек
+Актуальная версия — ветка `develop`. `main` содержит этап лабораторной №3; выпуск магазина в `main` через `release/*` относится к следующей лабораторной. Текущий Compose — стенд разработки.
 
-- Python 3 + Django
-- Django REST Framework
-- PostgreSQL 16 (через Docker Compose)
-- psycopg2-binary, django-environ
+## Что реализовано
+
+| Лабораторная | Результат |
+|---|---|
+| №1 | Django, PostgreSQL в Docker, сотрудники, admin, конфигурация через окружение |
+| №2 | Отделы, обязательная связь сотрудника с отделом (`PROTECT`), CRUD API, работа через PR |
+| №3 | Настройки base/dev/prod, собственный User, логирование, Debug Toolbar, исправление N+1 |
+| №4 | Docker для приложения, разделение зависимостей, Ruff, pre-commit, git-flow |
+| №5 | Дерево категорий, товары, русский полнотекстовый поиск, фильтры, отзывы, API каталога |
+| №6 | Корзины, оформление и отмена заказов, промокоды, письма, панель менеджера, JWT и права, тесты и покрытие |
+
+Дополнительные задания №5 тоже реализованы: валидация старой цены в admin, подсветка поиска, фильтр рейтинга и галерея. Подробности: [docs/catalog-extras.md](docs/catalog-extras.md).
+
+Результаты проверки и оставшиеся замечания: [docs/labs-review.md](docs/labs-review.md). Наличие функциональности в таблице не означает отсутствие всех замечаний к сдаче.
+
+## Стек и структура
+
+Python 3.13, Django 6.1.1, DRF 3.18.1, PostgreSQL 16, django-environ, django-filter, Pillow, SimpleJWT; Mailpit для писем. Версии закреплены в `requirements/base.txt` и `requirements/dev.txt`.
+
+- `accounts` — User на основе AbstractUser, телефон, связь OneToOne с Employee, регистрация.
+- `employees` — Department и Employee, admin и API.
+- `catalog` — категории, товары, отзывы, изображения, витрина и API.
+- `cart` — корзина в БД, гостевой `cart_id` в сессии, объединение при входе.
+- `orders` — заказы, снимки товаров и цен, промокоды, история, сервисы, письма и API.
+- `config/settings` — base, dev, prod и отдельные test-настройки.
 
 ## Запуск в Docker
 
-Для запуска нужны Git и Docker с Compose. Python на хосте для запуска приложения не требуется.
+Нужны Git и работающий Docker с Compose. Python на компьютере для запуска сайта не требуется. Команды выполняются из корня репозитория.
 
-1. Склонировать репозиторий и перейти в его корень:
-   ```bash
-   git clone git@github.com:GlebNagornikov/corporate-is-lab1.git
-   cd corporate-is-lab1
-   ```
+```bash
+git clone --branch develop https://github.com/GlebNagornikov/corporate-is-lab1.git
+cd corporate-is-lab1
+```
 
-2. При первом запуске скопировать пример конфигурации:
-   ```bash
-   cp .env.example .env
-   ```
-   Заполнить `SECRET_KEY` и `POSTGRES_PASSWORD`; тот же пароль указать в `DATABASE_URL`. Значение `SECRET_KEY` заключить в одинарные кавычки, чтобы Docker Compose не подставлял переменные вместо символов `$`. Настоящий `.env` не коммитить.
+Создать `.env` из примера (только при первом запуске):
 
-   Если база уже существует, сохранить прежние `.env`, `SECRET_KEY` и параметры доступа к базе: изменение `POSTGRES_*` не меняет пользователя и пароль в существующем томе PostgreSQL.
+```powershell
+Copy-Item .env.example .env
+```
 
-   `DATABASE_URL` в `.env` оставляется с `localhost` для команд с хоста. В контейнере `web` Compose переопределяет хост базы на `db`. Если порт PostgreSQL на хосте занят другим проектом, изменить `POSTGRES_HOST_PORT` и порт в `DATABASE_URL` на одинаковое свободное значение, например `5433`.
+В Git Bash, Linux и macOS: `cp .env.example .env`.
 
-3. Собрать образ и запустить Django вместе с PostgreSQL:
-   ```bash
-   docker compose up -d --build
-   docker compose exec web python manage.py migrate
-   docker compose exec web python manage.py createsuperuser
-   ```
-   Создание суперпользователя нужно при первом запуске новой базы; при сохранённой базе можно использовать существующую учётную запись.
+В `.env` заменить `SECRET_KEY` и `POSTGRES_PASSWORD`, указать тот же пароль в `DATABASE_URL`. Использовать длинный случайный ключ. Значения с `$` заключать в одинарные кавычки, чтобы Compose не подставлял переменные. Спецсимволы в пароле внутри URL должны быть URL-кодированы. Настоящий `.env` не коммитить.
 
-Сайт: http://localhost:8000/, admin panel: http://localhost:8000/admin/, REST API: http://localhost:8000/api/.
-У корневого адреса `/` может быть ответ 404: для проверки приложения открыть `/admin/` или `/api/employees/`.
+| Переменная | Назначение / значение по умолчанию |
+|---|---|
+| `SECRET_KEY` | Секрет Django, обязательно заменить `change-me` |
+| `POSTGRES_DB`, `POSTGRES_USER`, `POSTGRES_PASSWORD` | База, пользователь и пароль PostgreSQL |
+| `POSTGRES_HOST_PORT` | Порт БД на компьютере, по умолчанию 5432 |
+| `DATABASE_URL` | Для команд с компьютера: PostgreSQL на localhost; в web Compose задаёт хост `db` и порт 5432 |
+| `DB_CONN_MAX_AGE` | Время повторного использования соединений, 60 секунд |
+| `ALLOWED_HOSTS` | Разрешённые хосты для prod; dev использует localhost и 127.0.0.1 |
+| `LOG_LEVEL` | Уровень логов приложений employees/orders, INFO |
+| `EMAIL_HOST`, `EMAIL_PORT` | SMTP: по умолчанию localhost:1025; Compose задаёт mailpit:1025 |
+| `DEFAULT_FROM_EMAIL` | Отправитель, по умолчанию `Магазин <shop@example.com>` |
+| `JWT_ACCESS_MINUTES`, `JWT_REFRESH_DAYS` | Срок access/refresh, 15 минут / 7 дней |
+| `CSRF_TRUSTED_ORIGINS` | Необязательный список доверенных HTTPS-источников для prod |
+| `DJANGO_SETTINGS_MODULE` | Выбор настроек; manage.py по умолчанию dev, WSGI/ASGI — prod |
 
-### Проверка и повседневная работа
+Последние необязательные параметры можно добавить в `.env`; они читаются кодом, хотя отсутствуют в `.env.example`.
+
+```bash
+docker compose up -d --build
+docker compose exec web python manage.py migrate
+docker compose exec web python manage.py setup_groups
+docker compose exec web python manage.py createsuperuser
+```
+
+Для новой демонстрационной базы дополнительно:
+
+```bash
+docker compose exec web python manage.py seed_catalog --images
+```
+
+Команда создаёт 10 категорий и 30 товаров с картинками. Повторный запуск не дублирует записи и сообщает «новых 0», но **обновляет демонстрационные названия, цены и остатки**. Не запускать её поверх изменённого каталога, если эти изменения нужно сохранить.
+
+| Страница | Адрес |
+|---|---|
+| Витрина | http://localhost:8000/ |
+| Регистрация / вход | http://localhost:8000/accounts/signup/ / http://localhost:8000/accounts/login/ |
+| Корзина | http://localhost:8000/cart/ |
+| Оформление / мои заказы | http://localhost:8000/orders/checkout/ / http://localhost:8000/orders/ |
+| Админка | http://localhost:8000/admin/ |
+| Каталог API | http://localhost:8000/api/catalog/ |
+| Письма Mailpit | http://localhost:8025/ |
+
+`/api/` — корень роутера сотрудников и отделов, а не полный список всех API проекта. Выход из аккаунта выполняется POST-формой.
+
+### Проверка запуска и сохранность данных
 
 ```bash
 docker compose ps
 docker compose logs web --tail 30
-docker compose exec web python manage.py test --settings=config.settings.test
-```
-
-У `db` должен быть статус `healthy`, у `web` — `Up`; в логах Django — успешная проверка настроек и запуск сервера. Изменения кода подхватываются через bind mount, после изменения зависимостей нужно повторить `docker compose up -d --build`.
-
-`docker compose down` сохраняет том базы. **Не выполнять `docker compose down -v`, если данные нужны: эта команда удаляет том PostgreSQL.** Для сохранения прежнего тома также нельзя менять имя Compose-проекта. Команды выполнять из обычной папки репозитория, а не из служебной папки `docker-desktop-bind-mounts`; если имя папки изменилось, для существующего стенда использовать `docker compose -p corporate-is-lab1 ...` во всех командах.
-
-### Для разработки на хосте: IDE и pre-commit
-
-Виртуальное окружение нужно для подсказок IDE и Git-хуков; само приложение запускается в Docker. Команды для Linux, WSL и macOS:
-
-```bash
-python -m venv venv && source venv/bin/activate
-pip install -r requirements/dev.txt
-pre-commit install
-pre-commit run --all-files
-```
-
-Если доступна только команда `python3`, использовать её вместо `python`. На Windows PowerShell окружение активируется командой `venv\Scripts\Activate.ps1`.
-
-Ruff проверяет код и форматирование; pre-commit запускает проверки перед коммитом. Если хук исправил файлы, проверить diff, повторить `git add` для нужных файлов и повторить коммит.
-
-`manage.py` по умолчанию использует `config.settings.dev`; WSGI и ASGI — `config.settings.prod`. Проверка prod-настроек:
-
-```bash
-docker compose exec web python manage.py check --deploy --settings=config.settings.prod
-```
-
-Для реальной отправки писем в prod дополнительно требуется настроить SMTP-сервер; выбор SMTP-backend сам по себе отправку не настраивает.
-
-### Ветки
-
-`main` — релизы, `develop` — разработка, задачи — `feature/*` от `develop`. Изменения отправляются через Pull Request в `develop` и сливаются через **Create a merge commit**, без squash и rebase.
-
-## Приложения
-
-- **employees** — учёт сотрудников и отделов:
-  - `Department` — отдел (название — уникальное, описание);
-  - `Employee` — сотрудник (ФИО, должность, дата приёма на работу, отдел). Отдел обязателен, связь через `ForeignKey` с `on_delete=PROTECT`: отдел нельзя удалить, пока в нём есть сотрудники. Сотрудники отдела доступны через `department.employees.all()`.
-
-## Лабораторная №3: почему потребовалось пересоздать базу
-
-Изначально проект использовал стандартного пользователя Django, поэтому миграции уже создали таблицу `auth_user` и связанные с ней таблицы. В частности, миграция `admin.0001_initial` была применена к базе со стандартной моделью пользователя.
-
-После добавления `accounts.User` и настройки `AUTH_USER_MODEL = "accounts.User"` зависимость миграции админки стала указывать на первую миграцию приложения `accounts`. Но в существующей базе `admin.0001_initial` уже отмечена как выполненная, а `accounts.0001_initial` ещё не применена. Получается нарушенный порядок зависимостей, поэтому Django останавливается с ошибкой `InconsistentMigrationHistory`. Простая смена настройки не переносит старых пользователей и не перестраивает существующие связи в базе.
-
-В учебной работе эту проблему решаем пересозданием базы: сначала сохраняем отделы и сотрудников в `../employees_backup.json`, затем удаляем том PostgreSQL, применяем миграции к чистой базе, восстанавливаем отделы и сотрудников и заново создаём суперпользователя. Такой способ удаляет прежние данные базы; резервная копия приложения `employees` не сохраняет учётные записи пользователей и остальные данные Django.
-
-В рабочем проекте с важными данными удалять базу нельзя: нужна отдельная продуманная миграция данных и связей. Поэтому собственную модель пользователя лучше создавать в самом начале проекта, до первого применения миграций.
-
-## Лабораторная №3: исправление N+1 запросов
-
-При открытии `/api/employees/` количество SQL-запросов проверялось через SQL-панель Django Debug Toolbar:
-
-| Состояние | Количество SQL-запросов |
-|---|---|
-| До исправления | 18 |
-| После исправления | 4 |
-
-При выводе поля `department_name` обращение к `employee.department` вызывало дополнительные запросы за отделами сотрудников. Чтобы убрать проблему N+1, в `EmployeeViewSet` используется:
-
-```python
-queryset = Employee.objects.select_related("department")
-```
-
-`select_related` загружает сотрудников вместе с отделами одним запросом с SQL JOIN, без отдельного запроса за отделом каждого сотрудника. Указанные числа — общее количество запросов страницы, показанное панелью, а не только запросы за списком сотрудников.
-
-## REST API
-
-API построен на Django REST Framework (`ModelViewSet` + `DefaultRouter`). После запуска контейнеров (`docker compose up -d --build`) в браузере открывается browsable API: `http://127.0.0.1:8000/api/`.
-
-| Метод | URL | Действие |
-|-------|-----|----------|
-| GET | `/api/employees/` | список сотрудников |
-| POST | `/api/employees/` | создать сотрудника |
-| GET | `/api/employees/<id>/` | получить сотрудника |
-| PUT / PATCH | `/api/employees/<id>/` | обновить сотрудника (полностью / частично) |
-| DELETE | `/api/employees/<id>/` | удалить сотрудника |
-| GET, POST | `/api/departments/` | список отделов / создать отдел |
-| GET, PUT, PATCH, DELETE | `/api/departments/<id>/` | операции с одним отделом |
-
-Поля сотрудника: `id`, `full_name`, `position`, `hired_at` (формат `YYYY-MM-DD`), `department` (id отдела, обязательное).
-Поля отдела: `id`, `name`, `description`.
-
-### Примеры запросов
-
-После части 6 эти запросы требуют JWT. Получите access-токен через `/api/auth/token/`
-(безопасный пример ввода пароля приведён ниже) и сохраните его в переменную `ACCESS`.
-Для чтения нужны `employees.view_employee` / `employees.view_department`,
-для записи — соответствующие права `add`, `change`, `delete`.
-Группа «Менеджеры магазина» этих прав не получает.
-
-Создать отдел:
-```bash
-curl -H "Authorization: Bearer $ACCESS" -X POST http://127.0.0.1:8000/api/departments/   -H "Content-Type: application/json"   -d '{"name": "Продажи", "description": "Отдел продаж"}'
-```
-
-Получить список сотрудников:
-```bash
-curl -H "Authorization: Bearer $ACCESS" http://127.0.0.1:8000/api/employees/
-```
-
-Создать сотрудника:
-```bash
-curl -H "Authorization: Bearer $ACCESS" -X POST http://127.0.0.1:8000/api/employees/   -H "Content-Type: application/json"   -d '{"full_name": "Иванова Анна", "position": "Менеджер", "hired_at": "2026-09-15", "department": 1}'
-```
-
-Ответ (`201 Created`):
-```json
-{"id": 3, "full_name": "Иванова Анна", "position": "Менеджер", "hired_at": "2026-09-15", "department": 1}
-```
-
-Получить, частично обновить и удалить сотрудника:
-```bash
-curl -H "Authorization: Bearer $ACCESS" http://127.0.0.1:8000/api/employees/1/
-curl -H "Authorization: Bearer $ACCESS" -X PATCH http://127.0.0.1:8000/api/employees/1/   -H "Content-Type: application/json"   -d '{"position": "Ведущий менеджер"}'
-curl -H "Authorization: Bearer $ACCESS" -X DELETE http://127.0.0.1:8000/api/employees/2/
-```
-
-> На Windows запускайте примеры в Git Bash: в PowerShell `curl` — это алиас `Invoke-WebRequest`, поэтому используйте `curl.exe` и экранируйте кавычки в JSON.
-
-Проверить данные напрямую в Postgres:
-```bash
-docker compose exec db psql -U corporate_is -d corporate_is -c "SELECT full_name, department_id FROM employees_employee;"
-```
-
-
-## Catalog extras (Lab 5)
-
-Implementation notes and verification: [docs/catalog-extras.md](docs/catalog-extras.md).
-
-
-## Лабораторная №6: корзина, заказы и панель менеджера (части 2–5)
-
-Реконструированы части 2–4 и выполнена часть 5: корзина, оформление, промокоды, кабинет, Mailpit, панель менеджера, группа с 12 правами и тесты. Части 6–7 (JWT/API, права, быстрые тесты и покрытие) реализованы ниже.
-
-После первого запуска выполнить:
-
-```powershell
-docker compose exec web python manage.py migrate
-docker compose exec web python manage.py setup_groups
-docker compose exec web python manage.py test --settings=config.settings.test
-```
-
-На момент завершения части 5 проходили 51 тест; первый полный прогон — 13.420 с (без создания тестовой БД). В проекте было 33 теста лабораторной №5, добавлено 12 из методички и 6 проверок админки/прав.
-
-Менеджер — staff, не superuser, член группы «Менеджеры магазина», связан с карточкой сотрудника отдела продаж. В новом окружении его создают в admin после `setup_groups`. Локальные пароли не входят в репозиторий.
-
-Подробности: [часть 5](docs/lab6-part5.md). История реконструкции незапушенных частей 2–4: [контрольная точка](docs/lab6-restoration.md).
-
-## Лабораторная №6: REST API, JWT и права (часть 6)
-
-Ветка `feature/orders-api` от `develop`. Зависимость: `djangorestframework-simplejwt==5.5.1`.
-После изменения зависимостей пересобрать образ:
-
-```bash
-docker compose up -d --build
 docker compose exec web python manage.py check
-docker compose exec web python manage.py test --settings=config.settings.test
+docker compose exec web python manage.py migrate --check
 ```
 
-По умолчанию API закрыт (`IsAuthenticated`). JWT проверяется раньше сессии:
-аноним получает **401 вместо прежнего 403**, а вошедший без прав — **403**.
-Категории и товары явно открыты (`AllowAny`), создание отзыва требует входа.
-`/api/employees/` требует `view_employee`, `/api/departments/` — `view_department`;
-стандартные права создания/изменения/удаления тоже проверяются.
+`db` должен быть healthy, `web` — Up. Код смонтирован в контейнер, runserver подхватывает изменения. После изменения зависимостей пересобрать образ: `docker compose up -d --build`.
 
-| Метод | URL | Назначение |
-|---|---|---|
-| POST | `/api/auth/token/` | Логин и пароль → access + refresh |
-| POST | `/api/auth/token/refresh/` | Refresh → новый access |
-| GET | `/api/cart/` | Собственная корзина |
-| POST | `/api/cart/items/` | Добавить товар: product, quantity |
-| PATCH / DELETE | `/api/cart/items/<product_id>/` | Изменить количество / удалить строку |
-| GET / POST | `/api/orders/` | Список / оформление из корзины |
-| GET | `/api/orders/<id>/` | Заказ с позициями и историей |
-| POST | `/api/orders/<id>/cancel/` | Покупатель отменяет свой новый заказ |
-| POST | `/api/orders/<id>/status/` | Менеджер меняет статус по допустимым переходам |
+`docker compose down` сохраняет базу в томе `pgdata`. **`docker compose down -v` удаляет базу.** Для существующей базы сохранить прежние `.env` и пароль: изменение `POSTGRES_PASSWORD` не меняет пароль в уже созданном томе. В Compose закреплено имя проекта `corporate-is-lab1`; для второго независимого стенда нужно другое имя проекта и свободные порты. При занятом порте БД изменить `POSTGRES_HOST_PORT` и порт в `DATABASE_URL` одинаково.
 
-`access` действует 15 минут, `refresh` — 7 дней. Настраивается переменными
-`JWT_ACCESS_MINUTES` и `JWT_REFRESH_DAYS`. JWT подписан, но не зашифрован;
-токены и пароли нельзя добавлять в Git или публиковать в логах.
+`media/`, база, учётные записи и локальные пароли не передаются через Git. Сохранять их отдельно.
 
-Покупатель видит только свои заказы, чужой номер даёт 404. Право `orders.view_order`
-открывает менеджеру все заказы; `orders.change_order` разрешает смену статуса.
-Фильтр очереди: `/api/orders/?status=new`. PUT/PATCH/DELETE для заказов отсутствуют.
-Суммы, состав, статус и история не принимаются от клиента при оформлении.
-Курьер без непустого адреса отклоняется сервисом с ответом 400, без записи заказа.
+## Каталог и заказы
 
-Пример получения токена (Git Bash; настоящий пароль не сохранять в файле/истории):
+Каталог поддерживает `q`, `category` (slug, включая подкатегории), `price_min`, `price_max`, `in_stock`, `on_sale`, `rating_min` (0–5), `ordering` и `page`. Сортировка: `price`, `created_at`, `rating`, `name`, с `-` для убывания. Витрина показывает 12 товаров на странице, API товаров — 20.
 
-```bash
-read -r -p 'Username: ' SHOP_USER
-read -r -s -p 'Password: ' SHOP_PASSWORD; echo
-TOKENS=$(printf '%s' "$SHOP_PASSWORD" | python3 -c 'import json,sys; print(json.dumps({"username":sys.argv[1],"password":sys.stdin.read()}))' "$SHOP_USER" | curl -sS http://localhost:8000/api/auth/token/ -H 'Content-Type: application/json' --data-binary @-)
-unset SHOP_PASSWORD
-ACCESS=$(printf '%s' "$TOKENS" | python3 -c 'import json,sys; print(json.load(sys.stdin)["access"])')
-curl -sS http://localhost:8000/api/orders/ -H "Authorization: Bearer $ACCESS"
-unset ACCESS TOKENS
-```
+Примеры: `/?q=ноутбуки`, `/?q=наушнеки`, `/?rating_min=4&ordering=price`. Поиск использует словарь PostgreSQL `russian`, websearch-синтаксис и подсказки при опечатках; `search_vector` — GeneratedField, для поиска установлены GIN-индексы и расширение `pg_trgm`. Рейтинг учитывает только опубликованные отзывы. Один пользователь может оставить один отзыв на товар.
 
-Проверка части 6: **66 тестов, OK**, 11.358 с (без создания тестовой базы).
-Это прежние 51 тест + 15 новых API/сервисных проверок; число 29 в методичке
-относится к минимальному эталону, а не к этому расширенному проекту.
-Проверены JWT/refresh, права, изоляция корзин и заказов, оформление, отмена,
-смена статуса и фильтр, запрет записи вычисляемых полей и прямого изменения заказа.
-Ruff check и форматирование выполняются в контейнере.
+Количество в корзине ограничено остатком; при входе гостевая корзина объединяется с пользовательской. Недоступные товары пропускаются с предупреждением.
 
-Живая проверка через `curl.exe`: token → корзина → курьер без адреса (400) →
-самовывоз (201) → отказ покупателю в смене статуса (403) → подтверждение
-менеджером (200) → недопустимый переход (400) → refresh (200).
-В Mailpit получены оба письма — оформление и подтверждение. Созданные специально
-для проверки пользователи, товар, категория, корзина и заказ после проверки удалены;
-существующие данные магазина не изменялись.
+Оформление выполняется в одной транзакции: товары блокируются по pk, проверяются остатки и промокод, фиксируются название и цена, списывается склад, очищается корзина. Курьер требует адрес. Самовывоз бесплатен; курьер стоит 500 при сумме после скидки меньше 5000, иначе бесплатен. Письма отправляются после commit; `OSError` отправки логируется и не отменяет заказ.
 
-Части 6–7 подготовлены единым коммитом в ветке `feature/orders-api` для PR в `develop`.
-Изменение поведения API: «API для анонимов теперь отвечает
-401 вместо 403; /api/employees/ требует права view_employee».
+Переходы: `new → confirmed → shipped → delivered`; из `new` и `confirmed` разрешён `cancelled`. Покупатель отменяет только свой новый заказ; отмена возвращает товары на склад. Чужой заказ для покупателя даёт 404.
 
-## Лабораторная №6: быстрые тесты и покрытие (часть 7)
+### Менеджер магазина
 
-Обычный запуск тестов теперь использует отдельный модуль `config.settings.test`:
+После `migrate` выполнить `setup_groups`. Команда идемпотентно задаёт группе «Менеджеры магазина» ровно 12 прав. Создать в admin обычного пользователя со `is_staff=True`, без `is_superuser`, добавить в группу и связать с карточкой сотрудника отдела продаж. Группа управляет товарами, отзывами, промокодами и обработкой заказов; права сотрудников и пользователей ей не выдаются.
 
-```bash
-docker compose exec web python manage.py test --settings=config.settings.test
-```
-
-Этот модуль наследует `base`, а не `dev`: без debug toolbar и с быстрым
-`MD5PasswordHasher` **только для тестов**. В `base`, `dev`, `prod` остаются
-безопасные рабочие хешеры; MD5 для настоящих паролей недопустим.
-
-`coverage==7.16.2` добавлен в dev-зависимости. После обновления зависимостей:
-
-```bash
-docker compose up -d --build
-docker compose exec web coverage run manage.py test --settings=config.settings.test
-docker compose exec web coverage report
-docker compose exec web coverage html
-```
-
-HTML-отчёт: `htmlcov/index.html` в папке проекта, открывается с ПК.
-`.coverage` и `htmlcov/` исключены из Git. В измерение входят исходники проекта,
-но не миграции, пакеты тестов, `config` и `manage.py` — настройки в `pyproject.toml`.
-
-Результаты на текущем локальном стенде (время `Ran ... tests`, без создания тестовой БД):
-
-| Проверка | Число тестов | Время |
-|---|---:|---:|
-| Часть 6, обычные настройки | 66 | 11.358 с |
-| Те же тесты, быстрые настройки | 66 | 3.166 с |
-| Итог части 7, быстрые настройки | 69 | 2.705 с |
-| Итог части 7 под coverage | 69 | 4.473 с |
-
-Это отдельные замеры; время зависит от нагрузки, прогрева и файловой системы Docker.
-Менее секунды из эталона на этом стенде не достигнуто.
-
-**Общее покрытие после исправлений: 91% (972 из 1063 исполняемых строк).**
-`orders/services.py` — **97%**, `cart/api.py` — **96%**,
-`orders/notifications.py` — **100%**. Покрытие строк не заменяет проверок результатов.
-Остаются непокрытыми, в частности, `seed_catalog` (0%), некоторые HTML-ветки ошибок
-корзины (`cart/views.py`: 68%) и заказов (`orders/views.py`: 77%).
-
-Добавлены все три самостоятельных сценария из части 7:
-
-- `OSError` при отправке письма: заказ сохраняется, остаток списывается, корзина
-  очищается, ошибка с traceback и номером заказа попадает в лог;
-- PATCH количества сверх остатка: API возвращает и сохраняет количество, равное остатку;
-- отмена чужого заказа: 404, статус, история и остаток не меняются.
-
-### Почему отмена не возвращает использование промокода
-
-Текущее правило: `used_count` увеличивается при успешном оформлении и не уменьшается
-при отмене. Лимит означает число успешных применений промокода к оформленным заказам,
-а не число доставленных заказов. Для учебного магазина это осознанно сохраняет историю
-использований и не позволяет многократно переиспользовать ограниченный промокод через
-цикл «оформить → отменить». Недостаток: добросовестный покупатель после отмены тоже
-теряет применение. Если бизнес решит возвращать его, потребуется отдельное правило
-со строго однократным возвратом под блокировкой и тестами повторных/параллельных отмен;
-простое уменьшение счётчика без этих гарантий небезопасно.
-
-## Проверка готовности после лабораторной №6 (2026-10-28)
-
-- Исправлено слияние гостевой корзины: снятые с продажи и закончившиеся товары
-  пропускаются с предупреждением, доступные переносятся, вход не падает.
-- Параметр `next` после добавления в корзину проверяется по текущему хосту и HTTPS;
-  внешние и небезопасные адреса заменяются страницей корзины.
-- Production наследует SMTP OPTIONS из `base`, включая `EMAIL_HOST` и `EMAIL_PORT`.
-- Добавлено 5 регрессионных тестов: два сценария слияния, небезопасные/локальные
-  перенаправления и сохранение SMTP-настроек production без MD5-хешера.
-- Повторный прогон под coverage: **74 теста, OK, 5.620 с** (без создания тестовой БД);
-  покрытие **91% (972/1063)**. Замеры в таблице выше относятся к предыдущему этапу.
-- Django check, проверка отсутствия новых и неприменённых миграций — успешно.
-- На текущем локальном стенде выполнен `setup_groups`: ровно 12 прав.
-  Учебный `manager` — staff, не superuser, связан с сотрудником отдела «Продажи».
-  Случайный пароль не публикуется и не хранится в репозитории. Для собственного
-  входа задайте пароль интерактивно (не передавайте его аргументом команды):
+В admin суммы, позиции и история заказа доступны только для чтения; статус меняется действиями через сервис, создание и удаление заказов запрещены. Локальные пользователи не создаются при клонировании. Пароль существующего менеджера задаётся интерактивно:
 
 ```bash
 docker compose exec web python manage.py changepassword manager
 ```
 
-Создание локального менеджера не переносится через Git: в новом окружении
-после `migrate` выполните `setup_groups` и создайте staff-пользователя в admin,
-добавьте в группу «Менеджеры магазина» и привяжите карточку сотрудника отдела продаж.
+## REST API и права
 
-Живая проверка через `curl.exe`: анонимные заказы 401, каталог 200, JWT 200,
-корзина 200, курьер без адреса 400, заказ 201, смена статуса покупателем 403,
-менеджером 200, запрещённый переход 400, refresh 200, API сотрудников 403
-для покупателя и менеджера магазина. В Mailpit получены оба письма.
-Временные покупатель, заказ, корзина, товар и категория удалены; менеджер сохранён.
+JWT проверяется раньше сессии. Анонимный запрос к закрытому API получает **401**, вошедший без прав — **403**. Каталог открыт; публикация отзыва требует входа. При сессионной аутентификации изменяющие запросы требуют CSRF.
+
+| Метод | URL | Назначение |
+|---|---|---|
+| POST | `/api/auth/token/` | username + password → access и refresh |
+| POST | `/api/auth/token/refresh/` | refresh → новый access |
+| GET | `/api/catalog/categories/`, `/api/catalog/categories/<slug>/` | Категории |
+| GET | `/api/catalog/products/`, `/api/catalog/products/<slug>/` | Товары и фильтры |
+| GET / POST | `/api/catalog/products/<slug>/reviews/` | Чтение / создание отзыва |
+| GET | `/api/cart/` | Собственная корзина |
+| POST | `/api/cart/items/` | Добавить: product (id), quantity |
+| PATCH / DELETE | `/api/cart/items/<product_id>/` | Изменить quantity / удалить строку |
+| GET / POST | `/api/orders/` | Список / оформление из корзины |
+| GET | `/api/orders/<id>/` | Заказ, позиции, история |
+| POST | `/api/orders/<id>/cancel/` | Отмена покупателем |
+| POST | `/api/orders/<id>/status/` | Смена статуса менеджером: status, comment |
+| GET / POST | `/api/employees/`, `/api/departments/` | Список / создание |
+| GET / PUT / PATCH / DELETE | `/api/employees/<id>/`, `/api/departments/<id>/` | Операции с записью |
+
+При оформлении передаются `full_name`, `phone`, `email`, `delivery_method` (`pickup` / `courier`), при необходимости `address`, `comment`, `promo_code`. Суммы, позиции и статус рассчитывает сервер. Прямые PUT/PATCH/DELETE заказа отсутствуют.
+
+`orders.view_order` открывает все заказы, `orders.change_order` разрешает смену статуса; фильтр очереди — `/api/orders/?status=new`. Для сотрудников и отделов нужны соответствующие права `view`, `add`, `change`, `delete`. Менеджер магазина этих прав не имеет. DELETE непустого отдела возвращает **409 Conflict** с пояснением, что в отделе есть сотрудники; отдел и сотрудники сохраняются. Пустой отдел удаляется с ответом **204 No Content** при наличии права `delete_department`.
+
+Ответ сотрудника содержит `id`, `full_name`, `position`, `hired_at`, `department`, `department_name`; отдела — `id`, `name`, `description`. Пагинируемые списки возвращают `count`, `next`, `previous`, `results`.
+
+Пример JWT и запроса (Git Bash/Linux/macOS, требуется Python на компьютере; если команда называется python3, заменить python):
+
+```bash
+read -r -p 'Username: ' SHOP_USER
+read -r -s -p 'Password: ' SHOP_PASSWORD; echo
+TOKENS=$(printf '%s' "$SHOP_PASSWORD" | python -c 'import json,sys; print(json.dumps({"username":sys.argv[1],"password":sys.stdin.read()}))' "$SHOP_USER" | curl -sS http://localhost:8000/api/auth/token/ -H 'Content-Type: application/json' --data-binary @-)
+unset SHOP_PASSWORD
+ACCESS=$(printf '%s' "$TOKENS" | python -c 'import json,sys; print(json.load(sys.stdin)["access"])')
+curl -sS http://localhost:8000/api/orders/ -H "Authorization: Bearer $ACCESS"
+# Для пользователя с employees.add_department:
+curl -sS http://localhost:8000/api/departments/ -H "Authorization: Bearer $ACCESS" -H 'Content-Type: application/json' -d '{"name":"Продажи API","description":"Пример"}'
+unset ACCESS TOKENS
+```
+
+JWT подписан, но не зашифрован. Не сохранять токены и пароли в Git и логах. Для Windows эти shell-примеры выполнять в Git Bash.
+
+## Настройки, собственный User и N+1
+
+`manage.py` использует `config.settings.dev`, WSGI/ASGI — `config.settings.prod`. Dev включает Debug Toolbar, prod — HTTPS-перенаправление и защищённые cookies. Проверка:
+
+```bash
+docker compose exec web python manage.py check --deploy --settings=config.settings.prod
+```
+
+Успешная проверка настроек не означает готовое production-развёртывание: текущий Compose запускает runserver, SMTP подключён к Mailpit. Упаковка production-стенда относится к следующей лабораторной.
+
+При переходе со стандартного User на `accounts.User` уже применённая миграция `admin.0001_initial` стала зависеть от ещё не выполненной `accounts.0001_initial`. Смена `AUTH_USER_MODEL` сама не переносит пользователей и связи; поэтому Django сообщил `InconsistentMigrationHistory`. В ЛР №3 сотрудники и отделы были сохранены в fixture, учебная база пересоздана, миграции применены заново, сотрудники восстановлены, суперпользователь создан заново. Fixture employees не сохраняет остальные данные и аккаунты. Это объяснение выполненного этапа, **не инструкция повторно удалять текущую базу**. В системе с ценными данными нужен отдельный план миграции; собственный User лучше создавать до первых миграций.
+
+Замер SQL из ЛР №3 на `/api/employees/`: **18 запросов до, 4 после**. `department_name` вызывал отдельную загрузку отдела каждого сотрудника; `select_related("department")` заменил её JOIN. Это исторический замер всей страницы через Debug Toolbar, а не обещание такого же числа после добавления JWT и пагинации. Для витрины отдельный тест проверяет постоянные 4 запроса без N+1.
+
+Логи employees/orders идут в консоль; уровень меняется через `LOG_LEVEL`. Создание сотрудника пишется с INFO, удаление — WARNING. SQL-логирование в dev оставлено выключенным; Debug Toolbar подключён только в dev.
+
+## Тесты, покрытие и качество кода
+
+```bash
+docker compose exec web python manage.py test --settings=config.settings.test
+docker compose exec web coverage run manage.py test --settings=config.settings.test
+docker compose exec web coverage report
+docker compose exec web coverage html
+docker compose exec web python manage.py makemigrations --check --dry-run
+docker compose exec web ruff check .
+docker compose exec web ruff format --check .
+```
+
+Тесты требуют PostgreSQL; Django создаёт и удаляет отдельную тестовую базу. Test-настройки наследуют base без Debug Toolbar и используют MD5PasswordHasher только для ускорения тестов. В dev/prod остаются безопасные рабочие хешеры.
+
+Проверка 04.11.2026: **79 тестов, OK; под coverage — 4.228 с** без времени создания тестовой базы. **Общее покрытие 91% (979/1070 строк)**; orders/services.py — 97%, cart/api.py — 96%, orders/notifications.py — 100%. HTML-отчёт: `htmlcov/index.html`. Миграции, тестовые пакеты и файлы tests.py, config и manage.py исключены из измерения; `.coverage` и `htmlcov/` — из Git.
+
+Историческое сравнение одинаковых 66 тестов в ЛР №6: 11.358 с с обычным хешером и 3.166 с с тестовым. Время зависит от компьютера и нагрузки. Дополнительно проверяются все три сценария самостоятельного задания: сбой отправки письма, ограничение PATCH остатком и запрет отмены чужого заказа. Непокрыты, среди прочего, `seed_catalog` и некоторые ветки ошибок HTML-форм; зелёные тесты не гарантируют отсутствие ошибок во всём проекте.
+
+### Почему отмена не возвращает использование промокода
+
+`used_count` растёт при успешном оформлении и не уменьшается при отмене. Лимит означает число успешных применений к оформленным заказам. Это сохраняет историю и исключает повторное использование ограниченного промокода через цикл «оформить → отменить». Недостаток: добросовестный покупатель тоже теряет применение после отмены. Если бизнес решит возвращать его, потребуется строго однократный возврат под блокировкой с тестами повторной и параллельной отмены.
+
+## Разработка и Git
+
+Для IDE и Git-хуков на компьютере:
+
+```powershell
+python -m venv venv
+.\venv\Scripts\Activate.ps1
+pip install -r requirements/dev.txt
+pre-commit install
+pre-commit run --all-files
+```
+
+Linux/macOS: активировать окружение через `source venv/bin/activate`. После исправлений хуками проверить diff, повторно добавить нужные файлы и повторить коммит.
+
+`main` — релизы, `develop` — разработка, `feature/*` создаются от develop и возвращаются через PR. Для нового этапа: обновить develop, создать feature-ветку, внести изменения, проверить, открыть PR с описанием и шагами проверки. Слияние — **Create a merge commit**, без squash/rebase; после слияния feature-ветку удалить. `release/*` создаётся от develop, `hotfix/*` — от main; результаты обоих возвращаются в main и develop. Сообщения новых коммитов — Conventional Commits (`feat`, `fix`, `docs`, `test`, `chore`).
+
+Исторические материалы этапов №6: [панель менеджера](docs/lab6-part5.md), [восстановление частей 2–4](docs/lab6-restoration.md). Их промежуточные числа тестов и ограничения относятся к тем этапам; текущий запуск и состояние описаны выше.

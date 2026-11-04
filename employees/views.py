@@ -1,6 +1,8 @@
 import logging
 
-from rest_framework import viewsets
+from django.db.models.deletion import ProtectedError
+from rest_framework import status, viewsets
+from rest_framework.response import Response
 
 from .models import Department, Employee
 from .permissions import StrictDjangoModelPermissions
@@ -39,3 +41,12 @@ class DepartmentViewSet(viewsets.ModelViewSet):
     queryset = Department.objects.order_by("name")
     serializer_class = DepartmentSerializer
     permission_classes = [StrictDjangoModelPermissions]
+
+    def destroy(self, request, *args, **kwargs):
+        try:
+            return super().destroy(request, *args, **kwargs)
+        except ProtectedError:
+            return Response(
+                {"detail": "Нельзя удалить отдел, пока в нём есть сотрудники."},
+                status=status.HTTP_409_CONFLICT,
+            )
