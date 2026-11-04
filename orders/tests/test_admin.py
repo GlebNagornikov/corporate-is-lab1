@@ -14,7 +14,7 @@ from cart.services import add_to_cart
 from catalog.models import Category, Product
 from orders.management.commands.setup_groups import GROUPS
 from orders.models import Order
-from orders.services import place_order
+from orders.services import change_status, place_order
 
 User = get_user_model()
 
@@ -62,7 +62,7 @@ class ManagerAdminTests(TestCase):
             for permission in group.permissions.select_related("content_type")
         }
         self.assertEqual(actual, set(GROUPS[group.name]))
-        self.assertEqual(group.permissions.count(), 12)
+        self.assertEqual(group.permissions.count(), len(GROUPS[group.name]))
 
     def test_manager_index_shows_only_allowed_models(self):
         response = self.client.get(reverse("admin:index"))
@@ -121,6 +121,7 @@ class ManagerAdminTests(TestCase):
         order.refresh_from_db()
         self.assertEqual(order.status, Order.Status.NEW)
         self.assertEqual(order.history.count(), 1)
+        change_status(order, "paid", by=self.buyer, payment_verified=True)
         with self.captureOnCommitCallbacks(execute=True):
             response = self.client.post(
                 url, {"action": "mark_confirmed", "_selected_action": [order.pk]}, follow=True

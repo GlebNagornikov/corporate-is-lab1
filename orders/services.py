@@ -1,13 +1,21 @@
+import hashlib
+import hmac
 import logging
 from decimal import Decimal
 
+from django.conf import settings
+from django.core.exceptions import ValidationError
 from django.db import transaction
-from django.db.models import F
+from django.db.models import Avg, Count, DecimalField, F, Max, Sum
+from django.db.models.functions import TruncDay
+from django.shortcuts import get_object_or_404
 
-from catalog.models import Product
+from catalog.caching import invalidate_catalog
+from catalog.inventory import refresh_inventory
+from catalog.models import Product, ProductVariant
 
-from .models import Order, OrderItem, OrderStatusLog, PromoCode
-from .notifications import send_order_placed, send_status_changed
+from .models import Order, OrderItem, OrderStatusLog, Payment, PromoCode
+from .tasks import queue_order_email
 
 logger = logging.getLogger(__name__)
 COURIER_COST = Decimal("500")
@@ -34,12 +42,34 @@ def delivery_cost_for(method, amount):
 
 @transaction.atomic
 def place_order(
-    *, user, cart, delivery_method, full_name, phone, email, address="", comment="", promo_code=""
+    *,
+    user,
+    cart,
+    delivery_method,
+    full_name,
+    phone,
+    email,
+    address="",
+    comment="",
+    promo_code="",
+    address_book=None,
 ):
     """Оформляет заказ: списывает остатки, применяет промокод, очищает корзину."""
-    items = list(cart.items.all())
+    from cart.models import Cart
+
+    cart = Cart.objects.select_for_update().get(pk=cart.pk)
+    if cart.user_id != user.pk:
+        raise OrderError("Это не ваша корзина.")
+    items = list(cart.items.select_related("product", "variant"))
     if not items:
         raise OrderError("Корзина пуста.")
+    if address_book is not None:
+        from accounts.models import Address
+
+        selected = Address.objects.filter(pk=address_book.pk, user=user).first()
+        if selected is None:
+            raise OrderError("Это не ваш адрес.")
+        address = selected.snapshot
     if delivery_method == Order.Delivery.COURIER and not address.strip():
         raise OrderError("Для доставки курьером укажите адрес.")
     # Блокируем товары в одинаковом порядке, чтобы избежать взаимоблокировок.
@@ -49,14 +79,31 @@ def place_order(
         .filter(pk__in=[item.product_id for item in items])
         .order_by("pk")
     }
+    variants = {
+        v.pk: v
+        for v in ProductVariant.objects.select_for_update()
+        .filter(pk__in=[i.variant_id for i in items if i.variant_id])
+        .order_by("pk")
+    }
     for item in items:
         product = products[item.product_id]
+        variant = variants.get(item.variant_id)
+        item.product = product
+        if variant:
+            item.variant = variant
+            if variant.is_default:
+                ProductVariant.objects.filter(pk=variant.pk).update(
+                    stock=product.stock, price=product.price
+                )
+        if variant and (variant.product_id != product.pk or not variant.is_active):
+            raise OrderError("Вариант товара недоступен.")
+        stock = variant.stock if variant and not variant.is_default else product.stock
         if not product.is_active:
             raise OrderError(f"Товар «{product.name}» снят с продажи.")
-        if product.stock < item.quantity:
-            raise OrderError(f"Товара «{product.name}» осталось только {product.stock} шт.")
+        if stock < item.quantity:
+            raise OrderError(f"Товара «{product.name}» осталось только {stock} шт.")
     promo = get_valid_promo(promo_code, lock=True) if promo_code.strip() else None
-    subtotal = sum(products[item.product_id].price * item.quantity for item in items)
+    subtotal = sum(item.unit_price * item.quantity for item in items)
     discount = Decimal("0")
     if promo:
         discount = (subtotal * promo.discount_percent / 100).quantize(Decimal("0.01"))
@@ -80,27 +127,45 @@ def place_order(
             order=order,
             product=products[item.product_id],
             product_name=products[item.product_id].name,
-            price=products[item.product_id].price,
+            variant=item.variant,
+            variant_name=item.variant.name if item.variant else "",
+            price=item.unit_price,
             quantity=item.quantity,
         )
         for item in items
     )
     for item in items:
-        Product.objects.filter(pk=item.product_id).update(stock=F("stock") - item.quantity)
+        if item.variant_id:
+            ProductVariant.objects.filter(pk=item.variant_id).update(
+                stock=F("stock") - item.quantity
+            )
+        if not item.variant or item.variant.is_default:
+            Product.objects.filter(pk=item.product_id).update(stock=F("stock") - item.quantity)
+        else:
+            refresh_inventory(item.product_id)
     if promo:
         PromoCode.objects.filter(pk=promo.pk).update(used_count=F("used_count") + 1)
     OrderStatusLog.objects.create(
         order=order, to_status=order.status, changed_by=user, comment="Заказ оформлен"
     )
     cart.items.all().delete()
-    transaction.on_commit(lambda: send_order_placed(order.pk))
-    logger.info("Оформлен заказ №%s на сумму %s, покупатель %s", order.pk, order.total, user)
+    invalidate_catalog()
+    queue_order_email(order, "placed")
+    logger.info(
+        "Оформлен заказ №%s на сумму %s, покупатель %s",
+        order.pk,
+        order.total,
+        user,
+        extra={"order_id": order.pk},
+    )
     return order
 
 
 @transaction.atomic
-def change_status(order, new_status, *, by, comment=""):
+def change_status(order, new_status, *, by, comment="", payment_verified=False):
     order = Order.objects.select_for_update().get(pk=order.pk)
+    if new_status == Order.Status.PAID and not payment_verified:
+        raise OrderError("Оплата подтверждается только платёжным шлюзом.")
     if not order.can_change_to(new_status):
         raise OrderError(
             f"Заказ №{order.pk}: нельзя перейти из «{order.get_status_display()}» "
@@ -108,15 +173,31 @@ def change_status(order, new_status, *, by, comment=""):
         )
     if new_status == Order.Status.CANCELLED:
         for item in order.items.all():
-            Product.objects.filter(pk=item.product_id).update(stock=F("stock") + item.quantity)
+            if item.variant_id:
+                ProductVariant.objects.filter(pk=item.variant_id).update(
+                    stock=F("stock") + item.quantity
+                )
+            if not item.variant or item.variant.is_default:
+                Product.objects.filter(pk=item.product_id).update(stock=F("stock") + item.quantity)
+            else:
+                refresh_inventory(item.product_id)
     old_status = order.status
+    if new_status == Order.Status.CANCELLED:
+        invalidate_catalog()
     order.status = new_status
     order.save(update_fields=["status", "updated_at"])
     OrderStatusLog.objects.create(
         order=order, from_status=old_status, to_status=new_status, changed_by=by, comment=comment
     )
-    transaction.on_commit(lambda: send_status_changed(order.pk))
-    logger.info("Заказ №%s: %s → %s (%s)", order.pk, old_status, new_status, by)
+    queue_order_email(order, "status")
+    logger.info(
+        "Заказ №%s: %s → %s (%s)",
+        order.pk,
+        old_status,
+        new_status,
+        by,
+        extra={"order_id": order.pk},
+    )
     return order
 
 
@@ -129,3 +210,81 @@ def cancel_by_customer(order, user):
     if not order.can_be_cancelled_by_customer:
         raise OrderError("Заказ уже в работе, отменить его можно только через менеджера.")
     return change_status(order, Order.Status.CANCELLED, by=user, comment="Отменён покупателем")
+
+
+def signature(body):
+    return hmac.new(settings.PAYMENT_WEBHOOK_SECRET.encode(), body, hashlib.sha256).hexdigest()
+
+
+@transaction.atomic
+def begin_payment(order, user):
+    order = get_object_or_404(Order.objects.select_for_update(), pk=order.pk, user=user)
+    if order.status != Order.Status.NEW:
+        raise ValidationError("Оплатить можно только новый заказ.")
+    return Payment.objects.create(order=order, amount=order.total)
+
+
+@transaction.atomic
+def apply_payment(payment_id, outcome):
+    # The order is always locked before the payment, matching other order workflows.
+    payment = get_object_or_404(Payment, pk=payment_id)
+    order = Order.objects.select_for_update().get(pk=payment.order_id)
+    payment = Payment.objects.select_for_update().get(pk=payment.pk)
+    if payment.status != "pending":
+        return payment
+    if outcome == "success":
+        if order.status != Order.Status.NEW or payment.amount != order.total:
+            raise ValidationError("Заказ уже обработан или сумма изменилась.")
+        change_status(
+            order,
+            Order.Status.PAID,
+            by=order.user,
+            comment="Подтверждено платёжным шлюзом",
+            payment_verified=True,
+        )
+    payment.status = outcome
+    payment.save(update_fields=["status"])
+    return payment
+
+
+def sales_report(start=None, end=None):
+    orders = Order.objects.all()
+    if start:
+        orders = orders.filter(created_at__date__gte=start)
+    if end:
+        orders = orders.filter(created_at__date__lte=end)
+    active = orders.exclude(status=Order.Status.CANCELLED)
+    items = (
+        OrderItem.objects.filter(order__in=active)
+        .values("product_id")
+        .annotate(
+            name=Max("product_name"),
+            revenue=Sum(
+                F("price") * F("quantity"),
+                output_field=DecimalField(max_digits=16, decimal_places=2),
+            ),
+            quantity=Sum("quantity"),
+        )
+    )
+    return {
+        "summary": active.aggregate(
+            count=Count("pk"), revenue=Sum("total", default=0), average=Avg("total", default=0)
+        ),
+        "statuses": list(
+            orders.order_by().values("status").annotate(count=Count("pk")).order_by("status")
+        ),
+        "deliveries": list(
+            active.order_by()
+            .values("delivery_method")
+            .annotate(count=Count("pk"), revenue=Sum("total"))
+            .order_by("delivery_method")
+        ),
+        "daily": list(
+            active.annotate(day=TruncDay("created_at"))
+            .values("day")
+            .annotate(count=Count("pk"), revenue=Sum("total"))
+            .order_by("day")
+        ),
+        "top_quantity": list(items.order_by("-quantity", "product_id")[:10]),
+        "top_revenue": list(items.order_by("-revenue", "product_id")[:10]),
+    }

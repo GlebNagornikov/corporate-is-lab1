@@ -14,6 +14,8 @@ from datetime import timedelta
 from pathlib import Path
 
 import environ
+from redis.backoff import NoBackoff
+from redis.retry import Retry
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
@@ -46,6 +48,7 @@ INSTALLED_APPS = [
     "django.contrib.postgres",
     "rest_framework",
     "django_filters",
+    "drf_spectacular",
     "employees",
     "accounts",
     "catalog",
@@ -56,6 +59,7 @@ INSTALLED_APPS = [
 AUTH_USER_MODEL = "accounts.User"
 
 MIDDLEWARE = [
+    "config.request_logging.RequestIDMiddleware",
     "django.middleware.security.SecurityMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
@@ -139,6 +143,13 @@ LOGIN_REDIRECT_URL = "catalog:product_list"
 LOGOUT_REDIRECT_URL = "catalog:product_list"
 
 REST_FRAMEWORK = {
+    "DEFAULT_SCHEMA_CLASS": "config.api_schema.ShopSchema",
+    "DEFAULT_THROTTLE_CLASSES": [
+        "config.throttling.ShopAnonThrottle",
+        "config.throttling.ShopUserThrottle",
+    ],
+    "DEFAULT_THROTTLE_RATES": {"anon": "60/min", "user": "600/min", "token": "10/min"},
+    "NUM_PROXIES": 1,
     "DEFAULT_AUTHENTICATION_CLASSES": [
         "rest_framework_simplejwt.authentication.JWTAuthentication",
         "rest_framework.authentication.SessionAuthentication",
@@ -175,6 +186,7 @@ LOGGING = {
     "version": 1,
     "disable_existing_loggers": False,
     "formatters": {
+        "json": {"()": "config.request_logging.JSONFormatter"},
         "verbose": {
             "format": "{asctime} [{levelname}] {name}: {message}",
             "style": "{",
@@ -183,10 +195,10 @@ LOGGING = {
     "handlers": {
         "console": {
             "class": "logging.StreamHandler",
-            "formatter": "verbose",
+            "formatter": "json",
         },
     },
-    "root": {"handlers": ["console"], "level": "WARNING"},
+    "root": {"handlers": ["console"], "level": LOG_LEVEL},
     "loggers": {
         "django": {"handlers": ["console"], "level": "INFO", "propagate": False},
         "employees": {"handlers": ["console"], "level": LOG_LEVEL, "propagate": False},
@@ -196,3 +208,49 @@ LOGGING = {
 
 MEDIA_URL = "media/"
 MEDIA_ROOT = BASE_DIR / "media"
+SITE_URL = env("SITE_URL", default="https://localhost").rstrip("/")
+PAYMENT_WEBHOOK_SECRET = env("PAYMENT_WEBHOOK_SECRET", default=SECRET_KEY)
+CACHES = {
+    "default": {
+        "BACKEND": "catalog.cache_backend.ResilientRedisCache",
+        "LOCATION": env("REDIS_CACHE_URL", default="redis://redis:6379/1"),
+        "TIMEOUT": 60,
+        "KEY_PREFIX": "shop-catalog",
+        "OPTIONS": {
+            "CLIENT_CLASS": "django_redis.client.DefaultClient",
+            "IGNORE_EXCEPTIONS": False,
+            "SOCKET_CONNECT_TIMEOUT": 0.3,
+            "SOCKET_TIMEOUT": 0.3,
+            "CONNECTION_POOL_KWARGS": {"retry": Retry(NoBackoff(), 0), "retry_on_timeout": False},
+        },
+    },
+}
+CELERY_BROKER_URL = env("CELERY_BROKER_URL", default="redis://redis:6379/0")
+CELERY_TASK_IGNORE_RESULT = True
+CELERY_TASK_ACKS_LATE = True
+CELERY_WORKER_PREFETCH_MULTIPLIER = 1
+CELERY_BROKER_CONNECTION_RETRY_ON_STARTUP = True
+CELERY_BROKER_TRANSPORT_OPTIONS = {"visibility_timeout": 3600}
+SPECTACULAR_SETTINGS = {
+    "TITLE": "Corporate IS Shop API",
+    "DESCRIPTION": "Магазин и сотрудники. JWT/сессия; права указаны у операций.",
+    "VERSION": "1.1.0",
+    "COMPONENT_SPLIT_REQUEST": True,
+    "ENUM_NAME_OVERRIDES": {
+        "OrderStatusEnum": [
+            ("new", "Новый"),
+            ("paid", "Оплачен"),
+            ("confirmed", "Подтверждён"),
+            ("shipped", "Передан в доставку"),
+            ("delivered", "Доставлен"),
+            ("cancelled", "Отменён"),
+        ]
+    },
+}
+CACHES["throttles"] = {
+    **CACHES["default"],
+    "BACKEND": "django_redis.cache.RedisCache",
+    "LOCATION": env("REDIS_THROTTLE_URL", default="redis://redis:6379/2"),
+    "KEY_PREFIX": "shop-throttle",
+    "OPTIONS": {**CACHES["default"]["OPTIONS"], "IGNORE_EXCEPTIONS": False},
+}

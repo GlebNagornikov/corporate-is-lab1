@@ -12,6 +12,27 @@ x-app: &app
     EMAIL_PORT: 1025
 
 services:
+  worker:
+    <<: *app
+    entrypoint: []
+    command: ["celery", "-A", "config", "worker", "--loglevel=INFO", "--concurrency=2"]
+    restart: unless-stopped
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      redis:
+        condition: service_healthy
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    command: ["redis-server", "--appendonly", "yes", "--maxmemory-policy", "noeviction"]
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
   db:
     image: postgres:16
     restart: unless-stopped
@@ -38,6 +59,7 @@ services:
 
   web:
     <<: *app
+    dns_opt: ["timeout:1", "attempts:1"]
     restart: unless-stopped
     volumes:
       - static_data:/app/staticfiles
@@ -74,6 +96,7 @@ services:
       - "127.0.0.1:8026:8025"
 
 volumes:
+  redis_data:
   pgdata:
   static_data:
   media_data:

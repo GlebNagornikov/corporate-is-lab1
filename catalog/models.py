@@ -10,7 +10,7 @@ from django.contrib.postgres.search import (
 )
 from django.core.exceptions import ValidationError
 from django.core.validators import MaxValueValidator, MinValueValidator
-from django.db import models
+from django.db import models, transaction
 from django.db.models import Avg, Count, F, Q
 from django.urls import reverse
 
@@ -108,6 +108,7 @@ class Product(models.Model):
     sku = models.CharField("Артикул", max_length=32, unique=True)
     description = models.TextField("Описание", blank=True)
     price = models.DecimalField("Цена", max_digits=10, decimal_places=2)
+    attributes = models.JSONField("Характеристики", default=dict, blank=True)
     old_price = models.DecimalField(
         "Старая цена", max_digits=10, decimal_places=2, null=True, blank=True
     )
@@ -153,14 +154,72 @@ class Product(models.Model):
             raise ValidationError({"old_price": "Старая цена должна быть больше текущей."})
 
     @property
-    def in_stock(self):
+    def in_stock(self) -> bool:
         return self.stock > 0
 
     @property
-    def discount_percent(self):
+    def discount_percent(self) -> int:
         if not self.old_price:
             return 0
         return round((1 - self.price / self.old_price) * 100)
+
+
+class StockSubscription(models.Model):
+    product = models.ForeignKey(
+        Product, on_delete=models.CASCADE, related_name="stock_subscriptions"
+    )
+    email = models.EmailField()
+    completed = models.BooleanField(default=False)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(fields=["product", "email"], name="unique_restock_email")
+        ]
+
+    def __str__(self):
+        return f"{self.product}: {self.email}"
+
+
+class WishlistItem(models.Model):
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="wishlist"
+    )
+    product = models.ForeignKey(Product, on_delete=models.CASCADE)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(fields=["user", "product"], name="unique_wishlist_product")
+        ]
+
+    def __str__(self):
+        return f"{self.user}: {self.product}"
+
+
+class ProductVariant(models.Model):
+    product = models.ForeignKey(Product, on_delete=models.CASCADE, related_name="variants")
+    name = models.CharField("Вариант", max_length=120)
+    sku = models.CharField("Артикул варианта", max_length=64, unique=True)
+    price = models.DecimalField("Цена", max_digits=10, decimal_places=2)
+    stock = models.PositiveIntegerField("Остаток", default=0)
+    is_active = models.BooleanField("Активен", default=True)
+    is_default = models.BooleanField(default=False, editable=False)
+
+    class Meta:
+        ordering = ["pk"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["product"], condition=Q(is_default=True), name="one_default_variant"
+            ),
+            models.CheckConstraint(condition=Q(price__gt=0), name="variant_price_positive"),
+        ]
+
+    def __str__(self):
+        return f"{self.product}: {self.name}"
+
+    @transaction.atomic
+    def save(self, *args, **kwargs):
+        Product.objects.select_for_update().get(pk=self.product_id)
+        return super().save(*args, **kwargs)
 
 
 class ProductImage(models.Model):

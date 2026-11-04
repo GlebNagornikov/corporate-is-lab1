@@ -1,0 +1,9 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>Сравнение товаров</h1>
+<div class="table-responsive"><table class="table bg-white">
+<thead><tr><th>Характеристика</th>{% for product in products %}<th><a href="{{ product.get_absolute_url }}">{{ product.name }}</a><form method="post" action="{% url 'compare-change' product.pk %}">{% csrf_token %}<input type="hidden" name="action" value="remove"><button class="btn btn-sm btn-link">Удалить</button></form></th>{% endfor %}</tr></thead>
+<tbody>{% for label, values, differs in rows %}<tr class="{% if differs %}table-warning{% endif %}"><th>{{ label }}</th>{% for value in values %}<td>{{ value }}</td>{% endfor %}</tr>{% endfor %}</tbody>
+</table></div>
+{% if not products %}<p>Добавьте до четырёх товаров одной категории из каталога.</p>{% endif %}
+{% endblock %}
