@@ -33,7 +33,9 @@ def send_notification(notification_id):
 
 def dispatch_notification(notification_id):
     try:
-        send_notification.delay(notification_id)
+        from config.request_logging import request_id
+
+        send_notification.apply_async(args=[notification_id], headers={"request_id": request_id()})
     except (OperationalError, OSError):
         logger.exception(
             "Не удалось поставить письмо в очередь; оно сохранено в БД",

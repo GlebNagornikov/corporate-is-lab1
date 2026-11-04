@@ -16,7 +16,7 @@ class MailTaskTests(TestCase):
         )
 
     def test_task_is_enqueued_only_after_commit(self):
-        with patch("orders.tasks.send_notification.delay") as delay:
+        with patch("orders.tasks.send_notification.apply_async") as delay:
             with self.captureOnCommitCallbacks(execute=True):
                 queue_order_email(self.order, "placed")
                 delay.assert_not_called()
