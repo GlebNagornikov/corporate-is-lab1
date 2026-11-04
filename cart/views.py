@@ -4,14 +4,14 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.utils.http import url_has_allowed_host_and_scheme
 from django.views.decorators.http import require_POST
 
-from catalog.models import Product
+from catalog.models import Product, ProductVariant
 
 from .services import add_to_cart, get_cart, set_quantity
 
 
 def cart_detail(request):
     cart = get_cart(request)
-    items = cart.items.select_related("product") if cart else []
+    items = cart.items.select_related("product", "variant") if cart else []
     total = sum((item.total for item in items), start=0)
     return render(request, "cart/cart_detail.html", {"items": items, "total": total})
 
@@ -27,7 +27,14 @@ def _quantity(request):
 def cart_add(request, product_id):
     product = get_object_or_404(Product, pk=product_id)
     try:
-        added = add_to_cart(get_cart(request, create=True), product, _quantity(request))
+        variant = (
+            get_object_or_404(ProductVariant, pk=request.POST["variant"], product=product)
+            if request.POST.get("variant")
+            else None
+        )
+        added = add_to_cart(
+            get_cart(request, create=True), product, _quantity(request), variant=variant
+        )
     except ValidationError as error:
         messages.error(request, error.messages[0])
     else:
@@ -49,7 +56,12 @@ def cart_update(request, product_id):
     cart = get_cart(request)
     if cart:
         try:
-            set_quantity(cart, product, _quantity(request))
+            variant = (
+                get_object_or_404(ProductVariant, pk=request.POST["variant"], product=product)
+                if request.POST.get("variant")
+                else None
+            )
+            set_quantity(cart, product, _quantity(request), variant=variant)
         except ValidationError as error:
             messages.error(request, error.messages[0])
     return redirect("cart:detail")

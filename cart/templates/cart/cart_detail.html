@@ -8,17 +8,17 @@
   <tbody>
   {% for item in items %}
     <tr>
-      <td><a href="{{ item.product.get_absolute_url }}">{{ item.product.name }}</a></td>
-      <td>{{ item.product.price|floatformat:"2g" }} ₽</td>
+      <td><a href="{{ item.product.get_absolute_url }}">{{ item.product.name }}</a> {{ item.variant.name }}</td>
+      <td>{{ item.unit_price|floatformat:"2g" }} ₽</td>
       <td>
-        <form method="post" action="{% url 'cart:update' item.product.pk %}" class="d-flex gap-1">{% csrf_token %}
-          <input type="number" name="quantity" value="{{ item.quantity }}" min="0" max="{{ item.product.stock }}" class="form-control form-control-sm">
+        <form method="post" action="{% url 'cart:update' item.product.pk %}" class="d-flex gap-1">{% csrf_token %}<input type="hidden" name="variant" value="{{ item.variant_id|default_if_none:'' }}">
+          <input type="number" name="quantity" value="{{ item.quantity }}" min="0" max="{{ item.available_stock }}" class="form-control form-control-sm">
           <button class="btn btn-sm btn-outline-secondary">OK</button>
         </form>
       </td>
       <td>{{ item.total|floatformat:"2g" }} ₽</td>
       <td>
-        <form method="post" action="{% url 'cart:update' item.product.pk %}">{% csrf_token %}
+        <form method="post" action="{% url 'cart:update' item.product.pk %}">{% csrf_token %}<input type="hidden" name="variant" value="{{ item.variant_id|default_if_none:'' }}">
           <input type="hidden" name="quantity" value="0">
           <button class="btn btn-sm btn-link text-danger">удалить</button>
         </form>

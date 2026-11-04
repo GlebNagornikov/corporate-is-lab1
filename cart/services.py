@@ -1,6 +1,8 @@
 from django.core.exceptions import ValidationError
 from django.db import transaction
 
+from catalog.inventory import choose_variant
+
 from .models import Cart, CartItem
 
 CART_SESSION_KEY = "cart_id"
@@ -20,32 +22,46 @@ def get_cart(request, create=False):
     return cart
 
 
-def set_quantity(cart, product, quantity):
+def set_quantity(cart, product, quantity, variant=None):
     """Ставит количество товара в корзине, но не больше остатка."""
     if not product.is_active:
         raise ValidationError("Товар снят с продажи.")
-    quantity = min(quantity, product.stock)
+    variant = choose_variant(product, variant)
+    stock = product.stock if variant.is_default else variant.stock
+    quantity = min(quantity, stock)
     if quantity <= 0:
-        CartItem.objects.filter(cart=cart, product=product).delete()
+        CartItem.objects.filter(cart=cart, product=product, variant=variant).delete()
         return 0
-    CartItem.objects.update_or_create(cart=cart, product=product, defaults={"quantity": quantity})
+    CartItem.objects.update_or_create(
+        cart=cart, product=product, variant=variant, defaults={"quantity": quantity}
+    )
     cart.save(update_fields=["updated_at"])
     return quantity
 
 
-def add_to_cart(cart, product, quantity=1):
-    current = cart.items.filter(product=product).values_list("quantity", flat=True).first() or 0
-    return set_quantity(cart, product, current + quantity)
+def add_to_cart(cart, product, quantity=1, variant=None):
+    variant = choose_variant(product, variant)
+    current = (
+        cart.items.filter(product=product, variant=variant)
+        .values_list("quantity", flat=True)
+        .first()
+        or 0
+    )
+    return set_quantity(cart, product, current + quantity, variant=variant)
 
 
 @transaction.atomic
 def merge_carts(source, target):
     """Переносит товары гостя пользователю и удаляет гостевую корзину."""
     skipped = []
-    for item in source.items.select_related("product"):
-        if not item.product.is_active or item.product.stock <= 0:
+    for item in source.items.select_related("product", "variant"):
+        if (
+            not item.product.is_active
+            or item.available_stock <= 0
+            or (item.variant and not item.variant.is_active)
+        ):
             skipped.append(item.product.name)
             continue
-        add_to_cart(target, item.product, item.quantity)
+        add_to_cart(target, item.product, item.quantity, variant=item.variant)
     source.delete()
     return skipped

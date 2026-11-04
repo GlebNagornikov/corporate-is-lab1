@@ -122,6 +122,10 @@ class OrderItem(models.Model):
         "catalog.Product", on_delete=models.PROTECT, related_name="order_items"
     )
     product_name = models.CharField("Товар", max_length=200)
+    variant = models.ForeignKey(
+        "catalog.ProductVariant", on_delete=models.PROTECT, null=True, blank=True
+    )
+    variant_name = models.CharField("Вариант", max_length=120, blank=True)
     price = models.DecimalField("Цена", max_digits=10, decimal_places=2)
     quantity = models.PositiveIntegerField("Количество")
 

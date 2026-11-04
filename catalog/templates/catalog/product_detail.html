@@ -30,6 +30,7 @@
     {% if product.in_stock %}
       <form method="post" action="{% url 'cart:add' product.pk %}" class="d-flex gap-2 mb-3" style="max-width:260px">
         {% csrf_token %}
+        <select name="variant" class="form-select"><option value="">Стандартный вариант</option>{% for variant in product.variants.all %}{% if variant.is_active and not variant.is_default %}<option value="{{ variant.pk }}">{{ variant.name }} — {{ variant.price }} ₽ ({{ variant.stock }} шт.)</option>{% endif %}{% endfor %}</select>
         <input type="number" name="quantity" value="1" min="1" max="{{ product.stock }}" class="form-control">
         <input type="hidden" name="next" value="{{ request.path }}">
         <button class="btn btn-success text-nowrap">В корзину</button>

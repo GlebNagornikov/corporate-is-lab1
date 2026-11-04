@@ -7,7 +7,7 @@
   <thead><tr><th>Товар</th><th>Цена</th><th>Кол-во</th><th>Сумма</th></tr></thead>
   <tbody>
   {% for item in order.items.all %}
-    <tr><td>{{ item.product_name }}</td><td>{{ item.price|floatformat:"2g" }} ₽</td><td>{{ item.quantity }}</td><td>{{ item.total|floatformat:"2g" }} ₽</td></tr>
+    <tr><td>{{ item.product_name }} {{ item.variant_name }}</td><td>{{ item.price|floatformat:"2g" }} ₽</td><td>{{ item.quantity }}</td><td>{{ item.total|floatformat:"2g" }} ₽</td></tr>
   {% endfor %}
   </tbody>
 </table>
