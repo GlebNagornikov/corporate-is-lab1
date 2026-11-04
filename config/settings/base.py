@@ -196,3 +196,4 @@ LOGGING = {
 
 MEDIA_URL = "media/"
 MEDIA_ROOT = BASE_DIR / "media"
+SITE_URL = env("SITE_URL", default="https://localhost").rstrip("/")

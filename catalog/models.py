@@ -164,6 +164,22 @@ class Product(models.Model):
         return round((1 - self.price / self.old_price) * 100)
 
 
+class StockSubscription(models.Model):
+    product = models.ForeignKey(
+        Product, on_delete=models.CASCADE, related_name="stock_subscriptions"
+    )
+    email = models.EmailField()
+    completed = models.BooleanField(default=False)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(fields=["product", "email"], name="unique_restock_email")
+        ]
+
+    def __str__(self):
+        return f"{self.product}: {self.email}"
+
+
 class WishlistItem(models.Model):
     user = models.ForeignKey(
         settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="wishlist"
