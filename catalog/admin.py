@@ -1,4 +1,8 @@
+from django import forms
 from django.contrib import admin
+from django.core.exceptions import PermissionDenied, ValidationError
+from django.shortcuts import render
+from django.urls import path
 from django.utils.html import format_html
 
 from .models import Category, Product, ProductImage, ProductVariant, Review
@@ -36,6 +40,50 @@ class ProductVariantInline(admin.TabularInline):
 
 @admin.register(Product)
 class ProductAdmin(admin.ModelAdmin):
+    change_list_template = "admin/catalog/product/change_list.html"
+
+    def get_urls(self):
+        return [
+            path(
+                "import-csv/",
+                self.admin_site.admin_view(self.import_csv),
+                name="catalog_product_import",
+            )
+        ] + super().get_urls()
+
+    def import_csv(self, request):
+        from io import StringIO
+
+        from .importing import import_products
+
+        if not self.has_add_permission(request) or not self.has_change_permission(request):
+            raise PermissionDenied
+
+        class UploadForm(forms.Form):
+            file = forms.FileField()
+            dry_run = forms.BooleanField(required=False)
+
+        form = UploadForm(request.POST or None, request.FILES or None)
+        errors = []
+        if request.method == "POST" and form.is_valid():
+            try:
+                count = import_products(
+                    StringIO(form.cleaned_data["file"].read().decode("utf-8-sig")),
+                    dry_run=form.cleaned_data["dry_run"],
+                )
+                self.message_user(request, f"Строк обработано: {count}")
+            except (ValidationError, UnicodeError) as error:
+                errors = (
+                    error.messages
+                    if isinstance(error, ValidationError)
+                    else ["Файл должен быть в UTF-8."]
+                )
+        return render(
+            request,
+            "admin/catalog/product/import.html",
+            {**self.admin_site.each_context(request), "form": form, "errors": errors},
+        )
+
     inlines = (ProductImageInline, ProductVariantInline)
     list_display = ("name", "sku", "category", "price", "old_price", "stock", "is_active")
     list_editable = ("price", "old_price", "stock", "is_active")
