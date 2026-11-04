@@ -15,7 +15,7 @@ from orders.services import OrderError, place_order
 User = get_user_model()
 CUSTOMER = {
     "full_name": "Покупатель",
-    "phone": "+7913",
+    "phone": "8 (913) 000-00-00",
     "email": "b@example.com",
     "delivery_method": "pickup",
 }
@@ -76,6 +76,8 @@ class OrderApiTests(APITestCase):
         )
         self.assertEqual(response.status_code, 201, response.data)
         self.assertEqual(response.data["total"], "2500.00")
+        self.assertEqual(response.data["phone"], "+79130000000")
+        self.assertEqual(Order.objects.get().phone, "+79130000000")
         self.assertEqual(response.data["items"][0]["price"], "1000.00")
         self.book.refresh_from_db()
         self.assertEqual(self.book.stock, 3)
@@ -259,3 +261,14 @@ class OrderApiTests(APITestCase):
         self.book.refresh_from_db()
         self.assertEqual(self.book.stock, 4)
         self.assertEqual(Order.objects.get(pk=order_id).history.count(), 1)
+
+    def test_invalid_phone_returns_field_error_without_changing_cart_or_stock(self):
+        self.client.force_authenticate(self.buyer)
+        self.client.post("/api/cart/items/", {"product": self.book.pk, "quantity": 2})
+        response = self.client.post("/api/orders/", {**CUSTOMER, "phone": "123"})
+        self.assertEqual(response.status_code, 400)
+        self.assertIn("phone", response.data)
+        self.assertFalse(Order.objects.exists())
+        self.book.refresh_from_db()
+        self.assertEqual(self.book.stock, 5)
+        self.assertEqual(Cart.objects.get(user=self.buyer).items.get().quantity, 2)
