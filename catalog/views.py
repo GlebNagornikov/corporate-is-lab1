@@ -1,6 +1,7 @@
 # Create your views here.
 from django.contrib import messages
 from django.contrib.auth.mixins import LoginRequiredMixin
+from django.core.cache import cache
 from django.shortcuts import get_object_or_404, redirect
 from django.views import View
 from django.views.generic import DetailView, ListView
@@ -39,6 +40,16 @@ class ProductListView(ListView):
 class ProductDetailView(DetailView):
     template_name = "catalog/product_detail.html"
     context_object_name = "product"
+
+    def get_object(self, queryset=None):
+        from .caching import product_key
+
+        key = product_key(self.kwargs["slug"])
+        product = cache.get(key)
+        if product is None:
+            product = super().get_object(queryset)
+            cache.set(key, product)
+        return product
 
     def get_queryset(self):
         return (

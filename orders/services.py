@@ -4,6 +4,7 @@ from decimal import Decimal
 from django.db import transaction
 from django.db.models import F
 
+from catalog.caching import invalidate_catalog
 from catalog.inventory import refresh_inventory
 from catalog.models import Product, ProductVariant
 
@@ -137,6 +138,7 @@ def place_order(
         order=order, to_status=order.status, changed_by=user, comment="Заказ оформлен"
     )
     cart.items.all().delete()
+    invalidate_catalog()
     transaction.on_commit(lambda: send_order_placed(order.pk))
     logger.info("Оформлен заказ №%s на сумму %s, покупатель %s", order.pk, order.total, user)
     return order
@@ -163,6 +165,8 @@ def change_status(order, new_status, *, by, comment="", payment_verified=False):
             else:
                 refresh_inventory(item.product_id)
     old_status = order.status
+    if new_status == Order.Status.CANCELLED:
+        invalidate_catalog()
     order.status = new_status
     order.save(update_fields=["status", "updated_at"])
     OrderStatusLog.objects.create(

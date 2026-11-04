@@ -198,3 +198,17 @@ MEDIA_URL = "media/"
 MEDIA_ROOT = BASE_DIR / "media"
 SITE_URL = env("SITE_URL", default="https://localhost").rstrip("/")
 PAYMENT_WEBHOOK_SECRET = env("PAYMENT_WEBHOOK_SECRET", default=SECRET_KEY)
+CACHES = {
+    "default": {
+        "BACKEND": "django_redis.cache.RedisCache",
+        "LOCATION": env("REDIS_CACHE_URL", default="redis://redis:6379/1"),
+        "TIMEOUT": 60,
+        "KEY_PREFIX": "shop-catalog",
+        "OPTIONS": {
+            "CLIENT_CLASS": "django_redis.client.DefaultClient",
+            "IGNORE_EXCEPTIONS": True,
+            "SOCKET_CONNECT_TIMEOUT": 0.3,
+            "SOCKET_TIMEOUT": 0.3,
+        },
+    },
+}
