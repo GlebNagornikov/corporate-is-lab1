@@ -1,0 +1,6 @@
+{% extends "admin/base_site.html" %}
+{% block content %}<h1>Импорт товаров CSV</h1>
+<p>UTF-8 CSV: sku,name,slug,category,price,stock. Весь файл применяется одной транзакцией.</p>
+<form method="post" enctype="multipart/form-data">{% csrf_token %}{{ form.as_p }}<input type="submit" value="Импортировать"></form>
+{% if errors %}<ul class="errorlist">{% for error in errors %}<li>{{ error }}</li>{% endfor %}</ul>{% endif %}
+{% endblock %}

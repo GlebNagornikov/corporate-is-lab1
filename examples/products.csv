@@ -1,0 +1,2 @@
+sku,name,slug,category,price,stock,variant_sku,variant_name,variant_price,variant_stock
+CSV-DEMO,Демонстрационная книга,csv-demo,books,900.00,5,CSV-DEMO-PAPER,Бумажная,900.00,5
