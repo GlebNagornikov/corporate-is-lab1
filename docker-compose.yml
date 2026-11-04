@@ -48,6 +48,7 @@ services:
       retries: 10
 
   web:
+    dns_opt: ["timeout:1", "attempts:1"]
     build:
       context: .
       target: dev

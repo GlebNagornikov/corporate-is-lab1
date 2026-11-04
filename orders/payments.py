@@ -1,12 +1,9 @@
-import hashlib
 import hmac
 import json
 import uuid
 
-from django.conf import settings
 from django.contrib.auth.decorators import login_required
 from django.core.exceptions import ValidationError
-from django.db import transaction
 from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, render
 from django.urls import path
@@ -16,43 +13,11 @@ from drf_spectacular.utils import OpenApiParameter, extend_schema, inline_serial
 from rest_framework import permissions, serializers
 from rest_framework.views import APIView
 
-from .models import Order, Payment
-from .services import OrderError, change_status
-
-
-def signature(body):
-    return hmac.new(settings.PAYMENT_WEBHOOK_SECRET.encode(), body, hashlib.sha256).hexdigest()
-
-
-@transaction.atomic
-def begin_payment(order, user):
-    order = get_object_or_404(Order.objects.select_for_update(), pk=order.pk, user=user)
-    if order.status != Order.Status.NEW:
-        raise ValidationError("Оплатить можно только новый заказ.")
-    return Payment.objects.create(order=order, amount=order.total)
-
-
-@transaction.atomic
-def apply_payment(payment_id, outcome):
-    # The order is always locked before the payment, matching other order workflows.
-    payment = get_object_or_404(Payment, pk=payment_id)
-    order = Order.objects.select_for_update().get(pk=payment.order_id)
-    payment = Payment.objects.select_for_update().get(pk=payment.pk)
-    if payment.status != "pending":
-        return payment
-    if outcome == "success":
-        if order.status != Order.Status.NEW or payment.amount != order.total:
-            raise ValidationError("Заказ уже обработан или сумма изменилась.")
-        change_status(
-            order,
-            Order.Status.PAID,
-            by=order.user,
-            comment="Подтверждено платёжным шлюзом",
-            payment_verified=True,
-        )
-    payment.status = outcome
-    payment.save(update_fields=["status"])
-    return payment
+from .models import Order
+from .services import OrderError
+from .services import apply_payment as apply_payment
+from .services import begin_payment as begin_payment
+from .services import signature as signature
 
 
 @login_required

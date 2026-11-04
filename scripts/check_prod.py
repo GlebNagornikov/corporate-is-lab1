@@ -81,6 +81,14 @@ def main():
     products = json.loads(body)
     products = products["results"] if isinstance(products, dict) else products
     product = next(item for item in products if item["stock"] > 0)
+    variant = next(
+        (
+            item
+            for item in product.get("variants", [])
+            if item["is_active"] and not item["is_default"] and item["stock"] > 0
+        ),
+        None,
+    )
     status, _, body = request("/product/" + product["slug"] + "/")
     assert status == 200, "Product detail must be available"
     image = re.search(r'src="(/media/[^"]+)"', body)
@@ -106,7 +114,8 @@ def main():
     assert any(cookie.name == "sessionid" and cookie.secure for cookie in cookies)
     token = csrf("/product/" + product["slug"] + "/")
     status, _, _ = request(
-        f"/cart/add/{product['id']}/", {"csrfmiddlewaretoken": token, "quantity": 1}
+        f"/cart/add/{product['id']}/",
+        {"csrfmiddlewaretoken": token, "quantity": 1, "variant": variant["id"] if variant else ""},
     )
     assert status == 302, ("cart", status)
     token = csrf("/orders/checkout/")

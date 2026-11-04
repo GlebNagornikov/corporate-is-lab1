@@ -59,6 +59,7 @@ services:
 
   web:
     <<: *app
+    dns_opt: ["timeout:1", "attempts:1"]
     restart: unless-stopped
     volumes:
       - static_data:/app/staticfiles

@@ -14,6 +14,8 @@ from datetime import timedelta
 from pathlib import Path
 
 import environ
+from redis.backoff import NoBackoff
+from redis.retry import Retry
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
@@ -210,15 +212,16 @@ SITE_URL = env("SITE_URL", default="https://localhost").rstrip("/")
 PAYMENT_WEBHOOK_SECRET = env("PAYMENT_WEBHOOK_SECRET", default=SECRET_KEY)
 CACHES = {
     "default": {
-        "BACKEND": "django_redis.cache.RedisCache",
+        "BACKEND": "catalog.cache_backend.ResilientRedisCache",
         "LOCATION": env("REDIS_CACHE_URL", default="redis://redis:6379/1"),
         "TIMEOUT": 60,
         "KEY_PREFIX": "shop-catalog",
         "OPTIONS": {
             "CLIENT_CLASS": "django_redis.client.DefaultClient",
-            "IGNORE_EXCEPTIONS": True,
+            "IGNORE_EXCEPTIONS": False,
             "SOCKET_CONNECT_TIMEOUT": 0.3,
             "SOCKET_TIMEOUT": 0.3,
+            "CONNECTION_POOL_KWARGS": {"retry": Retry(NoBackoff(), 0), "retry_on_timeout": False},
         },
     },
 }
@@ -246,6 +249,7 @@ SPECTACULAR_SETTINGS = {
 }
 CACHES["throttles"] = {
     **CACHES["default"],
+    "BACKEND": "django_redis.cache.RedisCache",
     "LOCATION": env("REDIS_THROTTLE_URL", default="redis://redis:6379/2"),
     "KEY_PREFIX": "shop-throttle",
     "OPTIONS": {**CACHES["default"]["OPTIONS"], "IGNORE_EXCEPTIONS": False},

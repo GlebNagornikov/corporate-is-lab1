@@ -7,13 +7,8 @@ from rest_framework import serializers
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from .models import Product, WishlistItem
-
-
-def set_favorite(user, product, enabled=True):
-    if enabled:
-        return WishlistItem.objects.get_or_create(user=user, product=product)[0]
-    WishlistItem.objects.filter(user=user, product=product).delete()
+from .models import Product
+from .services import set_favorite as set_favorite
 
 
 @login_required

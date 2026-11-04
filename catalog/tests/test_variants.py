@@ -68,3 +68,15 @@ class VariantTests(TestCase):
         )
         with self.assertRaises(ValidationError):
             add_to_cart(self.cart, other, variant=self.small)
+
+    def test_inactive_variants_do_not_allow_standard_variant_fallback(self):
+        from django.core.exceptions import ValidationError
+
+        self.small.is_active = False
+        self.small.save()
+        self.large.is_active = False
+        self.large.save()
+        self.product.refresh_from_db()
+        self.assertEqual(self.product.stock, 0)
+        with self.assertRaises(ValidationError):
+            add_to_cart(self.cart, self.product)

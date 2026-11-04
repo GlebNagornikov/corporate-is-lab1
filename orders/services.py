@@ -1,14 +1,20 @@
+import hashlib
+import hmac
 import logging
 from decimal import Decimal
 
+from django.conf import settings
+from django.core.exceptions import ValidationError
 from django.db import transaction
-from django.db.models import F
+from django.db.models import Avg, Count, DecimalField, F, Max, Sum
+from django.db.models.functions import TruncDay
+from django.shortcuts import get_object_or_404
 
 from catalog.caching import invalidate_catalog
 from catalog.inventory import refresh_inventory
 from catalog.models import Product, ProductVariant
 
-from .models import Order, OrderItem, OrderStatusLog, PromoCode
+from .models import Order, OrderItem, OrderStatusLog, Payment, PromoCode
 from .tasks import queue_order_email
 
 logger = logging.getLogger(__name__)
@@ -49,6 +55,11 @@ def place_order(
     address_book=None,
 ):
     """Оформляет заказ: списывает остатки, применяет промокод, очищает корзину."""
+    from cart.models import Cart
+
+    cart = Cart.objects.select_for_update().get(pk=cart.pk)
+    if cart.user_id != user.pk:
+        raise OrderError("Это не ваша корзина.")
     items = list(cart.items.select_related("product", "variant"))
     if not items:
         raise OrderError("Корзина пуста.")
@@ -199,3 +210,81 @@ def cancel_by_customer(order, user):
     if not order.can_be_cancelled_by_customer:
         raise OrderError("Заказ уже в работе, отменить его можно только через менеджера.")
     return change_status(order, Order.Status.CANCELLED, by=user, comment="Отменён покупателем")
+
+
+def signature(body):
+    return hmac.new(settings.PAYMENT_WEBHOOK_SECRET.encode(), body, hashlib.sha256).hexdigest()
+
+
+@transaction.atomic
+def begin_payment(order, user):
+    order = get_object_or_404(Order.objects.select_for_update(), pk=order.pk, user=user)
+    if order.status != Order.Status.NEW:
+        raise ValidationError("Оплатить можно только новый заказ.")
+    return Payment.objects.create(order=order, amount=order.total)
+
+
+@transaction.atomic
+def apply_payment(payment_id, outcome):
+    # The order is always locked before the payment, matching other order workflows.
+    payment = get_object_or_404(Payment, pk=payment_id)
+    order = Order.objects.select_for_update().get(pk=payment.order_id)
+    payment = Payment.objects.select_for_update().get(pk=payment.pk)
+    if payment.status != "pending":
+        return payment
+    if outcome == "success":
+        if order.status != Order.Status.NEW or payment.amount != order.total:
+            raise ValidationError("Заказ уже обработан или сумма изменилась.")
+        change_status(
+            order,
+            Order.Status.PAID,
+            by=order.user,
+            comment="Подтверждено платёжным шлюзом",
+            payment_verified=True,
+        )
+    payment.status = outcome
+    payment.save(update_fields=["status"])
+    return payment
+
+
+def sales_report(start=None, end=None):
+    orders = Order.objects.all()
+    if start:
+        orders = orders.filter(created_at__date__gte=start)
+    if end:
+        orders = orders.filter(created_at__date__lte=end)
+    active = orders.exclude(status=Order.Status.CANCELLED)
+    items = (
+        OrderItem.objects.filter(order__in=active)
+        .values("product_id")
+        .annotate(
+            name=Max("product_name"),
+            revenue=Sum(
+                F("price") * F("quantity"),
+                output_field=DecimalField(max_digits=16, decimal_places=2),
+            ),
+            quantity=Sum("quantity"),
+        )
+    )
+    return {
+        "summary": active.aggregate(
+            count=Count("pk"), revenue=Sum("total", default=0), average=Avg("total", default=0)
+        ),
+        "statuses": list(
+            orders.order_by().values("status").annotate(count=Count("pk")).order_by("status")
+        ),
+        "deliveries": list(
+            active.order_by()
+            .values("delivery_method")
+            .annotate(count=Count("pk"), revenue=Sum("total"))
+            .order_by("delivery_method")
+        ),
+        "daily": list(
+            active.annotate(day=TruncDay("created_at"))
+            .values("day")
+            .annotate(count=Count("pk"), revenue=Sum("total"))
+            .order_by("day")
+        ),
+        "top_quantity": list(items.order_by("-quantity", "product_id")[:10]),
+        "top_revenue": list(items.order_by("-revenue", "product_id")[:10]),
+    }

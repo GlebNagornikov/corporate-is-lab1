@@ -62,7 +62,7 @@ class ManagerAdminTests(TestCase):
             for permission in group.permissions.select_related("content_type")
         }
         self.assertEqual(actual, set(GROUPS[group.name]))
-        self.assertEqual(group.permissions.count(), 12)
+        self.assertEqual(group.permissions.count(), len(GROUPS[group.name]))
 
     def test_manager_index_shows_only_allowed_models(self):
         response = self.client.get(reverse("admin:index"))

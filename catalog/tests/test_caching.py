@@ -41,3 +41,22 @@ class CacheTests(TestCase):
         }
         with override_settings(CACHES=config):
             self.assertEqual(self.client.get("/product/book/").status_code, 200)
+
+    def test_failed_cache_connection_is_not_repeated_for_every_operation(self):
+        from unittest.mock import patch
+
+        from redis.exceptions import ConnectionError
+
+        from catalog.cache_backend import ResilientRedisCache
+
+        backend = ResilientRedisCache(
+            "redis://127.0.0.1:1/1", {"OPTIONS": {"IGNORE_EXCEPTIONS": False}}
+        )
+        with patch(
+            "django_redis.cache.RedisCache.get", side_effect=ConnectionError("offline")
+        ) as get:
+            self.assertEqual(backend.get("card", "fallback"), "fallback")
+            self.assertEqual(backend.get("menu", "fallback"), "fallback")
+            self.assertFalse(backend.set("card", "data"))
+            self.assertFalse(backend.delete("card"))
+            get.assert_called_once()
