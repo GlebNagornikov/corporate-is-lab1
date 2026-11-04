@@ -36,12 +36,24 @@ class Cart(models.Model):
 class CartItem(models.Model):
     cart = models.ForeignKey(Cart, on_delete=models.CASCADE, related_name="items")
     product = models.ForeignKey("catalog.Product", on_delete=models.CASCADE, related_name="+")
+    variant = models.ForeignKey(
+        "catalog.ProductVariant", on_delete=models.CASCADE, null=True, blank=True
+    )
     quantity = models.PositiveIntegerField("Количество", default=1)
 
     class Meta:
         ordering = ["pk"]
         constraints = [
-            models.UniqueConstraint(fields=["cart", "product"], name="one_line_per_product"),
+            models.UniqueConstraint(
+                fields=["cart", "variant"],
+                condition=Q(variant__isnull=False),
+                name="one_line_per_variant",
+            ),
+            models.UniqueConstraint(
+                fields=["cart", "product"],
+                condition=Q(variant__isnull=True),
+                name="one_legacy_line_per_product",
+            ),
             models.CheckConstraint(condition=Q(quantity__gte=1), name="cart_quantity_positive"),
         ]
 
@@ -49,5 +61,21 @@ class CartItem(models.Model):
         return f"{self.product} × {self.quantity}"
 
     @property
+    def unit_price(self):
+        return (
+            self.variant.price
+            if self.variant and not self.variant.is_default
+            else self.product.price
+        )
+
+    @property
+    def available_stock(self):
+        return (
+            self.variant.stock
+            if self.variant and not self.variant.is_default
+            else self.product.stock
+        )
+
+    @property
     def total(self):
-        return self.product.price * self.quantity
+        return self.unit_price * self.quantity

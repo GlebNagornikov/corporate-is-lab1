@@ -163,6 +163,25 @@ class Product(models.Model):
         return round((1 - self.price / self.old_price) * 100)
 
 
+class ProductVariant(models.Model):
+    product = models.ForeignKey(Product, on_delete=models.CASCADE, related_name="variants")
+    name = models.CharField("Вариант", max_length=120)
+    sku = models.CharField("Артикул варианта", max_length=64, unique=True)
+    price = models.DecimalField("Цена", max_digits=10, decimal_places=2)
+    stock = models.PositiveIntegerField("Остаток", default=0)
+    is_active = models.BooleanField("Активен", default=True)
+    is_default = models.BooleanField(default=False, editable=False)
+
+    class Meta:
+        ordering = ["pk"]
+        constraints = [
+            models.CheckConstraint(condition=Q(price__gt=0), name="variant_price_positive")
+        ]
+
+    def __str__(self):
+        return f"{self.product}: {self.name}"
+
+
 class ProductImage(models.Model):
     product = models.ForeignKey(
         Product, on_delete=models.CASCADE, related_name="images", verbose_name="Товар"

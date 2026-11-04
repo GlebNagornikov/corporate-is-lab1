@@ -4,7 +4,8 @@ from decimal import Decimal
 from django.db import transaction
 from django.db.models import F
 
-from catalog.models import Product
+from catalog.inventory import refresh_inventory
+from catalog.models import Product, ProductVariant
 
 from .models import Order, OrderItem, OrderStatusLog, PromoCode
 from .notifications import send_order_placed, send_status_changed
@@ -37,7 +38,7 @@ def place_order(
     *, user, cart, delivery_method, full_name, phone, email, address="", comment="", promo_code=""
 ):
     """Оформляет заказ: списывает остатки, применяет промокод, очищает корзину."""
-    items = list(cart.items.all())
+    items = list(cart.items.select_related("product", "variant"))
     if not items:
         raise OrderError("Корзина пуста.")
     if delivery_method == Order.Delivery.COURIER and not address.strip():
@@ -49,14 +50,31 @@ def place_order(
         .filter(pk__in=[item.product_id for item in items])
         .order_by("pk")
     }
+    variants = {
+        v.pk: v
+        for v in ProductVariant.objects.select_for_update()
+        .filter(pk__in=[i.variant_id for i in items if i.variant_id])
+        .order_by("pk")
+    }
     for item in items:
         product = products[item.product_id]
+        variant = variants.get(item.variant_id)
+        item.product = product
+        if variant:
+            item.variant = variant
+            if variant.is_default:
+                ProductVariant.objects.filter(pk=variant.pk).update(
+                    stock=product.stock, price=product.price
+                )
+        if variant and (variant.product_id != product.pk or not variant.is_active):
+            raise OrderError("Вариант товара недоступен.")
+        stock = variant.stock if variant and not variant.is_default else product.stock
         if not product.is_active:
             raise OrderError(f"Товар «{product.name}» снят с продажи.")
-        if product.stock < item.quantity:
-            raise OrderError(f"Товара «{product.name}» осталось только {product.stock} шт.")
+        if stock < item.quantity:
+            raise OrderError(f"Товара «{product.name}» осталось только {stock} шт.")
     promo = get_valid_promo(promo_code, lock=True) if promo_code.strip() else None
-    subtotal = sum(products[item.product_id].price * item.quantity for item in items)
+    subtotal = sum(item.unit_price * item.quantity for item in items)
     discount = Decimal("0")
     if promo:
         discount = (subtotal * promo.discount_percent / 100).quantize(Decimal("0.01"))
@@ -80,13 +98,22 @@ def place_order(
             order=order,
             product=products[item.product_id],
             product_name=products[item.product_id].name,
-            price=products[item.product_id].price,
+            variant=item.variant,
+            variant_name=item.variant.name if item.variant else "",
+            price=item.unit_price,
             quantity=item.quantity,
         )
         for item in items
     )
     for item in items:
-        Product.objects.filter(pk=item.product_id).update(stock=F("stock") - item.quantity)
+        if item.variant_id:
+            ProductVariant.objects.filter(pk=item.variant_id).update(
+                stock=F("stock") - item.quantity
+            )
+        if not item.variant or item.variant.is_default:
+            Product.objects.filter(pk=item.product_id).update(stock=F("stock") - item.quantity)
+        else:
+            refresh_inventory(item.product_id)
     if promo:
         PromoCode.objects.filter(pk=promo.pk).update(used_count=F("used_count") + 1)
     OrderStatusLog.objects.create(
@@ -108,7 +135,14 @@ def change_status(order, new_status, *, by, comment=""):
         )
     if new_status == Order.Status.CANCELLED:
         for item in order.items.all():
-            Product.objects.filter(pk=item.product_id).update(stock=F("stock") + item.quantity)
+            if item.variant_id:
+                ProductVariant.objects.filter(pk=item.variant_id).update(
+                    stock=F("stock") + item.quantity
+                )
+            if not item.variant or item.variant.is_default:
+                Product.objects.filter(pk=item.product_id).update(stock=F("stock") + item.quantity)
+            else:
+                refresh_inventory(item.product_id)
     old_status = order.status
     order.status = new_status
     order.save(update_fields=["status", "updated_at"])

@@ -45,7 +45,7 @@ class ProductDetailView(DetailView):
             Product.objects.active()
             .select_related("category__parent")
             .with_rating()
-            .prefetch_related("images")
+            .prefetch_related("images", "variants")
         )
 
     def get_context_data(self, **kwargs):

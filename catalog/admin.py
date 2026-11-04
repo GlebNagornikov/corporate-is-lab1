@@ -1,7 +1,7 @@
 from django.contrib import admin
 from django.utils.html import format_html
 
-from .models import Category, Product, ProductImage, Review
+from .models import Category, Product, ProductImage, ProductVariant, Review
 
 
 @admin.register(Category)
@@ -28,9 +28,15 @@ class ProductImageInline(admin.TabularInline):
         )
 
 
+class ProductVariantInline(admin.TabularInline):
+    model = ProductVariant
+    extra = 0
+    fields = ("name", "sku", "price", "stock", "is_active")
+
+
 @admin.register(Product)
 class ProductAdmin(admin.ModelAdmin):
-    inlines = (ProductImageInline,)
+    inlines = (ProductImageInline, ProductVariantInline)
     list_display = ("name", "sku", "category", "price", "old_price", "stock", "is_active")
     list_editable = ("price", "old_price", "stock", "is_active")
     list_filter = ("is_active", "category")
