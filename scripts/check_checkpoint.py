@@ -71,7 +71,8 @@ class ShopClient:
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--url", default="https://localhost")
-    parser.add_argument("--expected-version", default="1.1.0")
+    parser.add_argument("--expected-version", default="1.1.1")
+    parser.add_argument("--promo-code", default="CHECKPOINT10")
     parser.add_argument("--password", default="DemoShop2026!")
     args = parser.parse_args()
     assert urllib.parse.urlparse(args.url).hostname in {"localhost", "127.0.0.1"}
@@ -131,7 +132,7 @@ def main():
         "email": "buyer_demo@example.test",
         "delivery_method": "courier",
         "address_book": address_id,
-        "promo_code": "STUDENT10",
+        "promo_code": args.promo_code,
     }
     status, _, error = buyer.api("/api/orders/", {**checkout, "phone": "123"})
     assert status == 400 and "phone" in error

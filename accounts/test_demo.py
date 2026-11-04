@@ -1,15 +1,33 @@
 import tempfile
+from datetime import timedelta
 from io import StringIO
 
 from django.core.management import call_command
 from django.core.management.base import CommandError
 from django.test import TestCase, override_settings
+from django.utils import timezone
 
 from accounts.models import User
 from catalog.models import Product, ProductVariant
+from orders.models import PromoCode
 
 
 class DemoSetupTests(TestCase):
+    def test_expired_legacy_promo_is_preserved_and_separate_demo_code_created(self):
+        now = timezone.now()
+        promo = PromoCode.objects.create(
+            code="STUDENT10",
+            discount_percent=15,
+            valid_from=now - timedelta(days=20),
+            valid_until=now - timedelta(days=1),
+        )
+        with tempfile.TemporaryDirectory() as media, override_settings(MEDIA_ROOT=media):
+            call_command("setup_demo", password="Demonstration123!", stdout=StringIO())
+        promo.refresh_from_db()
+        self.assertFalse(promo.is_valid_now())
+        self.assertEqual(promo.discount_percent, 15)
+        self.assertTrue(PromoCode.objects.get(code="CHECKPOINT10").is_valid_now())
+
     def test_demo_setup_is_idempotent_and_does_not_reset_password(self):
         with tempfile.TemporaryDirectory() as media, override_settings(MEDIA_ROOT=media):
             call_command("setup_demo", password="Demonstration123!", stdout=StringIO())

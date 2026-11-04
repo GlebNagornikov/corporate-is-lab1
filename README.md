@@ -1,7 +1,7 @@
 # Corporate IS — учебный интернет-магазин
 
 Django, PostgreSQL, REST API с JWT. Реализованы лабораторные №1–7 и **все 12**
-доработок пункта 8.2. Доработки выпускаются в релизе **1.1.0**.
+доработок пункта 8.2, выпущенных в **1.1.0**. Текущая версия — **1.1.1** (исправление демосценария).
 
 Покупатель ищет товары, выбирает вариант, оформляет доставку и оплачивает заказ
 в учебном шлюзе. Менеджер управляет каталогом, вариантами и статусами, импортирует CSV
@@ -38,7 +38,7 @@ docker compose exec web python manage.py setup_demo --password "DemoShop2026!"
 
 `seed_catalog` создаёт 30 товаров и картинки; повторный запуск **обновляет** цены и
 остатки демокаталога. Для своей базы этот шаг пропустить. `setup_demo` добавляет пять
-отдельных DEMO-товаров с вариантами, характеристиками и фото, промокод STUDENT10,
+отдельных DEMO-товаров с вариантами, характеристиками и фото, промокод CHECKPOINT10,
 покупателя и менеджера. Повторный запуск не меняет существующие пароли; для явного
 сброса есть `--reset-password`. Аккаунт с несовпадающей ролью не изменяется.
 
@@ -65,8 +65,8 @@ HSTS у localhost действует на все порты ещё 60 секун
 ## Прод-подобный стенд
 
 Чистый checkout релиза исключает незавершённые локальные изменения из образа.
-На новом компьютере можно клонировать сразу тег `v1.1.0`. Для существующей рабочей
-папки с изменениями использовать отдельный `git worktree add --detach <папка> v1.1.0`.
+На новом компьютере можно клонировать сразу тег `v1.1.1`. Для существующей рабочей
+папки с изменениями использовать отдельный `git worktree add --detach <папка> v1.1.1`.
 
 ```powershell
 Copy-Item .env.prod.example .env.prod
@@ -74,7 +74,7 @@ New-Item -ItemType Directory -Force nginx/certs
 & 'C:/Program Files/Git/usr/bin/openssl.exe' req -x509 -nodes -newkey rsa:2048 -days 365 -keyout nginx/certs/localhost.key -out nginx/certs/localhost.crt -subj '/CN=localhost' -addext 'subjectAltName=DNS:localhost,IP:127.0.0.1'
 ```
 
-В `.env.prod` установить APP_VERSION=1.1.0, отдельные случайные SECRET_KEY,
+В `.env.prod` установить APP_VERSION=1.1.1, отдельные случайные SECRET_KEY,
 PAYMENT_WEBHOOK_SECRET и POSTGRES_PASSWORD. Prod использует собственную БД shop.
 В Git Bash вместо пути к openssl использовать `openssl`; при преобразовании пути
 заменить `-subj '/CN=localhost'` на `-subj '//CN=localhost'`.
@@ -103,7 +103,7 @@ Debug Toolbar, Ruff и Coverage. Код копируется в образ, bind
 |---|---|
 | SECRET_KEY | Случайный ключ Django; отдельный для dev/prod |
 | PAYMENT_WEBHOOK_SECRET | Отдельный случайный HMAC-секрет учебного платёжного шлюза |
-| APP_VERSION | Prod-тег образа shop-web; текущий релиз 1.1.0 |
+| APP_VERSION | Prod-тег образа shop-web; текущий релиз 1.1.1 |
 | POSTGRES_DB / USER / PASSWORD | Учётные данные отдельной БД окружения |
 | POSTGRES_HOST_PORT | Dev-порт PostgreSQL, 5432; prod БД наружу не публикуется |
 | DATABASE_URL | Для manage.py с хоста; Compose устанавливает внутренний адрес db |
@@ -213,9 +213,9 @@ curl.exe -kI https://localhost/static/admin/css/base.css
 docker compose -f docker-compose.prod.yml --env-file .env.prod exec web python -c "import debug_toolbar"
 ```
 
-Ожидается 301 на HTTPS, healthz версии 1.1.0, CSS 200; импорт debug_toolbar должен
+Ожидается 301 на HTTPS, healthz версии 1.1.1, CSS 200; импорт debug_toolbar должен
 завершиться ModuleNotFoundError. Для автоматической HTTPS-покупки с локальным Python:
-`python scripts/check_prod.py --expected-version 1.1.0 --purchase`.
+`python scripts/check_prod.py --expected-version 1.1.1 --purchase`.
 Она создаёт нового тестового покупателя и заказ, списывает одну единицу товара.
 
 ## История выпусков, откат и данные
@@ -227,10 +227,10 @@ Feature PR идут в develop; релиз — release/1.1.0 → main и обр�
 
 Для отката поменять APP_VERSION на ранее собранный тег и запустить **без сборки**:
 `docker compose -f docker-compose.prod.yml --env-file .env.prod up -d --no-build`.
-Вернуть 1.1.0 той же командой. Выпущенные теги образов не пересобирать.
+Вернуть 1.1.1 той же командой. Выпущенные теги образов не пересобирать.
 Если nginx сохранил старый адрес контейнера и отвечает 502, перезапустить nginx.
 Откат кода не откатывает схему/данные; 1.0.1 не понимает новые варианты и paid, поэтому
-для проверки отката использовать healthz, а для реальной работы вернуть 1.1.0.
+для проверки отката использовать healthz, а для реальной работы вернуть 1.1.1.
 
 Резервная копия PostgreSQL (PowerShell):
 
@@ -247,3 +247,8 @@ docker compose -f docker-compose.prod.yml --env-file .env.prod cp db:/tmp/shop.d
 **Не добавлять -v: это удаляет тома с БД, Redis и изображениями.** Dev и prod используют
 разные проекты/тома. Изменение исходников не требует dev-пересборки; изменение зависимостей
 требует `up -d --build`. При запуске новых worker после изменения кода перезапустить worker.
+
+Hotfix 1.1.1 устраняет конфликт старого STUDENT10 с демосценарием: setup_demo создаёт
+отдельный CHECKPOINT10, а scripts/check_checkpoint.py поддерживает --promo-code.
+Старые промокоды, их сроки и скидки не перезаписываются. Перед повторной проверкой
+существующего стенда выполнить setup_demo ещё раз с прежним демопаролем.

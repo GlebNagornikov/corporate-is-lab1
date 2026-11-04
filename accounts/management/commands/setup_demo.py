@@ -82,14 +82,15 @@ class Command(BaseCommand):
                         stock=5 if index < 5 else 0,
                     )
         now = timezone.now()
-        PromoCode.objects.get_or_create(
-            code="STUDENT10",
-            defaults={
-                "discount_percent": 10,
-                "valid_from": now - timedelta(days=1),
-                "valid_until": now + timedelta(days=365),
-            },
-        )
+        for code in ("STUDENT10", "CHECKPOINT10"):
+            PromoCode.objects.get_or_create(
+                code=code,
+                defaults={
+                    "discount_percent": 10,
+                    "valid_from": now - timedelta(days=1),
+                    "valid_until": now + timedelta(days=365),
+                },
+            )
         self.stdout.write(
-            "Готово: buyer_demo, manager_demo; DEMO-1…5 и STUDENT10. Пароли не сброшены."
+            "Готово: buyer_demo, manager_demo; DEMO-1…5 и CHECKPOINT10. Пароли не сброшены."
         )
