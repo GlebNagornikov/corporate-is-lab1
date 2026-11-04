@@ -1,5 +1,6 @@
 {% extends "base.html" %}
 {% block title %}{{ product.name }}<form method="post" action="{% url 'wishlist-change' product.pk %}" class="my-2">{% csrf_token %}<button class="btn btn-sm btn-outline-danger">В избранное</button></form>
+<form method="post" action="{% url 'compare-change' product.pk %}">{% csrf_token %}<button class="btn btn-sm btn-outline-secondary">Сравнить</button></form>
 {% endblock %}
 {% block content %}
 <nav class="mb-3 small">
