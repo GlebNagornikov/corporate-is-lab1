@@ -1,6 +1,7 @@
 from django.core.exceptions import ValidationError as DjangoValidationError
 from django.shortcuts import get_object_or_404
 from django.urls import path
+from drf_spectacular.utils import extend_schema
 from rest_framework import serializers
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -44,11 +45,16 @@ def cart_response(cart):
 
 
 class CartView(APIView):
+    serializer_class = CartSerializer
+
     def get(self, request):
         return cart_response(get_cart(request, create=True))
 
 
 class CartItemsView(APIView):
+    serializer_class = CartSerializer
+
+    @extend_schema(request=AddItemSerializer, responses=CartSerializer)
     def post(self, request):
         serializer = AddItemSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
@@ -66,6 +72,9 @@ class CartItemsView(APIView):
 
 
 class CartItemDetailView(APIView):
+    serializer_class = CartSerializer
+
+    @extend_schema(request=QuantitySerializer, responses=CartSerializer)
     def patch(self, request, product_id):
         serializer = QuantitySerializer(data=request.data)
         serializer.is_valid(raise_exception=True)

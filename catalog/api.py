@@ -1,4 +1,5 @@
 from django_filters.rest_framework import DjangoFilterBackend
+from drf_spectacular.utils import extend_schema
 from rest_framework import permissions, serializers, status, viewsets
 from rest_framework.decorators import action
 from rest_framework.response import Response
@@ -29,6 +30,7 @@ class ProductViewSet(viewsets.ReadOnlyModelViewSet):
             Product.objects.active()
             .select_related("category__parent")
             .with_rating()
+            .prefetch_related("variants")
             .order_by("-created_at")
         )
 
@@ -37,6 +39,8 @@ class ProductViewSet(viewsets.ReadOnlyModelViewSet):
         methods=["get", "post"],
         permission_classes=[permissions.IsAuthenticatedOrReadOnly],
     )
+    @extend_schema(methods=["GET"], responses=ReviewSerializer(many=True))
+    @extend_schema(methods=["POST"], request=ReviewSerializer, responses={201: ReviewSerializer})
     def reviews(self, request, slug=None):
         product = self.get_object()
         if request.method == "GET":

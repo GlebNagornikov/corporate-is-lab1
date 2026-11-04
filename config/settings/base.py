@@ -46,6 +46,7 @@ INSTALLED_APPS = [
     "django.contrib.postgres",
     "rest_framework",
     "django_filters",
+    "drf_spectacular",
     "employees",
     "accounts",
     "catalog",
@@ -140,6 +141,13 @@ LOGIN_REDIRECT_URL = "catalog:product_list"
 LOGOUT_REDIRECT_URL = "catalog:product_list"
 
 REST_FRAMEWORK = {
+    "DEFAULT_SCHEMA_CLASS": "config.api_schema.ShopSchema",
+    "DEFAULT_THROTTLE_CLASSES": [
+        "config.throttling.ShopAnonThrottle",
+        "config.throttling.ShopUserThrottle",
+    ],
+    "DEFAULT_THROTTLE_RATES": {"anon": "60/min", "user": "600/min", "token": "10/min"},
+    "NUM_PROXIES": 1,
     "DEFAULT_AUTHENTICATION_CLASSES": [
         "rest_framework_simplejwt.authentication.JWTAuthentication",
         "rest_framework.authentication.SessionAuthentication",
@@ -220,3 +228,25 @@ CELERY_TASK_ACKS_LATE = True
 CELERY_WORKER_PREFETCH_MULTIPLIER = 1
 CELERY_BROKER_CONNECTION_RETRY_ON_STARTUP = True
 CELERY_BROKER_TRANSPORT_OPTIONS = {"visibility_timeout": 3600}
+SPECTACULAR_SETTINGS = {
+    "TITLE": "Corporate IS Shop API",
+    "DESCRIPTION": "Магазин и сотрудники. JWT/сессия; права указаны у операций.",
+    "VERSION": "1.1.0",
+    "COMPONENT_SPLIT_REQUEST": True,
+    "ENUM_NAME_OVERRIDES": {
+        "OrderStatusEnum": [
+            ("new", "Новый"),
+            ("paid", "Оплачен"),
+            ("confirmed", "Подтверждён"),
+            ("shipped", "Передан в доставку"),
+            ("delivered", "Доставлен"),
+            ("cancelled", "Отменён"),
+        ]
+    },
+}
+CACHES["throttles"] = {
+    **CACHES["default"],
+    "LOCATION": env("REDIS_THROTTLE_URL", default="redis://redis:6379/2"),
+    "KEY_PREFIX": "shop-throttle",
+    "OPTIONS": {**CACHES["default"]["OPTIONS"], "IGNORE_EXCEPTIONS": False},
+}

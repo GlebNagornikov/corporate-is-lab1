@@ -154,11 +154,11 @@ class Product(models.Model):
             raise ValidationError({"old_price": "Старая цена должна быть больше текущей."})
 
     @property
-    def in_stock(self):
+    def in_stock(self) -> bool:
         return self.stock > 0
 
     @property
-    def discount_percent(self):
+    def discount_percent(self) -> int:
         if not self.old_price:
             return 0
         return round((1 - self.price / self.old_price) * 100)
