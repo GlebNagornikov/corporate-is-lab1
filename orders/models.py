@@ -42,6 +42,7 @@ class PromoCode(models.Model):
 class Order(models.Model):
     class Status(models.TextChoices):
         NEW = "new", "Новый"
+        PAID = "paid", "Оплачен"
         CONFIRMED = "confirmed", "Подтверждён"
         SHIPPED = "shipped", "Передан в доставку"
         DELIVERED = "delivered", "Доставлен"
@@ -52,7 +53,8 @@ class Order(models.Model):
         COURIER = "courier", "Курьер"
 
     TRANSITIONS = {
-        Status.NEW: {Status.CONFIRMED, Status.CANCELLED},
+        Status.NEW: {Status.PAID, Status.CANCELLED},
+        Status.PAID: {Status.CONFIRMED, Status.CANCELLED},
         Status.CONFIRMED: {Status.SHIPPED, Status.CANCELLED},
         Status.SHIPPED: {Status.DELIVERED},
         Status.DELIVERED: set(),
@@ -139,6 +141,23 @@ class OrderItem(models.Model):
     @property
     def total(self):
         return self.price * self.quantity
+
+
+class Payment(models.Model):
+    import uuid
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    order = models.ForeignKey(Order, on_delete=models.PROTECT, related_name="payments")
+    amount = models.DecimalField(max_digits=12, decimal_places=2)
+    status = models.CharField(
+        max_length=20,
+        default="pending",
+        choices=[("pending", "Ожидание"), ("success", "Успех"), ("failed", "Отказ")],
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"{self.order}: {self.status}"
 
 
 class OrderStatusLog(models.Model):

@@ -25,6 +25,7 @@ from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 from config.health import healthz
 
 urlpatterns = [
+    path("", include("orders.payments")),
     path("", include("catalog.restock")),
     path("", include("catalog.comparison")),
     path("", include("catalog.wishlist")),
