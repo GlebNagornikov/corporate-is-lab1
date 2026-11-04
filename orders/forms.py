@@ -2,6 +2,7 @@ from django import forms
 
 from .models import Order
 from .services import OrderError, get_valid_promo
+from .validators import normalize_phone
 
 
 class CheckoutForm(forms.ModelForm):
@@ -11,6 +12,9 @@ class CheckoutForm(forms.ModelForm):
         model = Order
         fields = ["full_name", "phone", "email", "delivery_method", "address", "comment"]
         widgets = {"comment": forms.Textarea(attrs={"rows": 2})}
+
+    def clean_phone(self):
+        return normalize_phone(self.cleaned_data["phone"])
 
     def clean_promo_code(self):
         code = self.cleaned_data["promo_code"].strip()
