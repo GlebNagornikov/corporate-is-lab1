@@ -26,7 +26,16 @@ class CheckoutView(LoginRequiredMixin, FormView):
 
     def get_initial(self):
         user = self.request.user
-        return {"full_name": user.get_full_name(), "email": user.email, "phone": user.phone}
+        primary = user.addresses.filter(is_primary=True).first()
+        return {
+            "full_name": user.get_full_name(),
+            "email": user.email,
+            "phone": user.phone,
+            "address_book": primary,
+        }
+
+    def get_form_kwargs(self):
+        return {**super().get_form_kwargs(), "user": self.request.user}
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)

@@ -1,6 +1,8 @@
 from django.core.exceptions import ValidationError
 from rest_framework import serializers
 
+from accounts.models import Address
+
 from .models import Order, OrderItem, OrderStatusLog
 from .validators import normalize_phone
 
@@ -60,12 +62,16 @@ class OrderSerializer(serializers.ModelSerializer):
 
 
 class CheckoutSerializer(serializers.ModelSerializer):
+    address_book = serializers.PrimaryKeyRelatedField(
+        queryset=Address.objects.all(), required=False
+    )
     promo_code = serializers.CharField(max_length=30, required=False, allow_blank=True)
 
     class Meta:
         model = Order
         fields = [
             "full_name",
+            "address_book",
             "phone",
             "email",
             "delivery_method",
