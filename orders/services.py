@@ -140,7 +140,13 @@ def place_order(
     cart.items.all().delete()
     invalidate_catalog()
     queue_order_email(order, "placed")
-    logger.info("Оформлен заказ №%s на сумму %s, покупатель %s", order.pk, order.total, user)
+    logger.info(
+        "Оформлен заказ №%s на сумму %s, покупатель %s",
+        order.pk,
+        order.total,
+        user,
+        extra={"order_id": order.pk},
+    )
     return order
 
 
@@ -173,7 +179,14 @@ def change_status(order, new_status, *, by, comment="", payment_verified=False):
         order=order, from_status=old_status, to_status=new_status, changed_by=by, comment=comment
     )
     queue_order_email(order, "status")
-    logger.info("Заказ №%s: %s → %s (%s)", order.pk, old_status, new_status, by)
+    logger.info(
+        "Заказ №%s: %s → %s (%s)",
+        order.pk,
+        old_status,
+        new_status,
+        by,
+        extra={"order_id": order.pk},
+    )
     return order
 
 

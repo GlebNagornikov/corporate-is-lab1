@@ -47,9 +47,14 @@ def deliver_restock(product_id):
 
 
 def queue_restock(product_id):
+    from config.request_logging import request_id
+
     from .tasks import send_restock
 
-    transaction.on_commit(lambda: send_restock.delay(product_id))
+    identifier = request_id()
+    transaction.on_commit(
+        lambda: send_restock.apply_async(args=[product_id], headers={"request_id": identifier})
+    )
 
 
 class SubscriptionForm(forms.Form):
