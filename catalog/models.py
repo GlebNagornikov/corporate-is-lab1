@@ -108,6 +108,7 @@ class Product(models.Model):
     sku = models.CharField("Артикул", max_length=32, unique=True)
     description = models.TextField("Описание", blank=True)
     price = models.DecimalField("Цена", max_digits=10, decimal_places=2)
+    attributes = models.JSONField("Характеристики", default=dict, blank=True)
     old_price = models.DecimalField(
         "Старая цена", max_digits=10, decimal_places=2, null=True, blank=True
     )
