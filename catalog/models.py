@@ -10,7 +10,7 @@ from django.contrib.postgres.search import (
 )
 from django.core.exceptions import ValidationError
 from django.core.validators import MaxValueValidator, MinValueValidator
-from django.db import models
+from django.db import models, transaction
 from django.db.models import Avg, Count, F, Q
 from django.urls import reverse
 
@@ -207,11 +207,19 @@ class ProductVariant(models.Model):
     class Meta:
         ordering = ["pk"]
         constraints = [
-            models.CheckConstraint(condition=Q(price__gt=0), name="variant_price_positive")
+            models.UniqueConstraint(
+                fields=["product"], condition=Q(is_default=True), name="one_default_variant"
+            ),
+            models.CheckConstraint(condition=Q(price__gt=0), name="variant_price_positive"),
         ]
 
     def __str__(self):
         return f"{self.product}: {self.name}"
+
+    @transaction.atomic
+    def save(self, *args, **kwargs):
+        Product.objects.select_for_update().get(pk=self.product_id)
+        return super().save(*args, **kwargs)
 
 
 class ProductImage(models.Model):

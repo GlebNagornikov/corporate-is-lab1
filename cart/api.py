@@ -40,7 +40,7 @@ class QuantitySerializer(serializers.Serializer):
 
 
 def cart_response(cart):
-    cart = type(cart).objects.prefetch_related("items__product").get(pk=cart.pk)
+    cart = type(cart).objects.prefetch_related("items__product", "items__variant").get(pk=cart.pk)
     return Response(CartSerializer(cart).data)
 
 

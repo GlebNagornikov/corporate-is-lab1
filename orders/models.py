@@ -1,3 +1,5 @@
+import uuid
+
 from django.conf import settings
 from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models
@@ -155,8 +157,6 @@ class EmailNotification(models.Model):
 
 
 class Payment(models.Model):
-    import uuid
-
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     order = models.ForeignKey(Order, on_delete=models.PROTECT, related_name="payments")
     amount = models.DecimalField(max_digits=12, decimal_places=2)
