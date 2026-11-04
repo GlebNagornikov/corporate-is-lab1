@@ -163,6 +163,21 @@ class Product(models.Model):
         return round((1 - self.price / self.old_price) * 100)
 
 
+class WishlistItem(models.Model):
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="wishlist"
+    )
+    product = models.ForeignKey(Product, on_delete=models.CASCADE)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(fields=["user", "product"], name="unique_wishlist_product")
+        ]
+
+    def __str__(self):
+        return f"{self.user}: {self.product}"
+
+
 class ProductVariant(models.Model):
     product = models.ForeignKey(Product, on_delete=models.CASCADE, related_name="variants")
     name = models.CharField("Вариант", max_length=120)
