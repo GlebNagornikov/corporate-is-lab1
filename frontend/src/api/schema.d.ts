@@ -749,8 +749,14 @@ export interface components {
             /**
              * Format: decimal
              * @description Сумма цен всех найденных товаров при фильтрации по категории.
+             * @example 1290.00
              */
             total: string | null;
+            /**
+             * @description Вариант поискового запроса, если по исходному запросу нет товаров.
+             * @example null
+             */
+            suggestion: string | null;
         };
         PatchedDepartmentRequest: {
             name?: string;

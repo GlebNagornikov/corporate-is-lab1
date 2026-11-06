@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query'
-import { useSearchParams } from 'react-router'
+import { Link, useSearchParams } from 'react-router'
 import { productsQuery } from '../api/queries'
 import Filters from '../components/Filters'
 import Pagination from '../components/Pagination'
@@ -11,6 +11,12 @@ export default function CatalogPage() {
   const [searchParams] = useSearchParams()
   const query = parseCatalogParams(searchParams)
   const { data, isPending, isError, error, refetch, isPlaceholderData } = useQuery(productsQuery(query))
+  const suggestion = isPlaceholderData ? null : data?.suggestion
+  const suggestedParams = new URLSearchParams(searchParams)
+  if (suggestion) {
+    suggestedParams.set('q', suggestion)
+    suggestedParams.delete('page')
+  }
 
   return (
     <section>
@@ -24,7 +30,12 @@ export default function CatalogPage() {
           <button type="button" onClick={() => void refetch()}>Повторить</button>
         </div>
       ) : data.results.length === 0 ? (
-        <p className="muted">Ничего не найдено. Измените условия поиска.</p>
+        <div>
+          <p className="muted">Ничего не найдено. Измените условия поиска.</p>
+          {suggestion && (
+            <p>Возможно, вы искали <Link to={`/?${suggestedParams}`}>{suggestion}</Link>?</p>
+          )}
+        </div>
       ) : (
         <>
           <p className="muted">Найдено: {data.count}</p>

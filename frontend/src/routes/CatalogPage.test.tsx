@@ -59,3 +59,24 @@ test('показывает ошибку сервера и загружает к�
   expect(await screen.findByRole('link', { name: 'Книга «Чистый код»' })).toBeInTheDocument()
   expect(screen.queryByRole('alert')).not.toBeInTheDocument()
 })
+
+test('предлагает исправить опечатку и ищет подсказку в той же категории', async () => {
+  const user = userEvent.setup()
+  server.use(
+    http.get('*/api/catalog/products/', ({ request }) => {
+      const params = new URL(request.url).searchParams
+      expect(params.get('category')).toBe('books')
+      if (params.get('q') === 'канбн') {
+        return HttpResponse.json(makePage([], { suggestion: 'Канбан' }))
+      }
+      expect(params.get('q')).toBe('Канбан')
+      return HttpResponse.json(makePage([makeProduct({ name: 'Книга «Канбан»' })]))
+    }),
+  )
+  renderRoute(<CatalogPage />, '/?category=books&q=канбн')
+
+  await user.click(await screen.findByRole('link', { name: 'Канбан' }))
+
+  expect(await screen.findByRole('link', { name: 'Книга «Канбан»' })).toBeInTheDocument()
+  expect(screen.getByRole('searchbox')).toHaveValue('Канбан')
+})

@@ -148,3 +148,19 @@ class CatalogApiTests(CatalogTestCase):
         self.assertEqual(len(response.data["results"]), 1)
         self.assertEqual(response.data["count"], 2)
         self.assertEqual(response.data["total"], "1005.45")
+
+    def test_typo_suggestion_preserves_pagination_and_respects_filters(self):
+        url = "/api/catalog/products/"
+        typo = {"q": "ноутбк", "category": "electronics"}
+        response = self.api.get(url, typo)
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data["count"], 0)
+        self.assertEqual(response.data["results"], [])
+        self.assertIsNone(response.data["next"])
+        self.assertIsNone(response.data["previous"])
+        self.assertEqual(response.data["suggestion"], self.laptop.name)
+
+        corrected = self.api.get(url, {**typo, "q": response.data["suggestion"]})
+        self.assertEqual(corrected.data["count"], 1)
+        self.assertIsNone(corrected.data["suggestion"])
+        self.assertIsNone(self.api.get(url, {**typo, "category": "books"}).data["suggestion"])
