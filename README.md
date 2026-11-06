@@ -1,7 +1,7 @@
 # Corporate IS — учебный интернет-магазин
 
 Django, PostgreSQL, REST API с JWT. Реализованы лабораторные №1–7 и **все 12**
-доработок пункта 8.2, выпущенных в **1.1.0**. Текущая версия — **1.1.1** (исправление демосценария).
+доработок пункта 8.2, выпущенных в **1.1.0**. Текущая версия — **1.1.2** (исправления витрины и оформления заказа).
 
 Покупатель ищет товары, выбирает вариант, оформляет доставку и оплачивает заказ
 в учебном шлюзе. Менеджер управляет каталогом, вариантами и статусами, импортирует CSV
@@ -65,8 +65,8 @@ HSTS у localhost действует на все порты ещё 60 секун
 ## Прод-подобный стенд
 
 Чистый checkout релиза исключает незавершённые локальные изменения из образа.
-На новом компьютере можно клонировать сразу тег `v1.1.1`. Для существующей рабочей
-папки с изменениями использовать отдельный `git worktree add --detach <папка> v1.1.1`.
+На новом компьютере можно клонировать сразу тег `v1.1.2`. Для существующей рабочей
+папки с изменениями использовать отдельный `git worktree add --detach <папка> v1.1.2`.
 
 ```powershell
 Copy-Item .env.prod.example .env.prod
@@ -74,7 +74,7 @@ New-Item -ItemType Directory -Force nginx/certs
 & 'C:/Program Files/Git/usr/bin/openssl.exe' req -x509 -nodes -newkey rsa:2048 -days 365 -keyout nginx/certs/localhost.key -out nginx/certs/localhost.crt -subj '/CN=localhost' -addext 'subjectAltName=DNS:localhost,IP:127.0.0.1'
 ```
 
-В `.env.prod` установить APP_VERSION=1.1.1, отдельные случайные SECRET_KEY,
+В `.env.prod` установить APP_VERSION=1.1.2, отдельные случайные SECRET_KEY,
 PAYMENT_WEBHOOK_SECRET и POSTGRES_PASSWORD. Prod использует собственную БД shop.
 В Git Bash вместо пути к openssl использовать `openssl`; при преобразовании пути
 заменить `-subj '/CN=localhost'` на `-subj '//CN=localhost'`.
@@ -103,7 +103,7 @@ Debug Toolbar, Ruff и Coverage. Код копируется в образ, bind
 |---|---|
 | SECRET_KEY | Случайный ключ Django; отдельный для dev/prod |
 | PAYMENT_WEBHOOK_SECRET | Отдельный случайный HMAC-секрет учебного платёжного шлюза |
-| APP_VERSION | Prod-тег образа shop-web; текущий релиз 1.1.1 |
+| APP_VERSION | Prod-тег образа shop-web, текущий релиз 1.1.2 |
 | POSTGRES_DB / USER / PASSWORD | Учётные данные отдельной БД окружения |
 | POSTGRES_HOST_PORT | Dev-порт PostgreSQL, 5432; prod БД наружу не публикуется |
 | DATABASE_URL | Для manage.py с хоста; Compose устанавливает внутренний адрес db |
@@ -133,10 +133,10 @@ Debug Toolbar, Ruff и Coverage. Код копируется в образ, bind
 | 3 | Варианты | У DEMO-товара выбрать S и L с разными ценами/остатками в admin. В корзине две строки; заказ сохраняет названия и цены; отмена возвращает соответствующие остатки. | catalog.tests.test_variants |
 | 4 | Поступление | Открыть DEMO-5 с нулевым остатком, оставить email. В admin увеличить остаток одного варианта: приходит одно письмо. Повторное увеличение не рассылает снова. | catalog.tests.test_restock |
 | 5 | CSV-импорт | Команда import_products examples/products.csv --dry-run, затем без флага. Повторить — дубля нет. Добавить отрицательную цену/неизвестную категорию — весь файл отклонён с номерами строк. В admin товаров есть «Импорт CSV». | catalog.tests.test_importing |
-| 6 | Отчёт | Под manager_demo открыть «Отчёт», выбрать период и скачать CSV. Покупателю 403. Выручка исключает отменённые заказы; SQL-запросов всегда шесть. | orders.tests.test_reporting |
-| 7 | Адреса | В «Адресах» создать два адреса и сменить основной. Выбрать при заказе, потом изменить адрес в книге: старый заказ не меняется. Чужой адрес недоступен. | accounts.test_addresses |
+| 6 | Отчёт | Под manager_demo открыть «Панель менеджера → Заказы → Отчёт по продажам», выбрать период и скачать CSV. Покупателю 403. Выручка исключает отменённые заказы. SQL-запросов всегда шесть. | orders.tests.test_reporting |
+| 7 | Адреса | Создать два адреса. При оформлении основной уже в поле «Адрес доставки». Стрелка в поле позволяет выбрать другой адрес. Изменение в адресной книге не меняет оформленный заказ. Чужой адрес недоступен. | accounts.test_addresses, orders.tests.test_views |
 | 8 | Оплата | Оформить заказ → «Оплатить» → учебный успех/отказ. При успехе paid, далее менеджер confirmed/shipped/delivered. Повторный webhook не дублирует переход; неверная HMAC даёт 403. Покупатель paid не отменяет. | orders.tests.test_payments |
-| 9 | Redis-кэш | Повторно открыть карточку, посмотреть SQL в Debug Toolbar. Изменить цену/отзыв — сразу новое значение. Остановить redis: HTML-каталог продолжает работать. | catalog.tests.test_caching |
+| 9 | Redis-кэш | Повторно открыть карточку и посмотреть SQL в Debug Toolbar. Изменить цену или отзыв и обновить страницу товара. Новое значение видно при следующем запросе. Остановить Redis и проверить работу HTML-каталога. | catalog.tests.test_caching |
 | 10 | Celery | Остановить mailpit, оформить заказ: ответ приходит без ожидания SMTP. Запустить mailpit, дождаться письма; смотреть logs worker. Для повторной постановки сохранённых писем — dispatch_notifications. | orders.tests.test_tasks |
 | 11 | API docs и лимиты | Открыть /api/docs/. В prod доступ есть только у staff. 11-я попытка получения токена в минуту даёт 429 и Retry-After. spectacular --validate --fail-on-warn проходит. | config.test_api_docs |
 | 12 | JSON/request-id | Взять X-Request-ID ответа; найти его в logs nginx web, для писем также worker. Запись заказа содержит order_id. | config.test_logging |
@@ -213,24 +213,25 @@ curl.exe -kI https://localhost/static/admin/css/base.css
 docker compose -f docker-compose.prod.yml --env-file .env.prod exec web python -c "import debug_toolbar"
 ```
 
-Ожидается 301 на HTTPS, healthz версии 1.1.1, CSS 200; импорт debug_toolbar должен
+Ожидается 301 на HTTPS, healthz версии 1.1.2, CSS 200; импорт debug_toolbar должен
 завершиться ModuleNotFoundError. Для автоматической HTTPS-покупки с локальным Python:
-`python scripts/check_prod.py --expected-version 1.1.1 --purchase`.
+`python scripts/check_prod.py --expected-version 1.1.2 --purchase`.
 Она создаёт нового тестового покупателя и заказ, списывает одну единицу товара.
 
 ## История выпусков, откат и данные
 
-v1.0.0 — первый релиз; v1.0.1 — нормализация телефонов; v1.1.0 — все 12 доработок.
+v1.0.0 — первый релиз, v1.0.1 — нормализация телефонов, v1.1.0 — все 12 доработок.
+v1.1.1 исправляет демосценарий, v1.1.2 — витрину, оформление заказа и отчёт.
 Каждый тег аннотированный, находится на merge-коммите main, версия кода совпадает с тегом.
 Feature PR идут в develop; релиз — release/1.1.0 → main и обратно в develop.
 Подробности выпусков: [CHANGELOG](CHANGELOG.md), [лабораторная №7](docs/lab7-prod-stack.md).
 
 Для отката поменять APP_VERSION на ранее собранный тег и запустить **без сборки**:
 `docker compose -f docker-compose.prod.yml --env-file .env.prod up -d --no-build`.
-Вернуть 1.1.1 той же командой. Выпущенные теги образов не пересобирать.
+Вернуть 1.1.2 той же командой. Выпущенные теги образов не пересобирать.
 Если nginx сохранил старый адрес контейнера и отвечает 502, перезапустить nginx.
 Откат кода не откатывает схему/данные; 1.0.1 не понимает новые варианты и paid, поэтому
-для проверки отката использовать healthz, а для реальной работы вернуть 1.1.1.
+для проверки отката использовать healthz, а для реальной работы вернуть 1.1.2.
 
 Резервная копия PostgreSQL (PowerShell):
 
