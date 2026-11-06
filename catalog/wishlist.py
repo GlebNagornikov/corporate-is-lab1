@@ -1,5 +1,6 @@
+from django.contrib import messages
 from django.contrib.auth.decorators import login_required
-from django.shortcuts import get_object_or_404, redirect, render
+from django.shortcuts import get_object_or_404, render
 from django.urls import path
 from django.views.decorators.http import require_POST
 from drf_spectacular.utils import extend_schema, inline_serializer
@@ -9,6 +10,7 @@ from rest_framework.views import APIView
 
 from .models import Product
 from .services import set_favorite as set_favorite
+from .views import redirect_after_action
 
 
 @login_required
@@ -23,10 +25,12 @@ def wishlist(request):
 @login_required
 @require_POST
 def wishlist_change(request, pk):
-    set_favorite(
-        request.user, get_object_or_404(Product, pk=pk), request.POST.get("action") != "remove"
-    )
-    return redirect("wishlist")
+    product = get_object_or_404(Product, pk=pk)
+    enabled = request.POST.get("action") != "remove"
+    set_favorite(request.user, product, enabled)
+    if enabled:
+        messages.success(request, f"«{product.name}» в избранном.")
+    return redirect_after_action(request, "wishlist")
 
 
 class FavoriteInput(serializers.Serializer):

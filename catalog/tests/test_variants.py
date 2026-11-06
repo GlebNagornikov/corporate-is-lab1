@@ -38,6 +38,49 @@ class VariantTests(TestCase):
             email="test@example.test",
         )
 
+    def test_product_opens_variant_page_and_adds_selected_variant(self):
+        self.assertRedirects(
+            self.client.get(self.product.get_absolute_url()), self.small.get_absolute_url()
+        )
+        response = self.client.get(self.large.get_absolute_url())
+        self.assertContains(response, 'name="variant" value="%s"' % self.large.pk)
+        self.assertContains(response, 'max="10"')
+        self.assertContains(response, self.large.sku)
+        self.assertContains(response, "150,00")
+        self.assertContains(response, "В избранное")
+        self.assertContains(response, "Сравнить")
+        self.assertNotContains(response, "Стандартный вариант")
+        self.assertNotContains(response, "<title>Футболка<form")
+        response = self.client.post(
+            f"/cart/add/{self.product.pk}/",
+            {"variant": self.large.pk, "quantity": 1, "next": self.large.get_absolute_url()},
+        )
+        self.assertRedirects(response, self.large.get_absolute_url())
+        self.assertEqual(self.client.get("/cart/").context["items"].get().variant, self.large)
+
+    def test_variant_page_checks_parent_activity_and_stock(self):
+        self.small.stock = 0
+        self.small.save()
+        self.assertRedirects(
+            self.client.get(self.product.get_absolute_url()), self.large.get_absolute_url()
+        )
+        response = self.client.get(self.small.get_absolute_url())
+        self.assertContains(response, "Нет в наличии")
+        self.assertNotContains(response, "В корзину")
+        self.assertContains(response, self.large.get_absolute_url())
+        self.assertEqual(
+            self.client.get(f"/product/other/variant/{self.small.pk}/").status_code, 404
+        )
+        url = self.small.get_absolute_url()
+        self.small.is_active = False
+        self.small.save()
+        self.assertEqual(self.client.get(url).status_code, 404)
+        self.large.is_active = False
+        self.large.save()
+        response = self.client.get(self.product.get_absolute_url())
+        self.assertEqual(response.status_code, 200)
+        self.assertNotContains(response, "В корзину")
+
     def test_separate_lines_price_snapshot_and_cancel(self):
         add_to_cart(self.cart, self.product, 1, variant=self.small)
         add_to_cart(self.cart, self.product, 2, variant=self.large)

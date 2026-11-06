@@ -72,8 +72,23 @@ class ReportTests(TestCase):
         self.user.user_permissions.add(Permission.objects.get(codename="view_order"))
         response = self.client.get("/reports/sales/?format=csv")
         self.assertEqual(response.status_code, 200)
-        self.assertContains(response, "summary,revenue,60")
+        self.assertContains(response, "Итого,Выручка,60")
+        self.assertContains(response, "По статусам,Отменён,1")
+        self.assertContains(response, "По способам доставки,Самовывоз,2")
+        report = self.client.get("/reports/sales/")
+        self.assertContains(report, "Отменён — 1")
+        self.assertContains(report, "Оплачен — 1")
+        self.assertContains(report, "Самовывоз — 2")
+        self.assertNotContains(report, "cancelled")
+        self.assertNotContains(report, "pickup")
         self.assertContains(
             self.client.get("/reports/sales/?start=2026-11-04&end=2020-01-01"),
             "Начало периода позже окончания",
         )
+
+    def test_manager_can_open_report_from_orders_admin(self):
+        self.user.is_staff = True
+        self.user.save()
+        self.user.user_permissions.add(Permission.objects.get(codename="view_order"))
+        self.client.force_login(self.user)
+        self.assertContains(self.client.get("/admin/orders/order/"), 'href="/reports/sales/"')

@@ -221,6 +221,11 @@ class ProductVariant(models.Model):
         Product.objects.select_for_update().get(pk=self.product_id)
         return super().save(*args, **kwargs)
 
+    def get_absolute_url(self):
+        if self.is_default or not self.is_active:
+            return self.product.get_absolute_url()
+        return reverse("catalog:variant_detail", args=[self.product.slug, self.pk])
+
 
 class ProductImage(models.Model):
     product = models.ForeignKey(

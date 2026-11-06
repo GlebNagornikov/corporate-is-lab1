@@ -6,7 +6,21 @@ from django.http import HttpResponse
 from django.shortcuts import render
 from django.urls import path
 
+from .models import Order
 from .services import sales_report as sales_report
+
+SUMMARY_LABELS = {
+    "count": "Число заказов",
+    "revenue": "Выручка",
+    "average": "Средний чек",
+}
+CSV_SECTIONS = {
+    "statuses": ("По статусам", "label"),
+    "deliveries": ("По способам доставки", "label"),
+    "daily": ("По дням", "day"),
+    "top_quantity": ("Лидеры по количеству", "name"),
+    "top_revenue": ("Лидеры по стоимости позиций", "name"),
+}
 
 
 class PeriodForm(forms.Form):
@@ -28,25 +42,34 @@ class PeriodForm(forms.Form):
 def report_view(request):
     form = PeriodForm(request.GET)
     report = sales_report(**form.cleaned_data) if form.is_valid() else None
+    if report is not None:
+        for section, field, choices in (
+            ("statuses", "status", Order.Status.choices),
+            ("deliveries", "delivery_method", Order.Delivery.choices),
+        ):
+            labels = dict(choices)
+            for row in report[section]:
+                row["label"] = labels.get(row[field], row[field])
     if report is not None and request.GET.get("format") == "csv":
         response = HttpResponse(content_type="text/csv; charset=utf-8")
         response["Content-Disposition"] = 'attachment; filename="sales.csv"'
         response.write("\ufeff")
         writer = csv.writer(response)
-        writer.writerow(["section", "metric", "value", "revenue"])
+        writer.writerow(["Раздел", "Показатель", "Значение", "Выручка, ₽"])
         for key, value in report["summary"].items():
-            writer.writerow(["summary", key, value, ""])
-        for section in ("statuses", "deliveries", "daily", "top_quantity", "top_revenue"):
+            writer.writerow(["Итого", SUMMARY_LABELS[key], value, ""])
+        for section, (section_label, label_field) in CSV_SECTIONS.items():
             for row in report[section]:
-                label = str(
-                    row.get(
-                        "name", row.get("status", row.get("delivery_method", row.get("day", "")))
-                    )
-                )
+                label = str(row[label_field])
                 if label.startswith(("=", "+", "-", "@")):
                     label = "'" + label
                 writer.writerow(
-                    [section, label, row.get("count", row.get("quantity")), row.get("revenue", "")]
+                    [
+                        section_label,
+                        label,
+                        row.get("count", row.get("quantity")),
+                        row.get("revenue", ""),
+                    ]
                 )
         return response
     return render(request, "orders/report.html", {"form": form, "report": report})
