@@ -34,6 +34,6 @@ export function makeProduct(overrides: Partial<Product> = {}): Product {
   }
 }
 
-export function makePage(results: Product[]): ProductPage {
-  return { count: results.length, next: null, previous: null, results }
+export function makePage(results: Product[], overrides: Partial<ProductPage> = {}): ProductPage {
+  return { count: results.length, next: null, previous: null, total: null, results, ...overrides }
 }

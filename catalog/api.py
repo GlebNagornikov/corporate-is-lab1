@@ -7,6 +7,7 @@ from rest_framework.routers import DefaultRouter
 
 from .filters import ProductFilter
 from .models import Category, Product, Review
+from .pagination import ProductPagination
 from .serializers import CategorySerializer, ProductSerializer, ReviewSerializer
 
 
@@ -20,6 +21,7 @@ class CategoryViewSet(viewsets.ReadOnlyModelViewSet):
 
 class ProductViewSet(viewsets.ReadOnlyModelViewSet):
     serializer_class = ProductSerializer
+    pagination_class = ProductPagination
     permission_classes = [permissions.AllowAny]
     lookup_field = "slug"
     filter_backends = [DjangoFilterBackend]

@@ -1,4 +1,5 @@
 from decimal import Decimal
+from unittest.mock import patch
 
 from django.contrib.auth import get_user_model
 from django.db import IntegrityError
@@ -7,6 +8,7 @@ from django.urls import reverse
 from rest_framework.test import APIClient
 
 from catalog.models import Category, Product, Review
+from catalog.pagination import ProductPagination
 
 User = get_user_model()
 
@@ -135,3 +137,14 @@ class CatalogApiTests(CatalogTestCase):
         self.api.force_authenticate(self.user)
         self.assertEqual(self.api.post(url, {"rating": 4, "text": "ok"}).status_code, 201)
         self.assertEqual(self.api.post(url, {"rating": 4, "text": "ещё"}).status_code, 400)
+
+    def test_category_total_includes_all_pages_and_only_visible_products(self):
+        Product.objects.create(
+            category=self.books, name="Справочник", slug="guide", sku="BK-2", price=Decimal("5.45")
+        )
+        with patch.object(ProductPagination, "page_size", 1):
+            response = self.api.get("/api/catalog/products/", {"category": "books"})
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(len(response.data["results"]), 1)
+        self.assertEqual(response.data["count"], 2)
+        self.assertEqual(response.data["total"], "1005.45")

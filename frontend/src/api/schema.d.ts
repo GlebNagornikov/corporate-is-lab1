@@ -746,6 +746,11 @@ export interface components {
              */
             previous?: string | null;
             results: components["schemas"]["Product"][];
+            /**
+             * Format: decimal
+             * @description Сумма цен всех найденных товаров при фильтрации по категории.
+             */
+            total: string | null;
         };
         PatchedDepartmentRequest: {
             name?: string;
