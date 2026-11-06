@@ -71,7 +71,7 @@ class ShopClient:
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--url", default="https://localhost")
-    parser.add_argument("--expected-version", default="1.1.1")
+    parser.add_argument("--expected-version", default="1.1.2")
     parser.add_argument("--promo-code", default="CHECKPOINT10")
     parser.add_argument("--password", default="DemoShop2026!")
     args = parser.parse_args()

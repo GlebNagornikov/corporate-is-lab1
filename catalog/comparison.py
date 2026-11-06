@@ -1,6 +1,6 @@
 from django.contrib import messages
 from django.core.exceptions import ValidationError
-from django.shortcuts import get_object_or_404, redirect, render
+from django.shortcuts import get_object_or_404, render
 from django.urls import path
 from django.views.decorators.http import require_POST
 
@@ -9,6 +9,7 @@ from .services import add_comparison as add_comparison
 from .services import comparison_products as comparison_products
 from .services import comparison_rows as comparison_rows
 from .services import root_category as root_category
+from .views import redirect_after_action
 
 KEY = "comparison"
 
@@ -27,11 +28,14 @@ def compare_change(request, pk):
     if request.POST.get("action") == "remove":
         request.session[KEY] = [i for i in request.session.get(KEY, []) if i != pk]
     else:
+        product = get_object_or_404(Product.objects.active(), pk=pk)
         try:
-            add_comparison(request.session, get_object_or_404(Product.objects.active(), pk=pk))
+            add_comparison(request.session, product)
         except ValidationError as error:
             messages.error(request, error.messages[0])
-    return redirect("comparison")
+        else:
+            messages.success(request, f"«{product.name}» в списке сравнения.")
+    return redirect_after_action(request, "comparison")
 
 
 urlpatterns = [

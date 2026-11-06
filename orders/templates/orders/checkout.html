@@ -5,7 +5,37 @@
 <div class="row">
   <div class="col-md-7">
     <form method="post">{% csrf_token %}
-      {{ form.as_div }}
+      {{ form.non_field_errors }}
+      {% for field in form %}
+        {% if field.name == "address" and saved_addresses %}
+          <div>
+            {{ field.errors }}
+            {{ field.label_tag }}
+            <div class="input-group position-relative"
+                 onfocusout="if (!this.contains(event.relatedTarget)) this.lastElementChild.open = false">
+              {{ field }}
+              <details onkeydown="if (event.key === 'Escape' &amp;&amp; this.open) { this.firstElementChild.focus(); this.open = false; }">
+                <summary class="btn btn-light border border-start-0 rounded-start-0 h-100 d-flex align-items-center"
+                         aria-label="Сохранённые адреса"><span aria-hidden="true">▾</span></summary>
+                <ul class="dropdown-menu d-block top-100 start-0 w-100 shadow-sm overflow-auto"
+                    style="max-height: 15rem">
+                  {% for address in saved_addresses %}
+                    <li>
+                      <button type="button" class="dropdown-item text-wrap px-3 py-2" value="{{ address.snapshot }}"
+                              onmousedown="event.preventDefault()"
+                              onclick="const input = this.form.elements.address; input.value = this.value; input.focus(); this.closest('details').open = false">
+                        {{ address.label }} — {{ address.snapshot }}
+                      </button>
+                    </li>
+                  {% endfor %}
+                </ul>
+              </details>
+            </div>
+          </div>
+        {% else %}
+          <div>{{ field.as_field_group }}</div>
+        {% endif %}
+      {% endfor %}
       <button class="btn btn-success mt-3">Подтвердить заказ</button>
     </form>
   </div>

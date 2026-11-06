@@ -19,9 +19,6 @@
       {% endif %}
       {% if not product.in_stock %}<div class="text-danger small">нет в наличии</div>{% endif %}
     </div>
+    {% include "catalog/_product_actions.html" %}
   </div>
 </div>
-
-<form method="post" action="{% url 'wishlist-change' product.pk %}" class="my-2">{% csrf_token %}<button class="btn btn-sm btn-outline-danger">В избранное</button></form>
-
-<form method="post" action="{% url 'compare-change' product.pk %}">{% csrf_token %}<button class="btn btn-sm btn-outline-secondary">Сравнить</button></form>

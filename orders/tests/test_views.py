@@ -4,6 +4,7 @@ from django.contrib.auth import get_user_model
 from django.test import TestCase
 from django.urls import reverse
 
+from accounts.models import Address
 from catalog.models import Category, Product
 from orders.models import Order
 
@@ -27,6 +28,54 @@ class CheckoutViewTests(TestCase):
     def test_checkout_requires_login(self):
         response = self.client.get(reverse("orders:checkout"))
         self.assertRedirects(response, f"{reverse('login')}?next={reverse('orders:checkout')}")
+
+    def test_saved_address_prefills_single_editable_field_and_preserves_edits(self):
+        primary = Address.objects.create(
+            user=self.user,
+            label="Дом",
+            city="Москва",
+            street="Мира",
+            house="1",
+            is_primary=True,
+        )
+        second = Address.objects.create(
+            user=self.user, label="Работа", city="Москва", street="Садовая", house="3"
+        )
+        other = User.objects.create_user("address-other")
+        foreign = Address.objects.create(
+            user=other,
+            label="Чужой",
+            city="Секретный город",
+            street="Улица",
+            house="2",
+        )
+        self.client.force_login(self.user)
+        self.client.post(reverse("cart:add", args=[self.book.pk]), {"quantity": 1})
+        response = self.client.get(reverse("orders:checkout"))
+        self.assertEqual(response.context["form"]["address"].value(), primary.snapshot)
+        self.assertContains(response, 'name="address"', count=1)
+        self.assertContains(response, 'aria-label="Сохранённые адреса"')
+        self.assertNotContains(response, "Подставить сохранённый адрес")
+        self.assertContains(
+            response,
+            f'value="{second.snapshot}"',
+        )
+        self.assertContains(response, f"{second.label} — {second.snapshot}")
+        self.assertNotContains(response, 'name="address_book"')
+        self.assertNotContains(response, foreign.snapshot)
+        data = {
+            "full_name": "Покупатель",
+            "phone": "123",
+            "email": "b@example.com",
+            "delivery_method": "courier",
+            "address": "Москва, Новый адрес, 2",
+        }
+        response = self.client.post(reverse("orders:checkout"), data)
+        self.assertEqual(response.context["form"]["address"].value(), data["address"])
+        response = self.client.post(reverse("orders:checkout"), {**data, "phone": "+79130000000"})
+        order = Order.objects.get()
+        self.assertRedirects(response, order.get_absolute_url())
+        self.assertEqual(order.address, data["address"])
 
     def test_full_purchase(self):
         self.client.force_login(self.user)
