@@ -18,16 +18,16 @@ export function parseCatalogParams(searchParams: URLSearchParams): ProductQuery 
   const query: ProductQuery = {}
   const q = searchParams.get('q')?.trim()
   const category = searchParams.get('category')
-  const priceMin = Number(searchParams.get('price_min'))
-  const priceMax = Number(searchParams.get('price_max'))
+  const priceMin = Number(searchParams.get('price_min')?.trim() || NaN)
+  const priceMax = Number(searchParams.get('price_max')?.trim() || NaN)
   const requestedOrdering = searchParams.get('ordering')
   const ordering = orderingOptions.find(({ value }) => value === requestedOrdering)?.value
   const page = Number(searchParams.get('page'))
 
   if (q) query.q = q
   if (category) query.category = category
-  if (Number.isFinite(priceMin) && priceMin > 0) query.price_min = priceMin
-  if (Number.isFinite(priceMax) && priceMax > 0) query.price_max = priceMax
+  if (Number.isFinite(priceMin) && priceMin >= 0) query.price_min = priceMin
+  if (Number.isFinite(priceMax) && priceMax >= 0) query.price_max = priceMax
   if (searchParams.get('in_stock') === 'true') query.in_stock = true
   if (searchParams.get('on_sale') === 'true') query.on_sale = true
   if (ordering) query.ordering = [ordering]

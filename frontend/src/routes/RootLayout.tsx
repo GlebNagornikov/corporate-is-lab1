@@ -8,7 +8,7 @@ export default function RootLayout() {
     <>
       <header className="header">
         <Link to="/" className="brand">Магазин</Link>
-        {navigation.state === 'loading' && <span role="status">Загрузка…</span>}
+        {navigation.state === 'loading' && <span className="progress" role="status">Загрузка…</span>}
       </header>
       <div className="layout">
         <aside><CategoryNav /></aside>

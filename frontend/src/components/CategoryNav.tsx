@@ -1,57 +1,44 @@
 import { useQuery } from '@tanstack/react-query'
-import { Link, useSearchParams } from 'react-router'
+import { Link, useLocation, useSearchParams } from 'react-router'
 import { categoriesQuery } from '../api/queries'
 import { buildCategoryTree, type CategoryNode } from '../lib/categoryTree'
 
-function categoryHref(searchParams: URLSearchParams, slug?: string) {
-  const params = new URLSearchParams(searchParams)
-  params.delete('page')
-  if (slug) params.set('category', slug)
-  else params.delete('category')
-  const search = params.toString()
-  return search ? `/?${search}` : '/'
-}
-
-function CategoryLinks({ nodes, searchParams }: {
-  nodes: CategoryNode[]
-  searchParams: URLSearchParams
-}) {
+function CategoryItem({ node, active }: { node: CategoryNode; active: string | null }) {
   return (
-    <ul>
-      {nodes.map((node) => (
-        <li key={node.slug}>
-          <Link
-            to={categoryHref(searchParams, node.slug)}
-            aria-current={searchParams.get('category') === node.slug ? 'page' : undefined}
-          >
-            {node.name}
-          </Link>
-          {node.children.length > 0 && (
-            <CategoryLinks nodes={node.children} searchParams={searchParams} />
-          )}
-        </li>
-      ))}
-    </ul>
+    <li>
+      <Link
+        to={`/?category=${encodeURIComponent(node.slug)}`}
+        aria-current={node.slug === active ? 'page' : undefined}
+      >
+        {node.name}
+      </Link>
+      {node.children.length > 0 && (
+        <ul>
+          {node.children.map((child) => <CategoryItem key={child.id} node={child} active={active} />)}
+        </ul>
+      )}
+    </li>
   )
 }
 
 export default function CategoryNav() {
   const [searchParams] = useSearchParams()
+  const { pathname } = useLocation()
   const categories = useQuery(categoriesQuery())
+  const isCatalog = pathname === '/'
+  const active = isCatalog ? searchParams.get('category') : null
+
+  if (categories.isPending) return <p className="muted" role="status">Категории загружаются…</p>
+  if (categories.isError) return <p className="error" role="alert">Не удалось загрузить категории.</p>
 
   return (
     <nav aria-label="Категории">
-      <Link
-        to={categoryHref(searchParams)}
-        aria-current={!searchParams.has('category') ? 'page' : undefined}
-      >
-        Все категории
-      </Link>
-      {categories.isPending && <p role="status">Загрузка категорий…</p>}
-      {categories.isError && <p role="alert">Не удалось загрузить категории.</p>}
-      {categories.data && (
-        <CategoryLinks nodes={buildCategoryTree(categories.data)} searchParams={searchParams} />
-      )}
+      <ul className="categories">
+        <li><Link to="/" aria-current={isCatalog && !active ? 'page' : undefined}>Все товары</Link></li>
+        {buildCategoryTree(categories.data).map((node) => (
+          <CategoryItem key={node.id} node={node} active={active} />
+        ))}
+      </ul>
     </nav>
   )
 }
