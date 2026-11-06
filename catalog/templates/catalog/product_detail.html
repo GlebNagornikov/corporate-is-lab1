@@ -1,7 +1,5 @@
 {% extends "base.html" %}
-{% block title %}{{ product.name }}<form method="post" action="{% url 'wishlist-change' product.pk %}" class="my-2">{% csrf_token %}<button class="btn btn-sm btn-outline-danger">В избранное</button></form>
-<form method="post" action="{% url 'compare-change' product.pk %}">{% csrf_token %}<button class="btn btn-sm btn-outline-secondary">Сравнить</button></form>
-{% endblock %}
+{% block title %}{{ product.name }}{% if variant %} — {{ variant.name }}{% endif %}{% endblock %}
 {% block content %}
 <nav class="mb-3 small">
   <a href="{% url 'catalog:product_list' %}">Каталог</a>
@@ -23,22 +21,36 @@
     </div>
   </div>
   <div class="col-md-7">
-    <h1 class="h3">{{ product.name }}</h1>
-    <p class="text-muted small">Артикул {{ product.sku }}
+    <h1 class="h3">{{ product.name }}{% if variant %} — {{ variant.name }}{% endif %}</h1>
+    <p class="text-muted small">Артикул {{ sale_item.sku }}
       {% if product.rating %}· ★ {{ product.rating|floatformat:1 }} ({{ product.reviews_count }} отз.){% endif %}</p>
-    <p class="fs-3 fw-bold">{{ product.price|floatformat:"2g" }} ₽
-      {% if product.old_price %}<s class="fs-5 text-muted">{{ product.old_price|floatformat:"2g" }} ₽</s>{% endif %}</p>
-    <p>{% if product.in_stock %}В наличии: {{ product.stock }} шт.{% else %}<span class="text-danger">Нет в наличии</span>{% endif %}</p>
-    {% if product.in_stock %}
-      <form method="post" action="{% url 'cart:add' product.pk %}" class="d-flex gap-2 mb-3" style="max-width:260px">
+    <p class="fs-3 fw-bold">{{ sale_item.price|floatformat:"2g" }} ₽
+      {% if product.old_price and product.old_price > sale_item.price %}<s class="fs-5 text-muted">{{ product.old_price|floatformat:"2g" }} ₽</s>{% endif %}</p>
+    {% if available_variants %}
+      <div class="mb-3">
+        <label class="form-label" for="product-variant">Вариант товара</label>
+        <select id="product-variant" class="form-select w-auto mw-100" onchange="window.location.assign(this.value)">
+          {% for option in available_variants %}
+            <option value="{{ option.get_absolute_url }}"{% if option == variant %} selected{% endif %}>{{ option.name }} — {{ option.price|floatformat:"2g" }} ₽ ({{ option.stock }} шт.)</option>
+          {% endfor %}
+        </select>
+        <noscript>
+          {% for option in available_variants %}<a class="me-2" href="{{ option.get_absolute_url }}">{{ option.name }}</a>{% endfor %}
+        </noscript>
+      </div>
+    {% endif %}
+    <p>{% if can_buy %}В наличии: {{ sale_item.stock }} шт.{% else %}<span class="text-danger">Нет в наличии</span>{% endif %}</p>
+    {% if can_buy %}
+      <form method="post" action="{% url 'cart:add' product.pk %}" class="d-flex gap-2" style="max-width:260px">
         {% csrf_token %}
-        <select name="variant" class="form-select"><option value="">Стандартный вариант</option>{% for variant in product.variants.all %}{% if variant.is_active and not variant.is_default %}<option value="{{ variant.pk }}">{{ variant.name }} — {{ variant.price }} ₽ ({{ variant.stock }} шт.)</option>{% endif %}{% endfor %}</select>
-        <input type="number" name="quantity" value="1" min="1" max="{{ product.stock }}" class="form-control">
+        {% if variant %}<input type="hidden" name="variant" value="{{ variant.pk }}">{% endif %}
+        <input type="number" name="quantity" value="1" min="1" max="{{ sale_item.stock }}" class="form-control" aria-label="Количество">
         <input type="hidden" name="next" value="{{ request.path }}">
         <button class="btn btn-success text-nowrap">В корзину</button>
       </form>
     {% endif %}
-    <p>{{ product.description|linebreaksbr }}</p>
+    {% include "catalog/_product_actions.html" %}
+    <p class="mt-3">{{ product.description|linebreaksbr }}</p>
   </div>
 </div>
 

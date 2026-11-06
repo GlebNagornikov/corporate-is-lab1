@@ -7,5 +7,10 @@ app_name = "catalog"
 urlpatterns = [
     path("", views.ProductListView.as_view(), name="product_list"),
     path("product/<slug:slug>/", views.ProductDetailView.as_view(), name="product_detail"),
+    path(
+        "product/<slug:slug>/variant/<int:variant_id>/",
+        views.ProductDetailView.as_view(),
+        name="variant_detail",
+    ),
     path("product/<slug:slug>/review/", views.ReviewCreateView.as_view(), name="review_create"),
 ]

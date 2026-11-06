@@ -43,6 +43,7 @@ def _status_action(status, description):
 
 @admin.register(Order)
 class OrderAdmin(admin.ModelAdmin):
+    change_list_template = "admin/orders/order/change_list.html"
     list_display = ("pk", "created_at", "user", "full_name", "status", "delivery_method", "total")
     list_filter = ("status", "delivery_method", "created_at")
     list_select_related = ("user",)

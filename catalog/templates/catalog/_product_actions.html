@@ -1,0 +1,16 @@
+<div class="d-flex flex-wrap gap-2 mt-3">
+  {% if user.is_authenticated %}
+    <form method="post" action="{% url 'wishlist-change' product.pk %}">
+      {% csrf_token %}
+      <input type="hidden" name="next" value="{{ request.get_full_path }}">
+      <button class="btn btn-sm btn-outline-danger">В избранное</button>
+    </form>
+  {% else %}
+    <a class="btn btn-sm btn-outline-danger" href="{% url 'login' %}?next={{ request.get_full_path|urlencode }}">В избранное</a>
+  {% endif %}
+  <form method="post" action="{% url 'compare-change' product.pk %}">
+    {% csrf_token %}
+    <input type="hidden" name="next" value="{{ request.get_full_path }}">
+    <button class="btn btn-sm btn-outline-secondary">Сравнить</button>
+  </form>
+</div>

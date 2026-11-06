@@ -2,13 +2,24 @@
 from django.contrib import messages
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.core.cache import cache
+from django.http import Http404
 from django.shortcuts import get_object_or_404, redirect
+from django.utils.http import url_has_allowed_host_and_scheme
 from django.views import View
 from django.views.generic import DetailView, ListView
 
 from .filters import ProductFilter
 from .forms import ReviewForm
 from .models import Category, Product, Review
+
+
+def redirect_after_action(request, fallback):
+    next_url = request.POST.get("next", "")
+    if url_has_allowed_host_and_scheme(
+        next_url, allowed_hosts={request.get_host()}, require_https=request.is_secure()
+    ):
+        return redirect(next_url)
+    return redirect(fallback)
 
 
 class ProductListView(ListView):
@@ -41,6 +52,30 @@ class ProductDetailView(DetailView):
     template_name = "catalog/product_detail.html"
     context_object_name = "product"
 
+    def get(self, request, *args, **kwargs):
+        self.object = self.get_object()
+        variants = list(self.object.variants.all())
+        self.has_variants = any(not variant.is_default for variant in variants)
+        self.available_variants = [
+            variant for variant in variants if variant.is_active and not variant.is_default
+        ]
+        variant_id = kwargs.get("variant_id")
+        self.variant = None
+        if variant_id is not None:
+            self.variant = next(
+                (variant for variant in self.available_variants if variant.pk == variant_id),
+                None,
+            )
+            if self.variant is None:
+                raise Http404
+        elif self.available_variants:
+            first = next(
+                (variant for variant in self.available_variants if variant.stock > 0),
+                self.available_variants[0],
+            )
+            return redirect(first)
+        return self.render_to_response(self.get_context_data(object=self.object))
+
     def get_object(self, queryset=None):
         from .caching import product_key
 
@@ -61,6 +96,12 @@ class ProductDetailView(DetailView):
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
+        context["variant"] = self.variant
+        context["available_variants"] = self.available_variants
+        context["sale_item"] = self.variant or self.object
+        context["can_buy"] = context["sale_item"].stock > 0 and (
+            self.variant is not None or not self.has_variants
+        )
         user = self.request.user
         context["reviews"] = self.object.reviews.filter(is_published=True).select_related("author")
         context["can_review"] = (

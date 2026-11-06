@@ -8,7 +8,7 @@
   <tbody>
   {% for item in items %}
     <tr>
-      <td><a href="{{ item.product.get_absolute_url }}">{{ item.product.name }}</a> {{ item.variant.name }}</td>
+      <td><a href="{% if item.variant %}{{ item.variant.get_absolute_url }}{% else %}{{ item.product.get_absolute_url }}{% endif %}">{{ item.product.name }}</a> {{ item.variant.name }}</td>
       <td>{{ item.unit_price|floatformat:"2g" }} ₽</td>
       <td>
         <form method="post" action="{% url 'cart:update' item.product.pk %}" class="d-flex gap-1">{% csrf_token %}<input type="hidden" name="variant" value="{{ item.variant_id|default_if_none:'' }}">
