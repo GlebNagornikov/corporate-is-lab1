@@ -4,7 +4,7 @@ from .models import Category, Product, ProductVariant, Review
 
 
 class CategorySerializer(serializers.ModelSerializer):
-    parent = serializers.SlugRelatedField(slug_field="slug", read_only=True)
+    parent = serializers.SlugRelatedField(slug_field="slug", read_only=True, allow_null=True)
 
     class Meta:
         model = Category

@@ -1,7 +1,17 @@
+from io import StringIO
+
 from django.contrib.auth import get_user_model
-from django.test import TestCase, override_settings
+from django.core.management import call_command
+from django.test import SimpleTestCase, TestCase, override_settings
 from drf_spectacular.generators import SchemaGenerator
 from rest_framework.test import APIClient
+
+
+class OpenAPIContractTests(SimpleTestCase):
+    def test_schema_validates_without_warnings(self):
+        schema = StringIO()
+        call_command("spectacular", "--validate", "--fail-on-warn", stdout=schema)
+        self.assertTrue(schema.getvalue())
 
 
 class APIDocsTests(TestCase):

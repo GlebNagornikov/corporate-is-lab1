@@ -13,3 +13,17 @@ repos:
       - id: ruff-check
         args: [--fix]
       - id: ruff-format
+  - repo: local
+    hooks:
+      - id: frontend-lint
+        name: oxlint (frontend)
+        entry: npm --prefix frontend run lint
+        language: system
+        files: ^frontend/(src/|\.oxlintrc\.json$|package(-lock)?\.json$)
+        pass_filenames: false
+      - id: frontend-typecheck
+        name: tsc (frontend)
+        entry: npm --prefix frontend run typecheck
+        language: system
+        files: ^frontend/(src/|tsconfig|(?:vite|vitest)\.config\.ts$|package(-lock)?\.json$)
+        pass_filenames: false
