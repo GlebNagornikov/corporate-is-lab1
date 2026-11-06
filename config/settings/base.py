@@ -232,9 +232,10 @@ CELERY_WORKER_PREFETCH_MULTIPLIER = 1
 CELERY_BROKER_CONNECTION_RETRY_ON_STARTUP = True
 CELERY_BROKER_TRANSPORT_OPTIONS = {"visibility_timeout": 3600}
 SPECTACULAR_SETTINGS = {
-    "TITLE": "Corporate IS Shop API",
+    "TITLE": "Магазин: REST API",
     "DESCRIPTION": "Магазин и сотрудники. JWT/сессия; права указаны у операций.",
-    "VERSION": "1.1.0",
+    "VERSION": "1.2.0",
+    "SERVE_INCLUDE_SCHEMA": False,
     "COMPONENT_SPLIT_REQUEST": True,
     "ENUM_NAME_OVERRIDES": {
         "OrderStatusEnum": [

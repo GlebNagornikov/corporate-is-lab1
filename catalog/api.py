@@ -34,13 +34,14 @@ class ProductViewSet(viewsets.ReadOnlyModelViewSet):
             .order_by("-created_at")
         )
 
+    @extend_schema(methods=["GET"], responses=ReviewSerializer(many=True), filters=False)
+    @extend_schema(methods=["POST"], request=ReviewSerializer, responses={201: ReviewSerializer})
     @action(
         detail=True,
         methods=["get", "post"],
         permission_classes=[permissions.IsAuthenticatedOrReadOnly],
+        pagination_class=None,
     )
-    @extend_schema(methods=["GET"], responses=ReviewSerializer(many=True))
-    @extend_schema(methods=["POST"], request=ReviewSerializer, responses={201: ReviewSerializer})
     def reviews(self, request, slug=None):
         product = self.get_object()
         if request.method == "GET":
