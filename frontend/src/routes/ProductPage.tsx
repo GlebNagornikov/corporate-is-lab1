@@ -1,6 +1,7 @@
 import { useSuspenseQuery } from '@tanstack/react-query'
-import { Link, useParams } from 'react-router'
+import { useParams } from 'react-router'
 import { productQuery } from '../api/queries'
+import ProductBreadcrumbs from '../components/ProductBreadcrumbs'
 import Reviews from '../components/Reviews'
 import { formatPrice } from '../lib/format'
 
@@ -10,7 +11,7 @@ export default function ProductPage() {
 
   return (
     <article className="details">
-      <Link to={`/?category=${encodeURIComponent(product.category.slug)}`}>← {product.category.name}</Link>
+      <ProductBreadcrumbs category={product.category} name={product.name} />
       <h1>{product.name}</h1>
       <img className="product-image" src={product.image ?? '/no-image.svg'} alt={product.name} />
       <p className="muted">Артикул {product.sku}</p>
