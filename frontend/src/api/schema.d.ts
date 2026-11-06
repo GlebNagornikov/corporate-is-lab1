@@ -516,7 +516,7 @@ export interface components {
             /** Адрес в URL */
             slug: string;
             /** Адрес в URL */
-            readonly parent: string;
+            readonly parent: string | null;
         };
         CheckoutRequest: {
             /** Получатель */

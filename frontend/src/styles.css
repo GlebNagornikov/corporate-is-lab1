@@ -1,0 +1,43 @@
+body {
+  margin: 0;
+  color: #17212b;
+  font: 1rem/1.5 system-ui, sans-serif;
+}
+
+a {
+  color: #1757a3;
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 1rem 1.5rem;
+  border-bottom: 1px solid #dbe1e7;
+}
+
+.brand {
+  font-size: 1.25rem;
+  font-weight: 700;
+}
+
+.layout {
+  display: grid;
+  grid-template-columns: minmax(10rem, 15rem) minmax(0, 1fr);
+  gap: 1.5rem;
+  padding: 1.5rem;
+}
+
+.layout h1 {
+  margin-top: 0;
+}
+
+nav [aria-current='page'] {
+  font-weight: 700;
+}
+
+@media (max-width: 42rem) {
+  .layout {
+    grid-template-columns: 1fr;
+  }
+}
