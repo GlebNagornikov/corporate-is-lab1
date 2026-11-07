@@ -23,6 +23,7 @@ test('менеджер подтверждает заказ после учебн
   const row = page.getByRole('row').filter({
     has: page.getByRole('link', { name: `№${id}`, exact: true }),
   })
+  await expect(row.locator('.actions button')).toHaveText(['Подтвердить', 'Отменить'])
   await row.getByRole('button', { name: 'Подтвердить', exact: true }).click()
   await expect(row).toHaveCount(0)
 
