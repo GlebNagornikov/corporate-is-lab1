@@ -32,7 +32,7 @@ export default function RootLayout() {
                 Выйти
               </button>
             </>
-          ) : <NavLink to="/login">Войти</NavLink>}
+          ) : <NavLink to="/login" onMouseEnter={() => void import('../auth/LoginPage')}>Войти</NavLink>}
         </nav>
         {signOut.error && <p role="alert">Выход не выполнен. {signOut.error.message}</p>}
       </header>
@@ -40,7 +40,9 @@ export default function RootLayout() {
         <aside><CategoryNav /></aside>
         <main><Outlet /></main>
       </div>
-      <footer className="footer muted">Версия {import.meta.env.VITE_APP_VERSION ?? 'dev'}</footer>
+      <footer className="footer muted">
+        Версия {import.meta.env.VITE_APP_VERSION ?? 'dev'} · Поддержка {window.shopConfig?.supportPhone}
+      </footer>
     </>
   )
 }

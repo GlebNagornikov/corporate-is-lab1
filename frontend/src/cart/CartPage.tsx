@@ -63,7 +63,9 @@ export default function CartPage() {
           {cart.isGuest && (
             <p className="muted">Цены предварительные. После входа сервер пересчитает сумму.</p>
           )}
-          <Link className="button" to="/checkout">Оформить заказ</Link>
+          <Link className="button" to="/checkout" onMouseEnter={() => void import('../orders/CheckoutPage')}>
+            Оформить заказ
+          </Link>
         </>
       ) : !cart.error && (
         <p className="muted">Корзина пуста. <Link to="/">В каталог</Link></p>
