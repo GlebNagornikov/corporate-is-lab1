@@ -1,7 +1,10 @@
 import { queryOptions } from '@tanstack/react-query'
 import { data, redirect } from 'react-router'
-import { api, ApiError, requireData, setSessionExpiredHandler, toApiError, type Me } from '../api/client'
+import {
+  api, ApiError, csrfHeaders, requireData, restoreSession, setSessionExpiredHandler, toApiError, type Me,
+} from '../api/client'
 import { guestCart } from '../cart/guestCart'
+import { findPriceChanges, priceChangesQuery } from '../cart/priceChanges'
 import { cartQuery } from '../cart/queries'
 import { queryClient } from '../queryClient'
 import { tokens } from './tokens'
@@ -10,7 +13,7 @@ export const meQuery = () =>
   queryOptions({
     queryKey: ['me'],
     queryFn: async ({ signal }): Promise<Me | null> => {
-      if (!tokens.access() && !tokens.refresh()) return null
+      if (!await restoreSession()) return null
       const version = tokens.version()
       const result = await api.GET('/api/auth/me/', { signal })
       return result.response.status === 401 || version !== tokens.version() ? null : requireData(result)
@@ -23,6 +26,7 @@ function resetUserData(cancelProfile: boolean) {
   if (cancelProfile) void queryClient.cancelQueries(profile)
   queryClient.setQueryData(profile.queryKey, null)
   queryClient.removeQueries({ queryKey: cartQuery().queryKey })
+  queryClient.removeQueries({ queryKey: priceChangesQuery().queryKey })
   queryClient.removeQueries({ queryKey: ['orders'] })
 }
 
@@ -35,7 +39,9 @@ function ensureSession(version: number) {
 
 export async function login(username: string, password: string) {
   const previousVersion = tokens.version()
-  const result = await api.POST('/api/auth/token/', { body: { username, password } })
+  const result = await api.POST('/api/auth/session/login/', {
+    headers: await csrfHeaders(), body: { username, password },
+  })
   if (result.response.status === 401) {
     throw new ApiError(401, 'Неверное имя пользователя или пароль')
   }
@@ -63,10 +69,11 @@ export async function login(username: string, password: string) {
       ensureSession(version)
       guestCart.removeTransferred(items)
       queryClient.setQueryData(cartQuery().queryKey, cart)
+      queryClient.setQueryData(priceChangesQuery().queryKey, findPriceChanges(items, cart.items))
     }
     queryClient.setQueryData(meQuery().queryKey, me)
   } catch (error) {
-    if (tokens.version() === version) logout()
+    if (tokens.version() === version) await logout()
     throw error
   }
 }
@@ -77,7 +84,11 @@ export async function register(body: { username: string; email: string; password
   await login(body.username, body.password)
 }
 
-export function logout() {
+export async function logout() {
+  const { response, error } = await api.POST('/api/auth/session/logout/', {
+    headers: await csrfHeaders(),
+  })
+  if (!response.ok) throw toApiError(response, error)
   tokens.clear()
   resetUserData(true)
 }

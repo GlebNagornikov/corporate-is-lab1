@@ -83,6 +83,8 @@ services:
       args:
         APP_VERSION: ${APP_VERSION:?Set APP_VERSION in .env.prod}
     restart: unless-stopped
+    environment:
+      SUPPORT_PHONE: ${SUPPORT_PHONE:-+7 800 555-35-35}
     ports:
       - "80:80"
       - "443:443"
@@ -93,12 +95,28 @@ services:
     depends_on:
       web:
         condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q --no-check-certificate --header='Host: localhost' -O /dev/null https://127.0.0.1/healthz/"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
 
   mailpit:
     image: axllent/mailpit
     restart: unless-stopped
     ports:
       - "127.0.0.1:8026:8025"
+
+  site-check:
+    image: shop-nginx:${APP_VERSION:?Set APP_VERSION in .env.prod}
+    profiles: ["checks"]
+    entrypoint: ["wget"]
+    command: ["-q", "--no-check-certificate", "--header=Host: localhost", "-O", "/dev/null", "https://nginx/healthz/"]
+    restart: "no"
+    depends_on:
+      nginx:
+        condition: service_healthy
 
 volumes:
   redis_data:

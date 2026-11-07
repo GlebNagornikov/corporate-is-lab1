@@ -143,6 +143,7 @@ test('менеджер фильтрует заказы и выполняет д�
   expect(router.state.location.search).toBe('?status=paid')
   expect(screen.queryByRole('button', { name: 'Передать в доставку' })).not.toBeInTheDocument()
   await user.click(confirm)
+  await user.click(screen.getByRole('button', { name: 'Подтвердить действие' }))
   expect(await screen.findByText('Заказов нет.')).toBeInTheDocument()
   expect(change).toHaveBeenCalledOnce()
   expect(client.getQueryData(orderQuery(7).queryKey)?.status).toBe('confirmed')
@@ -152,3 +153,37 @@ test('менеджер фильтрует заказы и выполняет д�
   expect(within(table).getByRole('button', { name: 'Передать в доставку' })).toBeEnabled()
   expect(within(table).getByRole('button', { name: 'Отменить' })).toBeEnabled()
 })
+
+test.each(['/orders', '/manager/orders?status=paid'])(
+  'список %s хранит страницу в URL и показывает предыдущие строки при загрузке',
+  async (path) => {
+    let release!: () => void
+    const pending = new Promise<void>((resolve) => { release = resolve })
+    const isManager = path.startsWith('/manager')
+    server.use(http.get('*/api/orders/', async ({ request }) => {
+      const search = new URL(request.url).searchParams
+      expect(search.get('status')).toBe(isManager ? 'paid' : null)
+      if (search.get('page') === '2') {
+        await pending
+        return HttpResponse.json({
+          results: [makeOrder({ id: 8 })], count: 21, previous: '/api/orders/', next: null,
+        })
+      }
+      return HttpResponse.json({
+        results: [makeOrder({ id: 7 })], count: 21, previous: null, next: '/api/orders/?page=2',
+      })
+    }))
+    const { router } = renderShop(path, { ...buyer, is_manager: isManager })
+    const label = (id: number) => isManager ? `№${id}` : `Заказ №${id}`
+    const user = userEvent.setup()
+    try {
+      await user.click(await screen.findByRole('link', { name: 'Следующая' }))
+      expect(router.state.location.search).toBe(isManager ? '?status=paid&page=2' : '?page=2')
+      expect(screen.getByRole('link', { name: label(7) })).toBeInTheDocument()
+    } finally {
+      release()
+    }
+    expect(await screen.findByRole('link', { name: label(8) })).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Предыдущая' })).toBeInTheDocument()
+  },
+)

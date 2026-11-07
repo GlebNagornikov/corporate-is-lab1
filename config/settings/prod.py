@@ -6,6 +6,7 @@ ALLOWED_HOSTS = env.list("ALLOWED_HOSTS")
 # SMTP configuration is inherited from base.py, including EMAIL_HOST/EMAIL_PORT.
 # Do not replace MAILERS here: that would discard its connection options.
 CSRF_TRUSTED_ORIGINS = env.list("CSRF_TRUSTED_ORIGINS", default=[])
+CSRF_COOKIE_SECURE = True
 
 SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
 SECURE_SSL_REDIRECT = True

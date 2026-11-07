@@ -38,7 +38,7 @@ test.each([0, 2])('показывает количество %i сразу и о
   const client = new QueryClient({ defaultOptions: { queries: { retry: false, staleTime: Infinity } } })
   const cart: Cart = {
     items: [{
-      product_id: 1, variant_id: 10, variant_name: 'Стандартный',
+      product_id: 1, variant_id: 10, variant_name: 'Стандартный', is_default_variant: true,
       name: 'Книга', slug: 'book', image: null, stock: 3,
       price: '12.50', quantity: 1, total: '12.50',
     }],

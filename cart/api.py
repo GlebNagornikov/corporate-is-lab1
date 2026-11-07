@@ -14,6 +14,7 @@ from .services import add_to_cart, get_cart, merge_guest_items, remove_from_cart
 class CartItemSerializer(serializers.Serializer):
     variant_id = serializers.IntegerField(allow_null=True)
     variant_name = serializers.CharField(source="variant.name", default="")
+    is_default_variant = serializers.BooleanField(source="variant.is_default", default=True)
     product_id = serializers.IntegerField(source="product.pk")
     name = serializers.CharField(source="product.name")
     slug = serializers.CharField(source="product.slug")

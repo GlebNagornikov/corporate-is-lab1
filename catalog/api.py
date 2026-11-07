@@ -1,3 +1,4 @@
+from django.db import IntegrityError, transaction
 from django_filters.rest_framework import DjangoFilterBackend
 from drf_spectacular.utils import extend_schema
 from rest_framework import permissions, serializers, status, viewsets
@@ -52,9 +53,13 @@ class ProductViewSet(viewsets.ReadOnlyModelViewSet):
 
         serializer = ReviewSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-        if Review.objects.filter(product=product, author=request.user).exists():
-            raise serializers.ValidationError("Вы уже оставили отзыв на этот товар.")
-        serializer.save(product=product, author=request.user)
+        try:
+            with transaction.atomic():
+                serializer.save(product=product, author=request.user)
+        except IntegrityError as error:
+            if not Review.objects.filter(product=product, author=request.user).exists():
+                raise
+            raise serializers.ValidationError("Вы уже оставили отзыв на этот товар.") from error
         return Response(serializer.data, status=status.HTTP_201_CREATED)
 
 

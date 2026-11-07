@@ -3,6 +3,9 @@ import { setupServer } from 'msw/node'
 import { categories, makePage, makeProduct } from './fixtures'
 
 export const handlers = [
+  http.get('*/api/auth/session/csrf/', () => HttpResponse.json({ csrf_token: 'csrf-token' })),
+  http.post('*/api/auth/session/refresh/', () => HttpResponse.json({}, { status: 401 })),
+  http.post('*/api/auth/session/logout/', () => new HttpResponse(null, { status: 204 })),
   http.get('*/api/catalog/categories/', () => HttpResponse.json(categories)),
   http.get('*/api/catalog/products/', () =>
     HttpResponse.json(makePage([

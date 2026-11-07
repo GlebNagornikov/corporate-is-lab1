@@ -235,6 +235,21 @@ class OrderApiTests(APITestCase):
         self.assertEqual(self.client.post(url, {"status": "new"}).status_code, 400)
         self.assertEqual(self.client.post(url, {"status": "unknown"}).status_code, 400)
 
+    def test_manager_cancellation_requires_a_comment(self):
+        order_id = self.buy(self.buyer)
+        self.client.force_authenticate(self.manager)
+        url = f"/api/orders/{order_id}/status/"
+        for fields in ({}, {"comment": "  "}):
+            with self.subTest(fields=fields):
+                response = self.client.post(url, {"status": "cancelled", **fields})
+                self.assertEqual(response.status_code, 400)
+                self.assertIn("comment", response.data)
+        self.assertEqual(Order.objects.get(pk=order_id).status, "new")
+        response = self.client.post(url, {"status": "cancelled", "comment": "Причина отмены"})
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data["status"], "cancelled")
+        self.assertEqual(response.data["history"][-1]["comment"], "Причина отмены")
+
     def test_employees_api_is_closed_for_customers(self):
         for user in (self.buyer, self.manager):
             self.client.force_authenticate(user)

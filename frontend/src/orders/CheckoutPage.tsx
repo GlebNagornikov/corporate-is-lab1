@@ -7,6 +7,7 @@ import { orderQuery } from '../api/orders'
 import { meQuery } from '../auth/session'
 import { tokens } from '../auth/tokens'
 import { cartQuery } from '../cart/queries'
+import { priceChangesQuery } from '../cart/priceChanges'
 import FormInput from '../components/FormInput'
 import { formatPrice } from '../lib/format'
 import { applyServerErrors } from '../lib/serverErrors'
@@ -42,6 +43,7 @@ export default function CheckoutPage() {
       await client.cancelQueries({ queryKey: cartKey })
       if (version !== tokens.version()) return
       client.setQueryData(cartKey, { items: [], count: 0, total: '0.00' })
+      client.removeQueries({ queryKey: priceChangesQuery().queryKey })
       client.setQueryData(orderQuery(order.id).queryKey, order)
       void client.invalidateQueries({ queryKey: ['orders', 'list'] })
       void navigate(`/orders/${order.id}`, { replace: true, state: { justPlaced: true } })

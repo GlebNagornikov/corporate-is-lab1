@@ -68,50 +68,75 @@ export function setSessionExpiredHandler(handler: () => void) {
   onSessionExpired = handler
 }
 
-const REFRESH_PATH = '/api/auth/token/refresh/'
-const publicAuthPaths = new Set(['/api/auth/token/', REFRESH_PATH, '/api/auth/register/'])
+const REFRESH_PATH = '/api/auth/session/refresh/'
+const publicAuthPaths = new Set([
+  '/api/auth/token/', '/api/auth/token/refresh/', '/api/auth/register/',
+  '/api/auth/session/csrf/', '/api/auth/session/login/', REFRESH_PATH, '/api/auth/session/logout/',
+])
 let refreshing: { version: number; promise: Promise<void> } | undefined
 
-async function refreshSession(version: number, refresh: string | null) {
-  const result = refresh
-    ? await api.POST(REFRESH_PATH, { body: { refresh } }).catch(() => undefined)
-    : undefined
+export async function csrfHeaders() {
+  const { csrf_token } = requireData(await api.GET('/api/auth/session/csrf/'))
+  return { 'X-CSRFToken': csrf_token }
+}
 
-  if (tokens.version() !== version || tokens.refresh() !== refresh) return
+function tokenUser(access: string | null): string | undefined {
+  try {
+    const payload = access?.split('.')[1]
+    if (!payload) return
+    const claims: { user_id?: unknown } = JSON.parse(atob(payload.replaceAll('-', '+').replaceAll('_', '/')))
+    if (typeof claims.user_id === 'string' || typeof claims.user_id === 'number') {
+      return String(claims.user_id)
+    }
+  } catch {
+    // Подпись и содержимое JWT проверяет сервер.
+  }
+}
+
+async function refreshSession(version: number) {
+  const result = await csrfHeaders()
+    .then((headers) => api.POST(REFRESH_PATH, { headers }))
+    .catch(() => undefined)
+
+  if (tokens.version() !== version) return
+  const previousUser = tokenUser(tokens.access())
   const access = result?.data?.access
-  if (typeof access === 'string' && access) {
-    tokens.save({ access })
-  } else {
+  if (typeof access === 'string' && access && (!previousUser || previousUser === tokenUser(access))) {
+    tokens.refreshAccess(access)
+  } else if (tokens.access()) {
     tokens.clear()
     onSessionExpired()
   }
 }
 
-function refreshAccessToken(version: number, refresh: string | null) {
+function refreshAccessToken(version: number) {
   if (refreshing?.version === version) return refreshing.promise
-  const promise = refreshSession(version, refresh).finally(() => {
+  const promise = refreshSession(version).finally(() => {
     if (refreshing?.promise === promise) refreshing = undefined
   })
   refreshing = { version, promise }
   return promise
 }
 
+export async function restoreSession() {
+  if (!tokens.access()) await refreshAccessToken(tokens.version())
+  return Boolean(tokens.access())
+}
+
 const pending = new Map<
   string,
-  { original: Request; access: string | null; refresh: string | null; version: number }
+  { original: Request; access: string; version: number }
 >()
 
 const authMiddleware: Middleware = {
   onRequest({ request, schemaPath, id }) {
     if (publicAuthPaths.has(schemaPath)) return
     const access = tokens.access()
-    const refresh = tokens.refresh()
-    if (!access && !refresh) return
-    if (access) request.headers.set('Authorization', `Bearer ${access}`)
+    if (!access) return
+    request.headers.set('Authorization', `Bearer ${access}`)
     pending.set(id, {
       original: request.clone(),
       access,
-      refresh,
       version: tokens.version(),
     })
   },
@@ -123,11 +148,11 @@ const authMiddleware: Middleware = {
     pending.delete(id)
     if (response.status !== 401 || !attempt) return response
 
-    const { original, access, refresh, version } = attempt
-    const sameSession = () => tokens.version() === version && tokens.refresh() === refresh
+    const { original, access, version } = attempt
+    const sameSession = () => tokens.version() === version
     // Запоздавший 401 может прийти после завершения общего обновления.
     if (sameSession() && tokens.access() === access) {
-      await refreshAccessToken(version, refresh)
+      await refreshAccessToken(version)
     }
 
     const currentAccess = tokens.access()
@@ -136,6 +161,7 @@ const authMiddleware: Middleware = {
       original.headers.set('Authorization', `Bearer ${currentAccess}`)
     } else {
       original.headers.delete('Authorization')
+      return options.fetch(new Request(original, { credentials: 'omit' }))
     }
     return options.fetch(original)
   },

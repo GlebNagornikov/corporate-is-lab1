@@ -44,6 +44,86 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/auth/session/csrf/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description Получение CSRF-токена для входа, обновления сессии и выхода.
+         *     Лимиты: 60/600 в минуту (аноним/пользователь). Сессия требует CSRF.
+         */
+        get: operations["api_auth_session_csrf_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/auth/session/login/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * @description Сессия витрины. Требуется заголовок X-CSRFToken и соответствующая cookie.
+         *     Лимиты: 60/600 в минуту (аноним/пользователь). Сессия требует CSRF.
+         */
+        post: operations["api_auth_session_login_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/auth/session/logout/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * @description Сессия витрины. Требуется заголовок X-CSRFToken и соответствующая cookie.
+         *     Лимиты: 60/600 в минуту (аноним/пользователь). Сессия требует CSRF.
+         */
+        post: operations["api_auth_session_logout_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/auth/session/refresh/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * @description Сессия витрины. Требуется заголовок X-CSRFToken и соответствующая cookie.
+         *     Лимиты: 60/600 в минуту (аноним/пользователь). Сессия требует CSRF.
+         */
+        post: operations["api_auth_session_refresh_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/auth/token/": {
         parameters: {
             query?: never;
@@ -562,6 +642,9 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        Access: {
+            access: string;
+        };
         AddItemRequest: {
             product: number;
             variant?: number;
@@ -580,6 +663,8 @@ export interface components {
             variant_id: number | null;
             /** @default  */
             variant_name: string;
+            /** @default true */
+            is_default_variant: boolean;
             product_id: number;
             name: string;
             slug: string;
@@ -616,6 +701,9 @@ export interface components {
             /** Комментарий */
             comment?: string;
             promo_code?: string;
+        };
+        Csrf: {
+            csrf_token: string;
         };
         /**
          * @description * `pickup` - Самовывоз
@@ -1044,6 +1132,94 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["Register"];
                 };
+            };
+        };
+    };
+    api_auth_session_csrf_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Csrf"];
+                };
+            };
+        };
+    };
+    api_auth_session_login_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TokenObtainPairRequest"];
+                "application/x-www-form-urlencoded": components["schemas"]["TokenObtainPairRequest"];
+                "multipart/form-data": components["schemas"]["TokenObtainPairRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Access"];
+                };
+            };
+        };
+    };
+    api_auth_session_logout_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No response body */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    api_auth_session_refresh_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Access"];
+                };
+            };
+            /** @description No response body */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
         };
     };

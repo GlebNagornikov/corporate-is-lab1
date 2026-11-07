@@ -2,7 +2,7 @@ from django.contrib.auth import get_user_model
 from django.contrib.auth.password_validation import validate_password
 from django.core.exceptions import ValidationError
 from django.db import IntegrityError, transaction
-from django.urls import path
+from django.urls import include, path
 from rest_framework import generics, permissions, serializers
 
 User = get_user_model()
@@ -65,6 +65,7 @@ class MeView(generics.RetrieveAPIView):
 
 
 urlpatterns = [
+    path("auth/session/", include("accounts.session_api")),
     path("auth/register/", RegisterView.as_view(), name="api-register"),
     path("auth/me/", MeView.as_view(), name="api-me"),
 ]
