@@ -234,7 +234,7 @@ CELERY_BROKER_TRANSPORT_OPTIONS = {"visibility_timeout": 3600}
 SPECTACULAR_SETTINGS = {
     "TITLE": "Магазин: REST API",
     "DESCRIPTION": "Магазин и сотрудники. JWT/сессия; права указаны у операций.",
-    "VERSION": "1.2.0",
+    "VERSION": "1.2.1",
     "SERVE_INCLUDE_SCHEMA": False,
     "COMPONENT_SPLIT_REQUEST": True,
     "ENUM_NAME_OVERRIDES": {

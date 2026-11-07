@@ -138,8 +138,8 @@ test('менеджер фильтрует заказы и выполняет д�
   expect(await screen.findByText('Заказов нет.')).toBeInTheDocument()
   await user.selectOptions(screen.getByLabelText('Статус'), 'paid')
   const confirm = await screen.findByRole('button', { name: 'Подтвердить' })
-  const actions = confirm.parentElement!
-  expect(within(actions).getAllByRole('button').map((button) => button.textContent)).toEqual(['Подтвердить', 'Отменить'])
+  expect(within(confirm.parentElement!).getAllByRole('button').map((button) => button.textContent))
+    .toEqual(['Подтвердить', 'Отменить'])
   expect(router.state.location.search).toBe('?status=paid')
   expect(screen.queryByRole('button', { name: 'Передать в доставку' })).not.toBeInTheDocument()
   await user.click(confirm)

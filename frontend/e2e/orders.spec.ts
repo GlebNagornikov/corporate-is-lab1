@@ -1,6 +1,16 @@
 import { expect, test } from '@playwright/test'
 import { checkoutAsGuest, createBuyer, loginAs } from './helpers.ts'
 
+let consoleErrors: string[]
+test.beforeEach(({ page }) => {
+  consoleErrors = []
+  page.on('pageerror', (error) => consoleErrors.push(error.message))
+  page.on('console', (message) => {
+    if (message.type() === 'error') consoleErrors.push(message.text())
+  })
+})
+test.afterEach(() => { expect(consoleErrors).toEqual([]) })
+
 test('гость собирает корзину, входит и оформляет заказ', async ({ page, request }) => {
   const buyer = await createBuyer(request)
   const id = await checkoutAsGuest(page, buyer)
@@ -29,6 +39,7 @@ test('менеджер подтверждает заказ после учебн
   const row = page.getByRole('row').filter({
     has: page.getByRole('link', { name: `№${id}`, exact: true }),
   })
+  await expect(row.locator('.actions button')).toHaveText(['Подтвердить', 'Отменить'])
   const confirm = row.getByRole('button', { name: 'Подтвердить', exact: true })
   await confirm.click()
   const dialog = page.getByRole('dialog')
