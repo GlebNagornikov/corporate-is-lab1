@@ -115,7 +115,7 @@ test('владелец открывает учебную оплату из за�
 test('менеджер фильтрует заказы и выполняет доступный переход из API', async () => {
   let order = makeOrder({
     status: 'paid', status_display: 'Оплачен', can_cancel: false, can_pay: false,
-    allowed_transitions: ['confirmed', 'cancelled'],
+    allowed_transitions: ['cancelled', 'confirmed'],
   })
   const change = vi.fn(async ({ request }: { request: Request }) => {
     expect(await request.json()).toEqual({ status: 'confirmed', comment: '' })
@@ -138,6 +138,8 @@ test('менеджер фильтрует заказы и выполняет д�
   expect(await screen.findByText('Заказов нет.')).toBeInTheDocument()
   await user.selectOptions(screen.getByLabelText('Статус'), 'paid')
   const confirm = await screen.findByRole('button', { name: 'Подтвердить' })
+  expect(within(confirm.parentElement!).getAllByRole('button').map((button) => button.textContent))
+    .toEqual(['Подтвердить', 'Отменить'])
   expect(router.state.location.search).toBe('?status=paid')
   expect(screen.queryByRole('button', { name: 'Передать в доставку' })).not.toBeInTheDocument()
   await user.click(confirm)
