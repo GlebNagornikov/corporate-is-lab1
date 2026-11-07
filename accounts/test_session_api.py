@@ -49,6 +49,10 @@ class CookieSessionTests(TestCase):
         self.assertEqual(logout.status_code, 204)
         self.assertEqual(logout.cookies["shop_refresh"]["max-age"], 0)
         self.assertEqual(logout.cookies["shop_refresh"]["path"], "/api/auth/")
+        self.assertEqual(self.post("refresh").status_code, 204)
+
+    def test_invalid_refresh_cookie_is_rejected(self):
+        self.client.cookies["shop_refresh"] = "invalid"
         self.assertEqual(self.post("refresh").status_code, 401)
 
     def test_login_requires_csrf_and_keeps_wrong_credentials_at_401(self):

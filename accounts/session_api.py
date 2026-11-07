@@ -5,7 +5,6 @@ from django.views.decorators.cache import never_cache
 from django.views.decorators.csrf import csrf_protect
 from drf_spectacular.utils import extend_schema
 from rest_framework import permissions, serializers, status
-from rest_framework.exceptions import AuthenticationFailed
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework_simplejwt.exceptions import InvalidToken, TokenError
@@ -70,11 +69,11 @@ class LoginView(SessionView):
 
 
 class RefreshView(SessionView):
-    @extend_schema(request=None, responses={200: AccessSerializer})
+    @extend_schema(request=None, responses={200: AccessSerializer, 204: None})
     def post(self, request):
         refresh = request.COOKIES.get(REFRESH_COOKIE)
         if not refresh:
-            raise AuthenticationFailed("Сессия отсутствует.")
+            return Response(status=status.HTTP_204_NO_CONTENT)
         serializer = TokenRefreshSerializer(data={"refresh": refresh})
         try:
             serializer.is_valid(raise_exception=True)

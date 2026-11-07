@@ -1214,6 +1214,13 @@ export interface operations {
                     "application/json": components["schemas"]["Access"];
                 };
             };
+            /** @description No response body */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
         };
     };
     api_auth_token_create: {

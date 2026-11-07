@@ -108,6 +108,16 @@ services:
     ports:
       - "127.0.0.1:8026:8025"
 
+  site-check:
+    image: shop-nginx:${APP_VERSION:?Set APP_VERSION in .env.prod}
+    profiles: ["checks"]
+    entrypoint: ["wget"]
+    command: ["-q", "--no-check-certificate", "--header=Host: localhost", "-O", "/dev/null", "https://nginx/healthz/"]
+    restart: "no"
+    depends_on:
+      nginx:
+        condition: service_healthy
+
 volumes:
   redis_data:
   pgdata:
