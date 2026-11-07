@@ -1,4 +1,4 @@
-import { z } from 'zod'
+import { z } from '../lib/zod'
 
 function isRussianPhone(value: string): boolean {
   return /^(?:[78]\d{10}|9\d{9})$/.test(value.replace(/\D/g, ''))

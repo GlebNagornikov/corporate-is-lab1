@@ -1,9 +1,9 @@
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useForm } from 'react-hook-form'
 import { Link, useNavigate, useSearchParams } from 'react-router'
-import { z } from 'zod'
 import FormInput from '../components/FormInput'
 import { applyServerErrors } from '../lib/serverErrors'
+import { z } from '../lib/zod'
 import { nextPath } from './nextPath'
 import { register as registerUser } from './session'
 
