@@ -62,6 +62,25 @@ docker compose exec web python manage.py setup_demo --password "DemoShop2026!"
 Выход выполняется POST-формой. Для dev после работы с HTTPS использовать 127.0.0.1:
 HSTS у localhost действует на все порты ещё 60 секунд.
 
+### Тесты React-витрины
+
+Из папки `frontend`:
+
+```powershell
+npm ci
+npx playwright install chromium
+npm run typecheck
+npm run lint
+npm test
+npm run e2e
+```
+
+Для Playwright нужен запущенный React-магазин на `http://127.0.0.1:5173`, книги в наличии
+и демо-менеджер из `setup_demo`. Адрес и реквизиты менеджера можно задать через
+`E2E_BASE_URL`, `E2E_MANAGER_USERNAME` и `E2E_MANAGER_PASSWORD`.
+Тесты создают отдельных покупателей и заказы в базе выбранного стенда.
+При падении Playwright сохраняет трассировку в `frontend/test-results/`.
+
 ## Прод-подобный стенд
 
 Чистый checkout релиза исключает незавершённые локальные изменения из образа.

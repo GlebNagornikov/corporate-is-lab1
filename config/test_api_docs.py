@@ -13,6 +13,14 @@ class OpenAPIContractTests(SimpleTestCase):
         call_command("spectacular", "--validate", "--fail-on-warn", stdout=schema)
         self.assertTrue(schema.getvalue())
 
+    def test_order_status_action_documents_its_request_body(self):
+        schema = SchemaGenerator().get_schema(public=True)
+        action = schema["paths"]["/api/orders/{id}/status/"]["post"]
+        self.assertEqual(
+            action["requestBody"]["content"]["application/json"]["schema"]["$ref"],
+            "#/components/schemas/StatusChangeRequest",
+        )
+
 
 class APIDocsTests(TestCase):
     def test_eleventh_token_request_is_throttled(self):
@@ -41,11 +49,14 @@ class APIDocsTests(TestCase):
         schema = SchemaGenerator().get_schema(public=True)
         for path in [
             "/api/cart/",
+            "/api/cart/merge/",
             "/api/orders/",
             "/api/catalog/products/",
             "/api/wishlist/",
             "/api/employees/",
             "/api/auth/token/",
+            "/api/auth/register/",
+            "/api/auth/me/",
         ]:
             self.assertIn(path, schema["paths"])
             self.assertTrue(next(iter(schema["paths"][path].values()))["description"])

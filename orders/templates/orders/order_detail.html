@@ -17,7 +17,7 @@
   <dt class="col-7">Доставка</dt><dd class="col-5">{{ order.delivery_cost|floatformat:"2g" }} ₽</dd>
   <dt class="col-7">Итого</dt><dd class="col-5 fw-bold">{{ order.total|floatformat:"2g" }} ₽</dd>
 </dl>
-{% if order.status == "new" %}<a class="btn btn-success my-2" href="{% url 'payment-gateway' order.pk %}">Оплатить</a>{% endif %}
+{% if order.can_be_paid %}<a class="btn btn-success my-2" href="{% url 'payment-gateway' order.pk %}">Оплатить</a>{% endif %}
 {% if order.can_be_cancelled_by_customer %}
   <form method="post" action="{% url 'orders:cancel' order.pk %}">{% csrf_token %}
     <button class="btn btn-outline-danger" onclick="return confirm('Отменить заказ?')">Отменить заказ</button>

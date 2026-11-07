@@ -3,12 +3,12 @@ from django.shortcuts import get_object_or_404
 from django.urls import path
 from drf_spectacular.utils import extend_schema
 from rest_framework import serializers
+from rest_framework.generics import GenericAPIView
 from rest_framework.response import Response
-from rest_framework.views import APIView
 
 from catalog.models import Product, ProductVariant
 
-from .services import add_to_cart, get_cart, set_quantity
+from .services import add_to_cart, get_cart, merge_guest_items, remove_from_cart, set_quantity
 
 
 class CartItemSerializer(serializers.Serializer):
@@ -16,6 +16,9 @@ class CartItemSerializer(serializers.Serializer):
     variant_name = serializers.CharField(source="variant.name", default="")
     product_id = serializers.IntegerField(source="product.pk")
     name = serializers.CharField(source="product.name")
+    slug = serializers.CharField(source="product.slug")
+    image = serializers.ImageField(source="product.image", allow_null=True)
+    stock = serializers.IntegerField(source="available_stock")
     price = serializers.DecimalField(source="unit_price", max_digits=10, decimal_places=2)
     quantity = serializers.IntegerField()
     total = serializers.DecimalField(max_digits=12, decimal_places=2)
@@ -39,24 +42,38 @@ class QuantitySerializer(serializers.Serializer):
     quantity = serializers.IntegerField(min_value=0)
 
 
-def cart_response(cart):
+class MergeLineSerializer(serializers.Serializer):
+    product = serializers.IntegerField(min_value=1)
+    variant = serializers.IntegerField(min_value=1, required=False)
+    quantity = serializers.IntegerField(min_value=1, max_value=99)
+
+
+class MergeSerializer(serializers.Serializer):
+    items = MergeLineSerializer(many=True)
+
+
+class VariantQuerySerializer(serializers.Serializer):
+    variant = serializers.IntegerField(min_value=1, required=False)
+
+
+def cart_response(request, cart):
     cart = type(cart).objects.prefetch_related("items__product", "items__variant").get(pk=cart.pk)
-    return Response(CartSerializer(cart).data)
+    return Response(CartSerializer(cart, context={"request": request}).data)
 
 
-class CartView(APIView):
+class CartView(GenericAPIView):
     serializer_class = CartSerializer
 
     def get(self, request):
-        return cart_response(get_cart(request, create=True))
+        return cart_response(request, get_cart(request, create=True))
 
 
-class CartItemsView(APIView):
-    serializer_class = CartSerializer
+class CartItemsView(GenericAPIView):
+    serializer_class = AddItemSerializer
 
-    @extend_schema(request=AddItemSerializer, responses=CartSerializer)
+    @extend_schema(responses={200: CartSerializer})
     def post(self, request):
-        serializer = AddItemSerializer(data=request.data)
+        serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         cart = get_cart(request, create=True)
         try:
@@ -68,40 +85,60 @@ class CartItemsView(APIView):
             )
         except DjangoValidationError as error:
             raise serializers.ValidationError(error.messages) from error
-        return cart_response(cart)
+        return cart_response(request, cart)
 
 
-class CartItemDetailView(APIView):
-    serializer_class = CartSerializer
+@extend_schema(parameters=[VariantQuerySerializer])
+class CartItemDetailView(GenericAPIView):
+    serializer_class = QuantitySerializer
 
-    @extend_schema(request=QuantitySerializer, responses=CartSerializer)
-    def patch(self, request, product_id):
-        serializer = QuantitySerializer(data=request.data)
+    def get_variant_id(self):
+        serializer = VariantQuerySerializer(data=self.request.query_params)
         serializer.is_valid(raise_exception=True)
-        cart = get_cart(request, create=True)
+        return serializer.validated_data.get("variant")
+
+    @extend_schema(responses={200: CartSerializer})
+    def patch(self, request, product_id: int):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
         product = get_object_or_404(Product, pk=product_id)
+        variant_id = self.get_variant_id()
         variant = (
-            get_object_or_404(ProductVariant, pk=request.query_params["variant"], product=product)
-            if request.query_params.get("variant")
+            get_object_or_404(ProductVariant, pk=variant_id, product=product)
+            if variant_id is not None
             else None
         )
+        cart = get_cart(request, create=True)
         try:
             set_quantity(cart, product, serializer.validated_data["quantity"], variant=variant)
         except DjangoValidationError as error:
             raise serializers.ValidationError(error.messages) from error
-        return cart_response(cart)
+        return cart_response(request, cart)
 
-    def delete(self, request, product_id):
+    @extend_schema(request=None, responses={200: CartSerializer})
+    def delete(self, request, product_id: int):
+        variant_id = self.get_variant_id()
         cart = get_cart(request, create=True)
-        rows = cart.items.filter(product_id=product_id)
-        if request.query_params.get("variant"):
-            rows = rows.filter(variant_id=request.query_params["variant"])
-        rows.delete()
-        return cart_response(cart)
+        remove_from_cart(cart, product_id, variant_id)
+        return cart_response(request, cart)
+
+
+class CartMergeView(GenericAPIView):
+    """Переносит доступные товары гостевой корзины из браузера."""
+
+    serializer_class = MergeSerializer
+
+    @extend_schema(responses={200: CartSerializer})
+    def post(self, request):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        cart = merge_guest_items(request.user, serializer.validated_data["items"])
+        return cart_response(request, cart)
 
 
 urlpatterns = [
     path("cart/", CartView.as_view(), name="api-cart"),
     path("cart/items/", CartItemsView.as_view(), name="api-cart-items"),
     path("cart/items/<int:product_id>/", CartItemDetailView.as_view(), name="api-cart-item"),
+    path("cart/merge/", CartMergeView.as_view(), name="api-cart-merge"),
 ]

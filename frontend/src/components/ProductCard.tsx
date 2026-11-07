@@ -3,6 +3,7 @@ import { Link } from 'react-router'
 import type { Product } from '../api/client'
 import { productQuery } from '../api/queries'
 import { formatPrice } from '../lib/format'
+import AddToCartButton from './AddToCartButton'
 
 export default function ProductCard({ product }: { product: Product }) {
   const queryClient = useQueryClient()
@@ -32,6 +33,7 @@ export default function ProductCard({ product }: { product: Product }) {
       {product.rating !== null && (
         <p className="muted">★ {product.rating} ({product.reviews_count})</p>
       )}
+      <AddToCartButton product={product} />
     </article>
   )
 }

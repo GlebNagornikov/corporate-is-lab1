@@ -6,9 +6,9 @@ from django.contrib.auth.models import Group, Permission
 from django.core.management import call_command
 from rest_framework.test import APITestCase
 
-from cart.models import Cart
+from cart.models import Cart, CartItem
 from cart.services import add_to_cart
-from catalog.models import Category, Product
+from catalog.models import Category, Product, ProductVariant
 from orders.models import Order
 from orders.services import OrderError, change_status, place_order
 
@@ -49,13 +49,132 @@ class OrderApiTests(APITestCase):
         return response.data["id"]
 
     def test_anonymous_gets_401(self):
-        for url in ("/api/orders/", "/api/cart/", "/api/employees/", "/api/departments/"):
+        for url in (
+            "/api/orders/",
+            "/api/cart/",
+            "/api/employees/",
+            "/api/departments/",
+            "/api/auth/me/",
+        ):
             with self.subTest(url=url):
                 response = self.client.get(url)
                 self.assertEqual(response.status_code, 401)
                 self.assertTrue(response["WWW-Authenticate"].startswith("Bearer"))
         for url in ("/api/catalog/products/", "/api/catalog/categories/"):
             self.assertEqual(self.client.get(url).status_code, 200)
+        self.assertEqual(self.client.post("/api/cart/merge/", {"items": []}).status_code, 401)
+
+    def test_registration_validates_password_and_allows_jwt_login(self):
+        url = "/api/auth/register/"
+        payload = {"username": "new-buyer", "email": "new@example.com"}
+        weak = self.client.post(url, {**payload, "password": "123"})
+        self.assertEqual(weak.status_code, 400)
+        self.assertIn("password", weak.data)
+
+        password = "Complex-pass-24"
+        response = self.client.post(url, {**payload, "password": password, "is_staff": True})
+        self.assertEqual(response.status_code, 201, response.data)
+        self.assertNotIn("password", response.data)
+        self.assertFalse(User.objects.get(pk=response.data["id"]).is_staff)
+        token = self.client.post(
+            "/api/auth/token/", {"username": payload["username"], "password": password}
+        )
+        self.assertEqual(token.status_code, 200, token.data)
+        self.client.credentials(HTTP_AUTHORIZATION=f"Bearer {token.data['access']}")
+        me = self.client.get("/api/auth/me/")
+        self.assertEqual(me.status_code, 200, me.data)
+        self.assertEqual(me.data["username"], payload["username"])
+        self.assertFalse(me.data["is_manager"])
+
+    def test_me_reports_order_permission(self):
+        self.client.force_authenticate(self.manager)
+        self.assertTrue(self.client.get("/api/auth/me/").data["is_manager"])
+
+    def test_merge_caps_quantity_and_skips_missing_or_inactive_products(self):
+        cart = Cart.objects.create(user=self.buyer)
+        CartItem.objects.create(cart=cart, product=self.book, quantity=2)
+        self.book.image = "products/book.jpg"
+        self.book.save(update_fields=["image"])
+        inactive = Product.objects.create(
+            category=self.book.category,
+            name="Снят",
+            slug="hidden",
+            sku="BK-2",
+            price=1,
+            stock=5,
+            is_active=False,
+        )
+        self.client.force_authenticate(self.buyer)
+        response = self.client.post(
+            "/api/cart/merge/",
+            {
+                "items": [
+                    {"product": self.book.pk, "quantity": 4},
+                    {"product": inactive.pk, "quantity": 1},
+                    {"product": inactive.pk + 1, "quantity": 1},
+                ]
+            },
+            format="json",
+        )
+        self.assertEqual(response.status_code, 200, response.data)
+        self.assertEqual(response.data["total"], "5000.00")
+        (item,) = response.data["items"]
+        self.assertEqual(item["quantity"], 5)
+        self.assertEqual(item["slug"], self.book.slug)
+        self.assertEqual(item["stock"], 5)
+        self.assertEqual(item["image"], "http://testserver/media/products/book.jpg")
+        self.assertEqual(cart.items.count(), 1)
+
+    def test_merge_respects_variant_stock_and_price(self):
+        variant = ProductVariant.objects.create(
+            product=self.book, name="Коллекционное издание", sku="BK-C", stock=2, price=1500
+        )
+        self.client.force_authenticate(self.buyer)
+        response = self.client.post(
+            "/api/cart/merge/",
+            {
+                "items": [
+                    {"product": self.book.pk, "quantity": 1},
+                    {"product": self.book.pk, "variant": variant.pk, "quantity": 3},
+                ]
+            },
+            format="json",
+        )
+        self.assertEqual(response.status_code, 200, response.data)
+        (item,) = response.data["items"]
+        self.assertEqual(item["variant_id"], variant.pk)
+        self.assertEqual(item["stock"], 2)
+        self.assertEqual(item["quantity"], 2)
+        self.assertEqual(item["price"], "1500.00")
+        self.assertIsNone(item["image"])
+
+    def test_invalid_merge_does_not_apply_valid_lines(self):
+        self.client.force_authenticate(self.buyer)
+        response = self.client.post(
+            "/api/cart/merge/",
+            {
+                "items": [
+                    {"product": self.book.pk, "quantity": 1},
+                    {"product": self.book.pk, "quantity": 100},
+                ]
+            },
+            format="json",
+        )
+        self.assertEqual(response.status_code, 400)
+        self.assertIn("items", response.data)
+        self.assertFalse(Cart.objects.filter(user=self.buyer).exists())
+
+    def test_checkout_requires_delivery_method(self):
+        self.client.force_authenticate(self.buyer)
+        self.client.post("/api/cart/items/", {"product": self.book.pk})
+        response = self.client.post(
+            "/api/orders/",
+            {key: value for key, value in CUSTOMER.items() if key != "delivery_method"},
+        )
+        self.assertEqual(response.status_code, 400)
+        self.assertIn("delivery_method", response.data)
+        self.assertFalse(Order.objects.exists())
+        self.assertEqual(Cart.objects.get(user=self.buyer).items.get().quantity, 1)
 
     def test_jwt_login_and_create_order(self):
         response = self.client.post(
@@ -79,6 +198,9 @@ class OrderApiTests(APITestCase):
         self.assertEqual(response.data["phone"], "+79130000000")
         self.assertEqual(Order.objects.get().phone, "+79130000000")
         self.assertEqual(response.data["items"][0]["price"], "1000.00")
+        self.assertEqual(response.data["allowed_transitions"], [])
+        self.assertTrue(response.data["can_cancel"])
+        self.assertIsNone(response.data["promo_code"])
         self.book.refresh_from_db()
         self.assertEqual(self.book.stock, 3)
         self.assertFalse(Cart.objects.get(user=self.buyer).items.exists())
@@ -97,12 +219,17 @@ class OrderApiTests(APITestCase):
         response = self.client.post(url, {"status": "confirmed"})
         self.assertEqual(response.status_code, 403)
         self.assertIn("только менеджеры", str(response.data["detail"]))
-        change_status(Order.objects.get(pk=order_id), "paid", by=self.buyer, payment_verified=True)
         self.client.force_authenticate(self.manager)
+        detail = self.client.get(f"/api/orders/{order_id}/").data
+        self.assertEqual(detail["allowed_transitions"], ["cancelled"])
+        self.assertFalse(detail["can_cancel"])
+        self.assertEqual(self.client.post(url, {"status": "paid"}).status_code, 400)
+        change_status(Order.objects.get(pk=order_id), "paid", by=self.buyer, payment_verified=True)
         self.assertEqual(len(self.client.get("/api/orders/").data["results"]), 1)
         response = self.client.post(url, {"status": "confirmed", "comment": "Позвонили"})
         self.assertEqual(response.status_code, 200, response.data)
         self.assertEqual(Order.objects.get().status, "confirmed")
+        self.assertEqual(response.data["allowed_transitions"], ["cancelled", "shipped"])
         self.assertEqual(len(response.data["history"]), 3)
         self.assertEqual(response.data["history"][-1]["changed_by"], str(self.manager))
         self.assertEqual(self.client.post(url, {"status": "new"}).status_code, 400)
@@ -175,6 +302,7 @@ class OrderApiTests(APITestCase):
         response = self.client.post(f"/api/orders/{order_id}/cancel/")
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.data["status"], "cancelled")
+        self.assertFalse(response.data["can_cancel"])
         self.book.refresh_from_db()
         self.assertEqual(self.book.stock, 5)
         self.assertEqual(self.client.post(f"/api/orders/{order_id}/cancel/").status_code, 400)

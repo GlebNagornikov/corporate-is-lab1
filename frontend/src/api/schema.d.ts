@@ -4,6 +4,46 @@
  */
 
 export interface paths {
+    "/api/auth/me/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description Профиль текущего пользователя. Требуется JWT или сессия.
+         *     Лимиты: 60/600 в минуту (аноним/пользователь). Сессия требует CSRF.
+         */
+        get: operations["api_auth_me_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/auth/register/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * @description Публичная регистрация покупателя.
+         *     Лимиты: 60/600 в минуту (аноним/пользователь). Сессия требует CSRF.
+         */
+        post: operations["api_auth_register_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/auth/token/": {
         parameters: {
             query?: never;
@@ -112,6 +152,28 @@ export interface paths {
          *     Лимиты: 60/600 в минуту (аноним/пользователь). Сессия требует CSRF.
          */
         patch: operations["api_cart_items_partial_update"];
+        trace?: never;
+    };
+    "/api/cart/merge/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * @description Переносит доступные товары гостевой корзины из браузера.
+         *
+         *     JWT или сессия. Операция выполняется только над данными текущего покупателя.
+         *     Лимиты: 60/600 в минуту (аноним/пользователь). Сессия требует CSRF.
+         */
+        post: operations["api_cart_merge_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
         trace?: never;
     };
     "/api/catalog/categories/": {
@@ -394,6 +456,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/orders/{id}/simulate-payment/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Учебная оплата нового заказа. Доступна владельцу заказа. */
+        post: operations["api_orders_simulate_payment_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/orders/{id}/status/": {
         parameters: {
             query?: never;
@@ -503,6 +582,10 @@ export interface components {
             variant_name: string;
             product_id: number;
             name: string;
+            slug: string;
+            /** Format: uri */
+            image: string | null;
+            stock: number;
             /** Format: decimal */
             price: string;
             quantity: number;
@@ -527,7 +610,7 @@ export interface components {
             /** Format: email */
             email: string;
             /** Доставка */
-            delivery_method?: components["schemas"]["DeliveryMethodEnum"];
+            delivery_method: components["schemas"]["DeliveryMethodEnum"];
             /** Адрес доставки */
             address?: string;
             /** Комментарий */
@@ -571,6 +654,32 @@ export interface components {
         FavoriteInputRequest: {
             product: number;
         };
+        Me: {
+            readonly id: number;
+            /**
+             * Имя пользователя
+             * @description Обязательное поле. Не более 150 символов. Только буквы, цифры и символы @/./+/-/_.
+             */
+            readonly username: string;
+            /**
+             * Адрес электронной почты
+             * Format: email
+             */
+            readonly email: string;
+            /** Имя */
+            readonly first_name: string;
+            /** Фамилия */
+            readonly last_name: string;
+            readonly is_manager: boolean;
+        };
+        MergeLineRequest: {
+            product: number;
+            variant?: number;
+            quantity: number;
+        };
+        MergeRequest: {
+            items: components["schemas"]["MergeLineRequest"][];
+        };
         Order: {
             readonly id: number;
             /** Статус */
@@ -588,7 +697,7 @@ export interface components {
             readonly address: string;
             /** Комментарий */
             readonly comment: string;
-            readonly promo_code: string;
+            readonly promo_code: string | null;
             /**
              * Сумма товаров
              * Format: decimal
@@ -616,6 +725,9 @@ export interface components {
              * Format: date-time
              */
             readonly created_at: string;
+            readonly allowed_transitions: components["schemas"]["OrderStatusEnum"][];
+            readonly can_cancel: boolean;
+            readonly can_pay: boolean;
         };
         OrderItem: {
             product: number;
@@ -633,21 +745,6 @@ export interface components {
             quantity: number;
             /** Format: decimal */
             readonly total: string;
-        };
-        OrderItemRequest: {
-            product: number;
-            /** Товар */
-            product_name: string;
-            variant?: number | null;
-            /** Вариант */
-            variant_name?: string;
-            /**
-             * Цена
-             * Format: decimal
-             */
-            price: string;
-            /** Количество */
-            quantity: number;
         };
         /**
          * @description * `new` - Новый
@@ -672,14 +769,6 @@ export interface components {
              * Format: date-time
              */
             readonly created_at: string;
-        };
-        OrderStatusLogRequest: {
-            /** Был */
-            from_status?: components["schemas"]["OrderStatusEnum"] | components["schemas"]["BlankEnum"];
-            /** Стал */
-            to_status: components["schemas"]["OrderStatusEnum"];
-            /** Комментарий */
-            comment?: string;
         };
         /**
          * @description * `success` - success
@@ -817,6 +906,32 @@ export interface components {
             readonly rating: number | null;
             readonly reviews_count: number;
         };
+        Register: {
+            readonly id: number;
+            /**
+             * Имя пользователя
+             * @description Обязательное поле. Не более 150 символов. Только буквы, цифры и символы @/./+/-/_.
+             */
+            username: string;
+            /**
+             * Адрес электронной почты
+             * Format: email
+             */
+            email: string;
+        };
+        RegisterRequest: {
+            /**
+             * Имя пользователя
+             * @description Обязательное поле. Не более 150 символов. Только буквы, цифры и символы @/./+/-/_.
+             */
+            username: string;
+            /**
+             * Адрес электронной почты
+             * Format: email
+             */
+            email: string;
+            password: string;
+        };
         Review: {
             readonly id: number;
             readonly author: string;
@@ -835,6 +950,13 @@ export interface components {
             rating: number;
             /** Отзыв */
             text: string;
+        };
+        SimulatedPaymentRequest: {
+            outcome: components["schemas"]["OutcomeEnum"];
+        };
+        StatusChangeRequest: {
+            status: components["schemas"]["OrderStatusEnum"];
+            comment?: string;
         };
         TokenObtainPair: {
             readonly access: string;
@@ -881,6 +1003,50 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
+    api_auth_me_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Me"];
+                };
+            };
+        };
+    };
+    api_auth_register_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RegisterRequest"];
+                "application/x-www-form-urlencoded": components["schemas"]["RegisterRequest"];
+                "multipart/form-data": components["schemas"]["RegisterRequest"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Register"];
+                };
+            };
+        };
+    };
     api_auth_token_create: {
         parameters: {
             query?: never;
@@ -977,7 +1143,9 @@ export interface operations {
     };
     api_cart_items_destroy: {
         parameters: {
-            query?: never;
+            query?: {
+                variant?: number;
+            };
             header?: never;
             path: {
                 product_id: number;
@@ -986,18 +1154,21 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description No response body */
-            204: {
+            200: {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["Cart"];
+                };
             };
         };
     };
     api_cart_items_partial_update: {
         parameters: {
-            query?: never;
+            query?: {
+                variant?: number;
+            };
             header?: never;
             path: {
                 product_id: number;
@@ -1009,6 +1180,31 @@ export interface operations {
                 "application/json": components["schemas"]["PatchedQuantityRequest"];
                 "application/x-www-form-urlencoded": components["schemas"]["PatchedQuantityRequest"];
                 "multipart/form-data": components["schemas"]["PatchedQuantityRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Cart"];
+                };
+            };
+        };
+    };
+    api_cart_merge_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MergeRequest"];
+                "application/x-www-form-urlencoded": components["schemas"]["MergeRequest"];
+                "multipart/form-data": components["schemas"]["MergeRequest"];
             };
         };
         responses: {
@@ -1572,6 +1768,34 @@ export interface operations {
             };
         };
     };
+    api_orders_simulate_payment_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A unique integer value identifying this заказ. */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SimulatedPaymentRequest"];
+                "application/x-www-form-urlencoded": components["schemas"]["SimulatedPaymentRequest"];
+                "multipart/form-data": components["schemas"]["SimulatedPaymentRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Order"];
+                };
+            };
+        };
+    };
     api_orders_status_create: {
         parameters: {
             query?: never;
@@ -1582,7 +1806,13 @@ export interface operations {
             };
             cookie?: never;
         };
-        requestBody?: never;
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["StatusChangeRequest"];
+                "application/x-www-form-urlencoded": components["schemas"]["StatusChangeRequest"];
+                "multipart/form-data": components["schemas"]["StatusChangeRequest"];
+            };
+        };
         responses: {
             200: {
                 headers: {
