@@ -1,7 +1,25 @@
+from io import StringIO
+
 from django.contrib.auth import get_user_model
-from django.test import TestCase, override_settings
+from django.core.management import call_command
+from django.test import SimpleTestCase, TestCase, override_settings
 from drf_spectacular.generators import SchemaGenerator
 from rest_framework.test import APIClient
+
+
+class OpenAPIContractTests(SimpleTestCase):
+    def test_schema_validates_without_warnings(self):
+        schema = StringIO()
+        call_command("spectacular", "--validate", "--fail-on-warn", stdout=schema)
+        self.assertTrue(schema.getvalue())
+
+    def test_order_status_action_documents_its_request_body(self):
+        schema = SchemaGenerator().get_schema(public=True)
+        action = schema["paths"]["/api/orders/{id}/status/"]["post"]
+        self.assertEqual(
+            action["requestBody"]["content"]["application/json"]["schema"]["$ref"],
+            "#/components/schemas/StatusChangeRequest",
+        )
 
 
 class APIDocsTests(TestCase):
@@ -31,11 +49,14 @@ class APIDocsTests(TestCase):
         schema = SchemaGenerator().get_schema(public=True)
         for path in [
             "/api/cart/",
+            "/api/cart/merge/",
             "/api/orders/",
             "/api/catalog/products/",
             "/api/wishlist/",
             "/api/employees/",
             "/api/auth/token/",
+            "/api/auth/register/",
+            "/api/auth/me/",
         ]:
             self.assertIn(path, schema["paths"])
             self.assertTrue(next(iter(schema["paths"][path].values()))["description"])

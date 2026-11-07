@@ -7,6 +7,7 @@ from rest_framework.routers import DefaultRouter
 
 from .filters import ProductFilter
 from .models import Category, Product, Review
+from .pagination import ProductPagination
 from .serializers import CategorySerializer, ProductSerializer, ReviewSerializer
 
 
@@ -20,6 +21,7 @@ class CategoryViewSet(viewsets.ReadOnlyModelViewSet):
 
 class ProductViewSet(viewsets.ReadOnlyModelViewSet):
     serializer_class = ProductSerializer
+    pagination_class = ProductPagination
     permission_classes = [permissions.AllowAny]
     lookup_field = "slug"
     filter_backends = [DjangoFilterBackend]
@@ -34,13 +36,14 @@ class ProductViewSet(viewsets.ReadOnlyModelViewSet):
             .order_by("-created_at")
         )
 
+    @extend_schema(methods=["GET"], responses=ReviewSerializer(many=True), filters=False)
+    @extend_schema(methods=["POST"], request=ReviewSerializer, responses={201: ReviewSerializer})
     @action(
         detail=True,
         methods=["get", "post"],
         permission_classes=[permissions.IsAuthenticatedOrReadOnly],
+        pagination_class=None,
     )
-    @extend_schema(methods=["GET"], responses=ReviewSerializer(many=True))
-    @extend_schema(methods=["POST"], request=ReviewSerializer, responses={201: ReviewSerializer})
     def reviews(self, request, slug=None):
         product = self.get_object()
         if request.method == "GET":

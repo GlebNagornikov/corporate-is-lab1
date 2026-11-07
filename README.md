@@ -1,7 +1,7 @@
 # Corporate IS — учебный интернет-магазин
 
-Django, PostgreSQL, REST API с JWT. Реализованы лабораторные №1–7 и **все 12**
-доработок пункта 8.2, выпущенных в **1.1.0**. Текущая версия — **1.1.2** (исправления витрины и оформления заказа).
+Django, PostgreSQL, REST API с JWT. В версии **1.1.0** выпущены **все 12** доработок
+пункта 8.2. В версии **1.2.0** на HTTPS-стенде работает витрина React.
 
 Покупатель ищет товары, выбирает вариант, оформляет доставку и оплачивает заказ
 в учебном шлюзе. Менеджер управляет каталогом, вариантами и статусами, импортирует CSV
@@ -62,11 +62,30 @@ docker compose exec web python manage.py setup_demo --password "DemoShop2026!"
 Выход выполняется POST-формой. Для dev после работы с HTTPS использовать 127.0.0.1:
 HSTS у localhost действует на все порты ещё 60 секунд.
 
+### Тесты React-витрины
+
+Из папки `frontend`:
+
+```powershell
+npm ci
+npx playwright install chromium
+npm run typecheck
+npm run lint
+npm test
+npm run e2e
+```
+
+Для Playwright нужен запущенный React-магазин на `http://127.0.0.1:5173`, книги в наличии
+и демо-менеджер из `setup_demo`. Адрес и реквизиты менеджера можно задать через
+`E2E_BASE_URL`, `E2E_MANAGER_USERNAME` и `E2E_MANAGER_PASSWORD`.
+Тесты создают отдельных покупателей и заказы в базе выбранного стенда.
+При падении Playwright сохраняет трассировку в `frontend/test-results/`.
+
 ## Прод-подобный стенд
 
 Чистый checkout релиза исключает незавершённые локальные изменения из образа.
-На новом компьютере можно клонировать сразу тег `v1.1.2`. Для существующей рабочей
-папки с изменениями использовать отдельный `git worktree add --detach <папка> v1.1.2`.
+На новом компьютере можно клонировать сразу тег `v1.2.0`. Для существующей рабочей
+папки с изменениями использовать отдельный `git worktree add --detach <папка> v1.2.0`.
 
 ```powershell
 Copy-Item .env.prod.example .env.prod
@@ -74,7 +93,7 @@ New-Item -ItemType Directory -Force nginx/certs
 & 'C:/Program Files/Git/usr/bin/openssl.exe' req -x509 -nodes -newkey rsa:2048 -days 365 -keyout nginx/certs/localhost.key -out nginx/certs/localhost.crt -subj '/CN=localhost' -addext 'subjectAltName=DNS:localhost,IP:127.0.0.1'
 ```
 
-В `.env.prod` установить APP_VERSION=1.1.2, отдельные случайные SECRET_KEY,
+В `.env.prod` установить APP_VERSION=1.2.0, отдельные случайные SECRET_KEY,
 PAYMENT_WEBHOOK_SECRET и POSTGRES_PASSWORD. Prod использует собственную БД shop.
 В Git Bash вместо пути к openssl использовать `openssl`; при преобразовании пути
 заменить `-subj '/CN=localhost'` на `-subj '//CN=localhost'`.
@@ -89,6 +108,7 @@ docker compose -f docker-compose.prod.yml --env-file .env.prod exec web python m
 Миграции выполняет отдельный сервис: **db healthy → migrate Exited (0) → web healthy → nginx**.
 Worker также ждёт миграции и Redis. В браузере подтвердить исключение для собственного
 самоподписанного сертификата. Статика и media раздаются nginx из отдельных томов.
+Образ `shop-nginx` содержит сборку витрины и конфигурацию nginx. Сертификаты подключаются при запуске.
 
 Prod-образ содержит Gunicorn и зависимости base, работает от app (UID 1000), не содержит
 Debug Toolbar, Ruff и Coverage. Код копируется в образ, bind mount исходников отсутствует.
@@ -103,7 +123,7 @@ Debug Toolbar, Ruff и Coverage. Код копируется в образ, bind
 |---|---|
 | SECRET_KEY | Случайный ключ Django; отдельный для dev/prod |
 | PAYMENT_WEBHOOK_SECRET | Отдельный случайный HMAC-секрет учебного платёжного шлюза |
-| APP_VERSION | Prod-тег образа shop-web, текущий релиз 1.1.2 |
+| APP_VERSION | Общий тег образов `shop-web` и `shop-nginx`, текущий релиз `1.2.0` |
 | POSTGRES_DB / USER / PASSWORD | Учётные данные отдельной БД окружения |
 | POSTGRES_HOST_PORT | Dev-порт PostgreSQL, 5432; prod БД наружу не публикуется |
 | DATABASE_URL | Для manage.py с хоста; Compose устанавливает внутренний адрес db |
@@ -213,25 +233,30 @@ curl.exe -kI https://localhost/static/admin/css/base.css
 docker compose -f docker-compose.prod.yml --env-file .env.prod exec web python -c "import debug_toolbar"
 ```
 
-Ожидается 301 на HTTPS, healthz версии 1.1.2, CSS 200; импорт debug_toolbar должен
-завершиться ModuleNotFoundError. Для автоматической HTTPS-покупки с локальным Python:
-`python scripts/check_prod.py --expected-version 1.1.2 --purchase`.
-Она создаёт нового тестового покупателя и заказ, списывает одну единицу товара.
+Ожидаются редирект 301 на HTTPS, версия 1.2.0 в `/healthz/` и подвале витрины и ответ 200 для CSS.
+Импорт `debug_toolbar` завершается `ModuleNotFoundError`.
+
+Сквозные сценарии на стенде создают тестовых покупателей и заказы. После `npm ci --prefix frontend`
+и `npx --prefix frontend playwright install chromium` запустите их в PowerShell:
+
+```powershell
+$env:E2E_BASE_URL = 'https://localhost'
+npm --prefix frontend run e2e
+```
 
 ## История выпусков, откат и данные
 
 v1.0.0 — первый релиз, v1.0.1 — нормализация телефонов, v1.1.0 — все 12 доработок.
 v1.1.1 исправляет демосценарий, v1.1.2 — витрину, оформление заказа и отчёт.
+v1.2.0 переносит витрину React на HTTPS-стенд.
 Каждый тег аннотированный, находится на merge-коммите main, версия кода совпадает с тегом.
-Feature PR идут в develop; релиз — release/1.1.0 → main и обратно в develop.
+Feature PR идут в develop, релизная ветка сливается в main, затем main сливается обратно в develop.
 Подробности выпусков: [CHANGELOG](CHANGELOG.md), [лабораторная №7](docs/lab7-prod-stack.md).
 
-Для отката поменять APP_VERSION на ранее собранный тег и запустить **без сборки**:
-`docker compose -f docker-compose.prod.yml --env-file .env.prod up -d --no-build`.
-Вернуть 1.1.2 той же командой. Выпущенные теги образов не пересобирать.
-Если nginx сохранил старый адрес контейнера и отвечает 502, перезапустить nginx.
-Откат кода не откатывает схему/данные; 1.0.1 не понимает новые варианты и paid, поэтому
-для проверки отката использовать healthz, а для реальной работы вернуть 1.1.2.
+При откате переключитесь на Git-тег нужной версии и задайте соответствующий `APP_VERSION`.
+Так Compose получит конфигурацию того же выпуска. Затем запустите
+`docker compose -f docker-compose.prod.yml --env-file .env.prod up -d --no-build`, если его образы уже собраны.
+Для возврата повторите те же шаги с `v1.2.0`. Откат кода сохраняет текущую схему и данные PostgreSQL.
 
 Резервная копия PostgreSQL (PowerShell):
 

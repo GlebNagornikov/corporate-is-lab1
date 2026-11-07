@@ -219,7 +219,7 @@ def signature(body):
 @transaction.atomic
 def begin_payment(order, user):
     order = get_object_or_404(Order.objects.select_for_update(), pk=order.pk, user=user)
-    if order.status != Order.Status.NEW:
+    if not order.can_be_paid:
         raise ValidationError("Оплатить можно только новый заказ.")
     return Payment.objects.create(order=order, amount=order.total)
 
@@ -245,6 +245,14 @@ def apply_payment(payment_id, outcome):
     payment.status = outcome
     payment.save(update_fields=["status"])
     return payment
+
+
+@transaction.atomic
+def simulate_payment(order, user, outcome):
+    payment = begin_payment(order, user)
+    apply_payment(payment.pk, outcome)
+    order.refresh_from_db()
+    return order
 
 
 def sales_report(start=None, end=None):
