@@ -8,8 +8,6 @@ import CartPage from './cart/CartPage'
 import { cartQuery } from './cart/queries'
 import { parseCatalogParams } from './lib/catalogParams'
 import { orderFilters } from './manager/orderFilters'
-import OrderPage from './orders/OrderPage'
-import OrdersPage from './orders/OrdersPage'
 import CatalogPage from './routes/CatalogPage'
 import NotFoundPage from './routes/NotFoundPage'
 import ProductPage from './routes/ProductPage'
@@ -70,7 +68,7 @@ export function createAppRoutes(queryClient: QueryClient): RouteObject[] {
             },
             {
               path: 'orders',
-              Component: OrdersPage,
+              lazy: async () => ({ Component: (await import('./orders/OrdersPage')).default }),
               loader: async ({ request }) => {
                 await requireUser(request, queryClient)
                 void queryClient.prefetchQuery(ordersQuery())
@@ -79,7 +77,7 @@ export function createAppRoutes(queryClient: QueryClient): RouteObject[] {
             },
             {
               path: 'orders/:orderId',
-              Component: OrderPage,
+              lazy: async () => ({ Component: (await import('./orders/OrderPage')).default }),
               ErrorBoundary: RouteError,
               loader: async ({ request, params }) => {
                 await requireUser(request, queryClient)

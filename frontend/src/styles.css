@@ -62,6 +62,11 @@ a {
   padding: 1.5rem;
 }
 
+.footer {
+  padding: 16px 24px;
+  font-size: 13px;
+}
+
 .layout h1,
 .categories {
   margin-top: 0;
