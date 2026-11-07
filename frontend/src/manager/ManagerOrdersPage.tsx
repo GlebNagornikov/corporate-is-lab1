@@ -87,7 +87,7 @@ function OrderRow({ order, stale }: { order: Order; stale: boolean }) {
       <td>{order.status_display}</td>
       <td>
         <div className="actions">
-          {order.allowed_transitions.map((status) => (
+          {[...order.allowed_transitions].sort((a, b) => Number(a === 'cancelled') - Number(b === 'cancelled')).map((status) => (
             <button type="button" key={status} disabled={stale || change.isPending}
               className={status === 'cancelled' ? 'secondary' : undefined}
               onClick={(event) => {

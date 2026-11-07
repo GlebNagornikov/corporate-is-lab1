@@ -96,7 +96,7 @@ services:
       web:
         condition: service_healthy
     healthcheck:
-      test: ["CMD-SHELL", "wget -q --no-check-certificate -O /dev/null https://localhost/healthz/"]
+      test: ["CMD-SHELL", "wget -q --no-check-certificate --header='Host: localhost' -O /dev/null https://127.0.0.1/healthz/"]
       interval: 10s
       timeout: 5s
       retries: 5
