@@ -36,9 +36,11 @@
 файла, а не всего трафика при открытии каталога.
 
 Отчёты Lighthouse 13.6.0 для HTTPS-стенда с мобильной конфигурацией находятся в
-`docs/lighthouse/home.json` и `docs/lighthouse/product.json`. Главная: Performance 90,
-Accessibility 100; `/products/bk-001`: Performance 96, Accessibility 100. Оценка
+`docs/lighthouse/home.json` и `docs/lighthouse/product.json`. Главная: Performance 98,
+Accessibility 100; `/products/bk-001`: Performance 95, Accessibility 100. Оценка
 производительности зависит от нагрузки компьютера и содержимого каталога.
+На мобильном экране область категорий получила фиксированную высоту с прокруткой:
+это устранило сдвиг каталога при загрузке списка категорий.
 
 Проверено: `+7 123 456-78-90` и значение по умолчанию отдаются в `/config.js` при
 последовательном пересоздании nginx без сборки. Проверка здоровья использует IPv4

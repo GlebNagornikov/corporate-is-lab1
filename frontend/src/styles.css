@@ -460,4 +460,9 @@ button:disabled {
   .layout {
     grid-template-columns: 1fr;
   }
+
+  .layout > aside {
+    height: 12rem;
+    overflow-y: auto;
+  }
 }
