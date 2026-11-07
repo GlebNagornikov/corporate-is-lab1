@@ -119,6 +119,10 @@ class Order(models.Model):
     def can_be_cancelled_by_customer(self):
         return self.status == self.Status.NEW
 
+    @property
+    def can_be_paid(self):
+        return self.status == self.Status.NEW
+
 
 class OrderItem(models.Model):
     order = models.ForeignKey(Order, on_delete=models.CASCADE, related_name="items")

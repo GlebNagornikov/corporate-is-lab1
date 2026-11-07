@@ -1,7 +1,9 @@
 import json
 
 from django.contrib.auth import get_user_model
+from django.contrib.auth.models import Permission
 from django.test import TestCase, override_settings
+from rest_framework.test import APIClient
 
 from orders.models import Order, Payment
 from orders.payments import begin_payment, signature
@@ -62,3 +64,37 @@ class PaymentTests(TestCase):
         self.assertEqual(self.callback(payment, "failed").status_code, 200)
         self.assertEqual(self.order.status, "new")
         self.assertEqual(self.callback(begin_payment(self.order, self.user)).status_code, 200)
+
+    def test_spa_payment_allows_decline_then_success_without_double_charge(self):
+        client = APIClient()
+        url = f"/api/orders/{self.order.pk}/simulate-payment/"
+        client.force_authenticate(self.user)
+        declined = client.post(url, {"outcome": "failed"})
+        self.assertEqual(declined.status_code, 200, declined.data)
+        self.assertEqual(declined.data["status"], "new")
+        self.assertTrue(declined.data["can_pay"])
+        paid = client.post(url, {"outcome": "success"})
+        self.assertEqual(paid.status_code, 200, paid.data)
+        self.assertEqual(paid.data["status"], "paid")
+        self.assertFalse(paid.data["can_pay"])
+        self.assertEqual(client.post(url, {"outcome": "success"}).status_code, 400)
+        self.assertEqual(self.order.payments.filter(status="success").count(), 1)
+        self.assertEqual(self.order.payments.filter(status="failed").count(), 1)
+        self.assertEqual(self.order.history.filter(to_status="paid").count(), 1)
+
+    def test_spa_payment_is_owner_only_even_when_manager_can_view_order(self):
+        client = APIClient()
+        url = f"/api/orders/{self.order.pk}/simulate-payment/"
+        self.assertEqual(client.post(url, {"outcome": "success"}).status_code, 401)
+        manager = get_user_model().objects.create_user("viewer")
+        manager.user_permissions.add(
+            *Permission.objects.filter(
+                content_type__app_label="orders", codename__in=["view_order", "change_order"]
+            )
+        )
+        client.force_authenticate(manager)
+        detail = client.get(f"/api/orders/{self.order.pk}/")
+        self.assertEqual(detail.status_code, 200)
+        self.assertFalse(detail.data["can_pay"])
+        self.assertEqual(client.post(url, {"outcome": "success"}).status_code, 404)
+        self.assertFalse(self.order.payments.exists())

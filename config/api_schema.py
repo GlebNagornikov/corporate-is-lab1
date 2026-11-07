@@ -7,8 +7,12 @@ class ShopSchema(AutoSchema):
         path = self.path
         if "payments/" in path:
             rights = "Публичный webhook с обязательной HMAC-подписью. JWT не требуется."
-        elif "auth/" in path:
+        elif "auth/token" in path:
             rights = "Публичная операция. Получение токена: до 10 запросов в минуту с IP."
+        elif "auth/register" in path:
+            rights = "Публичная регистрация покупателя."
+        elif "auth/me" in path:
+            rights = "Профиль текущего пользователя. Требуется JWT или сессия."
         elif "catalog/" in path:
             rights = "Чтение публично; отзыв требует входа. Один отзыв на товар."
         elif "employees" in path or "departments" in path:
@@ -35,6 +39,20 @@ class ShopSchema(AutoSchema):
             value = {"refresh": "<refresh-token>"}
         elif "auth/token" in path:
             value = {"username": "buyer", "password": "<your-password>"}
+        elif "auth/register" in path:
+            value = {
+                "username": "buyer",
+                "email": "buyer@example.test",
+                "password": "<your-password>",
+            }
+        elif "auth/me" in path:
+            value = {
+                "username": "buyer",
+                "email": "buyer@example.test",
+                "first_name": "",
+                "last_name": "",
+                "is_manager": False,
+            }
         elif "reviews" in path:
             value = {"rating": 5, "text": "Хороший товар"}
         elif "status" in path:
@@ -46,6 +64,8 @@ class ShopSchema(AutoSchema):
                 "email": "buyer@example.test",
                 "delivery_method": "pickup",
             }
+        elif "cart/merge" in path:
+            value = {"items": [{"product": 1, "quantity": 1}]}
         elif "cart" in path:
             value = {"product": 1, "variant": 1, "quantity": 1}
         elif "wishlist" in path:
@@ -62,6 +82,8 @@ class ShopSchema(AutoSchema):
         response = {"id": 1, **value}
         if "auth/token" in path:
             response = {"access": "<access-token>", "refresh": "<refresh-token>"}
+        elif "auth/register" in path:
+            response.pop("password")
         elif "payments/" in path:
             response = {"status": "success"}
         elif "cart" in path:

@@ -1,16 +1,23 @@
-import { Link, isRouteErrorResponse, useRouteError } from 'react-router'
+import { Link, isRouteErrorResponse, useParams, useRouteError } from 'react-router'
 import { ApiError } from '../api/client'
 
 export default function RouteError() {
   const error = useRouteError()
+  const { slug } = useParams<'slug'>()
   let title = 'Что-то пошло не так'
   let message = 'Попробуйте обновить страницу.'
 
   if (error instanceof ApiError && error.status === 404) {
     title = 'Не найдено'
-    message = 'Такого товара нет или он снят с продажи.'
+    message = slug ? 'Такого товара нет или он снят с продажи.' : error.message
   } else if (error instanceof ApiError) {
     message = error.message
+  } else if (isRouteErrorResponse(error) && error.status === 403) {
+    title = 'Нет доступа'
+    message = String(error.data)
+  } else if (isRouteErrorResponse(error) && error.status === 404) {
+    title = 'Не найдено'
+    message = String(error.data)
   } else if (isRouteErrorResponse(error)) {
     message = `${error.status} ${error.statusText}`
   }

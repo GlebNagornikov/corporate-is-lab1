@@ -1,19 +1,6 @@
 import { keepPreviousData, queryOptions } from '@tanstack/react-query'
 import type { ProductQuery } from '../lib/catalogParams'
-import { api, toApiError } from './client'
-
-function requireData<T>({
-  data,
-  error,
-  response,
-}: {
-  data?: T
-  error?: unknown
-  response: Response
-}): T {
-  if (!response.ok || data === undefined) throw toApiError(response, error)
-  return data
-}
+import { api, requireData } from './client'
 
 export const categoriesQuery = () =>
   queryOptions({
