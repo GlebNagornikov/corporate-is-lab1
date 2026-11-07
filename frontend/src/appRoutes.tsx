@@ -1,6 +1,6 @@
 import type { QueryClient } from '@tanstack/react-query'
 import { data, type RouteObject } from 'react-router'
-import { orderQuery, ordersQuery } from './api/orders'
+import { orderQuery, ordersQuery, readOrderPage } from './api/orders'
 import { categoriesQuery, productQuery, productsQuery } from './api/queries'
 import { meQuery, requireManager, requireUser } from './auth/session'
 import SessionOutlet from './auth/SessionOutlet'
@@ -71,7 +71,8 @@ export function createAppRoutes(queryClient: QueryClient): RouteObject[] {
               lazy: async () => ({ Component: (await import('./orders/OrdersPage')).default }),
               loader: async ({ request }) => {
                 await requireUser(request, queryClient)
-                void queryClient.prefetchQuery(ordersQuery())
+                const page = readOrderPage(new URL(request.url).searchParams)
+                void queryClient.prefetchQuery(ordersQuery({ page }))
                 return null
               },
             },

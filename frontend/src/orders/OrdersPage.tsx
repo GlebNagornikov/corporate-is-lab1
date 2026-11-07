@@ -1,12 +1,15 @@
 import { useQuery } from '@tanstack/react-query'
-import { Link } from 'react-router'
-import { ordersQuery } from '../api/orders'
+import { Link, useSearchParams } from 'react-router'
+import { ordersQuery, readOrderPage } from '../api/orders'
 import { meQuery } from '../auth/session'
 import { formatDate, formatPrice } from '../lib/format'
+import OrderPagination from './OrderPagination'
 
 export default function OrdersPage() {
   const { data: me } = useQuery(meQuery())
-  const orders = useQuery(ordersQuery())
+  const [search] = useSearchParams()
+  const page = readOrderPage(search)
+  const orders = useQuery(ordersQuery({ page }))
 
   return (
     <section className="details">
@@ -18,8 +21,9 @@ export default function OrdersPage() {
       ) : orders.data.results.length === 0 ? (
         <p className="muted">Заказов пока нет. <Link to="/">В каталог</Link></p>
       ) : (
-        <div className="table-scroll">
-          <table className="table">
+        <>
+        <div className="table-scroll" aria-busy={orders.isPlaceholderData}>
+          <table className={orders.isPlaceholderData ? 'table stale' : 'table'}>
             <thead>
               <tr>
                 <th scope="col">Заказ</th><th scope="col">Дата</th>
@@ -38,6 +42,8 @@ export default function OrdersPage() {
             </tbody>
           </table>
         </div>
+        <OrderPagination page={page} previous={orders.data.previous} next={orders.data.next} />
+        </>
       )}
     </section>
   )

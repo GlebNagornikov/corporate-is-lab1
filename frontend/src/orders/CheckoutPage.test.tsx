@@ -21,7 +21,7 @@ test('оформление проверяет курьерский адрес, �
   client.setQueryData(meQuery().queryKey, me)
   const cart: Cart = {
     items: [{
-      product_id: 1, variant_id: null, variant_name: '', name: 'Книга', slug: 'book',
+      product_id: 1, variant_id: null, variant_name: '', is_default_variant: true, name: 'Книга', slug: 'book',
       image: null, stock: 3, price: '990.00', quantity: 1, total: '990.00',
     }],
     count: 1,

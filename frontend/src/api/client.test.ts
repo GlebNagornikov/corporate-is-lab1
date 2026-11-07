@@ -18,7 +18,7 @@ afterEach(() => {
 })
 
 test('обновляет токен один раз и повторяет POST с исходным телом', async () => {
-  tokens.save({ access: 'old', refresh: 'refresh-token' })
+  tokens.save({ access: 'old' })
   const releaseMe = latch()
   const meStarted = latch()
   const checkout = {
@@ -30,11 +30,12 @@ test('обновляет токен один раз и повторяет POST �
   const submitted: unknown[] = []
   const refresh = vi.fn(async ({ request }: { request: Request }) => {
     expect(request.headers.get('Authorization')).toBeNull()
-    expect(await request.json()).toEqual({ refresh: 'refresh-token' })
+    expect(request.headers.get('X-CSRFToken')).toBe('csrf-token')
+    expect(await request.text()).toBe('')
     return HttpResponse.json({ access: 'new' })
   })
   server.use(
-    http.post('*/api/auth/token/refresh/', refresh),
+    http.post('*/api/auth/session/refresh/', refresh),
     http.get('*/api/auth/me/', async ({ request }) => {
       if (request.headers.get('Authorization') === 'Bearer new') {
         return HttpResponse.json({ username: 'buyer' })
@@ -63,16 +64,17 @@ test('обновляет токен один раз и повторяет POST �
   expect((await me).data?.username).toBe('buyer')
   expect(refresh).toHaveBeenCalledTimes(1)
   expect(tokens.access()).toBe('new')
-  expect(tokens.refresh()).toBe('refresh-token')
+  expect(localStorage.getItem('shop-access')).toBeNull()
+  expect(localStorage.getItem('shop-refresh')).toBeNull()
 })
 
 test('при ошибке обновления завершает сессию один раз и повторяет запросы без JWT', async () => {
-  tokens.save({ access: 'expired', refresh: 'expired-refresh' })
+  tokens.save({ access: 'expired' })
   const onExpired = vi.fn()
   setSessionExpiredHandler(onExpired)
   const refresh = vi.fn(invalidToken)
   server.use(
-    http.post('*/api/auth/token/refresh/', refresh),
+    http.post('*/api/auth/session/refresh/', refresh),
     http.get('*/api/catalog/categories/', ({ request }) =>
       request.headers.has('Authorization') ? invalidToken() : HttpResponse.json([]),
     ),
@@ -86,11 +88,10 @@ test('при ошибке обновления завершает сессию �
   expect(refresh).toHaveBeenCalledTimes(1)
   expect(onExpired).toHaveBeenCalledTimes(1)
   expect(tokens.access()).toBeNull()
-  expect(tokens.refresh()).toBeNull()
 })
 
 test('параллельные запросы используют один успешный refresh', async () => {
-  tokens.save({ access: 'expired', refresh: 'refresh-token' })
+  tokens.save({ access: 'expired' })
   const bothRequestsStarted = latch()
   let expiredRequests = 0
   const refresh = vi.fn(async () => {
@@ -98,7 +99,7 @@ test('параллельные запросы используют один ус
     return HttpResponse.json({ access: 'new' })
   })
   server.use(
-    http.post('*/api/auth/token/refresh/', refresh),
+    http.post('*/api/auth/session/refresh/', refresh),
     http.get('*/api/auth/me/', ({ request }) => {
       if (request.headers.get('Authorization') === 'Bearer new') {
         return HttpResponse.json({ username: 'buyer' })
@@ -116,18 +117,18 @@ test('параллельные запросы используют один ус
 })
 
 test('не обновляет токен при неверном пароле или запросе гостя', async () => {
-  tokens.save({ access: 'old', refresh: 'refresh-token' })
+  tokens.save({ access: 'old' })
   const refresh = vi.fn(invalidToken)
   server.use(
-    http.post('*/api/auth/token/refresh/', refresh),
-    http.post('*/api/auth/token/', ({ request }) => {
+    http.post('*/api/auth/session/refresh/', refresh),
+    http.post('*/api/auth/session/login/', ({ request }) => {
       expect(request.headers.get('Authorization')).toBeNull()
       return invalidToken()
     }),
     http.get('*/api/auth/me/', invalidToken),
   )
 
-  const login = await api.POST('/api/auth/token/', {
+  const login = await api.POST('/api/auth/session/login/', {
     body: { username: 'buyer', password: 'wrong' },
   })
   expect(login.response.status).toBe(401)

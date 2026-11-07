@@ -11,6 +11,10 @@ class ShopSchema(AutoSchema):
             rights = "Публичная операция. Получение токена: до 10 запросов в минуту с IP."
         elif "auth/register" in path:
             rights = "Публичная регистрация покупателя."
+        elif "auth/session/csrf" in path:
+            rights = "Получение CSRF-токена для входа, обновления сессии и выхода."
+        elif "auth/session/" in path:
+            rights = "Сессия витрины. Требуется заголовок X-CSRFToken и соответствующая cookie."
         elif "auth/me" in path:
             rights = "Профиль текущего пользователя. Требуется JWT или сессия."
         elif "catalog/" in path:
@@ -37,7 +41,7 @@ class ShopSchema(AutoSchema):
             value = {"payment_id": "550e8400-e29b-41d4-a716-446655440000", "outcome": "success"}
         elif "auth/token/refresh" in path:
             value = {"refresh": "<refresh-token>"}
-        elif "auth/token" in path:
+        elif "auth/token" in path or "auth/session/login" in path:
             value = {"username": "buyer", "password": "<your-password>"}
         elif "auth/register" in path:
             value = {
@@ -72,6 +76,8 @@ class ShopSchema(AutoSchema):
             value = {"product": 1}
         elif "departments" in path:
             value = {"name": "Продажи", "description": "Отдел продаж"}
+        elif "auth/session/" in path:
+            return []
         else:
             value = {
                 "full_name": "Иван Иванов",
@@ -82,6 +88,8 @@ class ShopSchema(AutoSchema):
         response = {"id": 1, **value}
         if "auth/token" in path:
             response = {"access": "<access-token>", "refresh": "<refresh-token>"}
+        elif "auth/session/login" in path:
+            response = {"access": "<access-token>"}
         elif "auth/register" in path:
             response.pop("password")
         elif "payments/" in path:

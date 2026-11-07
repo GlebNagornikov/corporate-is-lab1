@@ -25,6 +25,7 @@ function storedItem(value: unknown): CartItem[] {
     image: typeof item.image === 'string' ? item.image : null,
     variant_id: typeof item.variant_id === 'number' ? item.variant_id : null,
     variant_name: typeof item.variant_name === 'string' ? item.variant_name : '',
+    is_default_variant: item.is_default_variant ?? item.variant_id == null,
   }, item.quantity)]
 }
 
@@ -88,6 +89,7 @@ export const guestCart = {
       image: product.image ?? null,
       variant_id: variantId,
       variant_name: variant?.name ?? '',
+      is_default_variant: variant?.is_default ?? true,
       price: variant && !variant.is_default ? variant.price : product.price,
     }
     const item = withQuantity({ ...details, stock }, next)

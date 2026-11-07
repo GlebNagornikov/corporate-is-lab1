@@ -5,6 +5,12 @@ test('гость собирает корзину, входит и оформля
   const buyer = await createBuyer(request)
   const id = await checkoutAsGuest(page, buyer)
   await expect(page.getByRole('heading', { name: `Заказ №${id}` })).toBeVisible()
+  const cookie = (await page.context().cookies()).find(({ name }) => name === 'shop_refresh')
+  expect(cookie).toMatchObject({ httpOnly: true, secure: true, sameSite: 'Strict', path: '/api/auth/' })
+  expect(await page.evaluate(() => [localStorage.getItem('shop-access'), localStorage.getItem('shop-refresh')]))
+    .toEqual([null, null])
+  await page.reload()
+  await expect(page.getByRole('heading', { name: `Заказ №${id}` })).toBeVisible()
 })
 
 test('менеджер подтверждает заказ после учебной оплаты', async ({ page, request }) => {
@@ -23,13 +29,27 @@ test('менеджер подтверждает заказ после учебн
   const row = page.getByRole('row').filter({
     has: page.getByRole('link', { name: `№${id}`, exact: true }),
   })
-  await row.getByRole('button', { name: 'Подтвердить', exact: true }).click()
+  const confirm = row.getByRole('button', { name: 'Подтвердить', exact: true })
+  await confirm.click()
+  const dialog = page.getByRole('dialog')
+  await expect(dialog.getByRole('textbox')).toBeFocused()
+  await page.keyboard.press('Escape')
+  await expect(dialog).toHaveCount(0)
+  await expect(confirm).toBeFocused()
+  await confirm.click()
+  await dialog.getByRole('button', { name: 'Подтвердить действие' }).click()
   await expect(row).toHaveCount(0)
 
   await page.getByRole('combobox', { name: 'Статус', exact: true }).selectOption('confirmed')
   await expect(page).toHaveURL('/manager/orders?status=confirmed')
   await expect(row.getByRole('cell', { name: 'Подтверждён', exact: true })).toBeVisible()
   await expect(row.getByRole('button', { name: 'Передать в доставку' })).toBeEnabled()
+  const cancel = row.getByRole('button', { name: 'Отменить', exact: true })
+  await cancel.click()
+  await expect(dialog.getByRole('textbox', { name: /Причина отмены/ })).toBeFocused()
+  await expect(dialog.getByRole('button', { name: 'Подтвердить действие' })).toBeDisabled()
+  await page.keyboard.press('Escape')
+  await expect(cancel).toBeFocused()
 })
 
 test('покупатель не попадает в раздел менеджера', async ({ page, request }) => {

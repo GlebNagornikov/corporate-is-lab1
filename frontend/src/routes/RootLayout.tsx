@@ -1,4 +1,4 @@
-import { useQuery } from '@tanstack/react-query'
+import { useMutation, useQuery } from '@tanstack/react-query'
 import { Link, NavLink, Outlet, useNavigate, useNavigation } from 'react-router'
 import { logout, meQuery } from '../auth/session'
 import { useCart } from '../cart/useCart'
@@ -10,6 +10,7 @@ export default function RootLayout() {
   const navigate = useNavigate()
   const { data: me } = useQuery(meQuery())
   const cart = useCart()
+  const signOut = useMutation({ mutationFn: logout, onSuccess: () => navigate('/', { replace: true }) })
 
   return (
     <>
@@ -26,15 +27,14 @@ export default function RootLayout() {
                 ? <NavLink to="/manager/orders">Заказы магазина</NavLink>
                 : <NavLink to="/orders">Мои заказы</NavLink>}
               <span>{me.username}</span>
-              <button type="button" className="secondary" onClick={() => {
-                logout()
-                void navigate('/', { replace: true })
-              }}>
+              <button type="button" className="secondary" disabled={signOut.isPending}
+                onClick={() => signOut.mutate()}>
                 Выйти
               </button>
             </>
           ) : <NavLink to="/login">Войти</NavLink>}
         </nav>
+        {signOut.error && <p role="alert">Выход не выполнен. {signOut.error.message}</p>}
       </header>
       <div className="layout">
         <aside><CategoryNav /></aside>

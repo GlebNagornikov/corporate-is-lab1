@@ -121,6 +121,11 @@ class StatusChangeSerializer(serializers.Serializer):
     status = serializers.ChoiceField(choices=Order.Status.choices)
     comment = serializers.CharField(max_length=300, required=False, allow_blank=True)
 
+    def validate(self, attrs):
+        if attrs["status"] == Order.Status.CANCELLED and not attrs.get("comment"):
+            raise serializers.ValidationError({"comment": "Укажите причину отмены."})
+        return attrs
+
 
 class SimulatedPaymentSerializer(serializers.Serializer):
     outcome = serializers.ChoiceField(choices=["success", "failed"])

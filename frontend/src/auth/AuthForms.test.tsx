@@ -8,19 +8,19 @@ import { server } from '../test/server'
 import LoginPage from './LoginPage'
 import { nextPath } from './nextPath'
 import RegisterPage from './RegisterPage'
-import { logout } from './session'
+import { tokens } from './tokens'
 
 afterEach(() => {
-  logout()
+  tokens.clear()
   queryClient.clear()
 })
 
 test('форма входа показывает ошибку пароля и после успешного входа возвращает на исходный адрес', async () => {
   const token = vi.fn()
     .mockReturnValueOnce(HttpResponse.json({ detail: 'Неверные данные' }, { status: 401 }))
-    .mockReturnValueOnce(HttpResponse.json({ access: 'a', refresh: 'r' }))
+    .mockReturnValueOnce(HttpResponse.json({ access: 'a' }))
   server.use(
-    http.post('*/api/auth/token/', token),
+    http.post('*/api/auth/session/login/', token),
     http.get('*/api/auth/me/', () => HttpResponse.json({ id: 1, username: 'buyer' })),
   )
   const user = userEvent.setup()

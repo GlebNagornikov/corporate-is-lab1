@@ -328,6 +328,41 @@ button:disabled {
   background: #dafbe1;
 }
 
+.rating label {
+  position: relative;
+  cursor: pointer;
+  font-size: 1.5rem;
+}
+
+.rating input {
+  position: absolute;
+  opacity: 0;
+  width: 1px;
+  height: 1px;
+}
+
+.rating input:focus-visible + span {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.status-dialog {
+  width: min(28rem, calc(100% - 3rem));
+  border: 1px solid var(--border);
+  border-radius: 0.5rem;
+  padding: 1rem;
+}
+
+.status-dialog::backdrop {
+  background: rgb(0 0 0 / 45%);
+}
+
+.price-change {
+  border-left: 3px solid #93640a;
+  background: #fff8df;
+  padding: 0.5rem;
+}
+
 .skeleton {
   min-height: 18rem;
   background: var(--image-bg);
