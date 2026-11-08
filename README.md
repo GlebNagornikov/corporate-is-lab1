@@ -32,15 +32,14 @@ docker run --rm python:3.13-slim python -c "import secrets; print(secrets.token_
 ```powershell
 docker compose up -d --build
 docker compose exec web python manage.py migrate
-docker compose exec web python manage.py seed_catalog --images
-docker compose exec web python manage.py setup_demo --password "DemoShop2026!"
+docker compose exec web python manage.py seed_demo --password "DemoShop2026!"
 ```
 
-`seed_catalog` создаёт 30 товаров и картинки; повторный запуск **обновляет** цены и
-остатки демокаталога. Для своей базы этот шаг пропустить. `setup_demo` добавляет пять
-отдельных DEMO-товаров с вариантами, характеристиками и фото, промокод CHECKPOINT10,
-покупателя и менеджера. Повторный запуск не меняет существующие пароли; для явного
-сброса есть `--reset-password`. Аккаунт с несовпадающей ролью не изменяется.
+`seed_demo` загружает 21 конкретное англоязычное печатное издание с локальными обложками.
+Повторный запуск сохраняет существующие пароли, цены, остатки и фотографии. На старой
+базе сначала просмотрите список учебных товаров командой `docker compose exec web python manage.py archive_legacy_demo`;
+для архивации именно показанных известных позиций выполните её с `--apply`. Ссылки
+заказов и сами товары сохраняются. Источники и условия — в [описании обложек](docs/lab11-cover-research.md).
 
 | Аккаунт | Логин | Пароль при приведённой выше команде |
 |---|---|---|
@@ -76,7 +75,7 @@ npm run e2e
 ```
 
 Для Playwright нужен запущенный React-магазин на `http://127.0.0.1:5173`, книги в наличии
-и демо-менеджер из `setup_demo`. Адрес и реквизиты менеджера можно задать через
+и демо-менеджер из `seed_demo`. Адрес и реквизиты менеджера можно задать через
 `E2E_BASE_URL`, `E2E_MANAGER_USERNAME` и `E2E_MANAGER_PASSWORD`.
 Тесты создают отдельных покупателей и заказы в базе выбранного стенда.
 При падении Playwright сохраняет трассировку в `frontend/test-results/`.
@@ -88,7 +87,7 @@ npm run e2e
 папки с изменениями использовать отдельный `git worktree add --detach <папка> v1.2.0`.
 
 ```powershell
-Copy-Item .env.prod.example .env.prod
+Copy-Item env/production.example .env.prod
 New-Item -ItemType Directory -Force nginx/certs
 & 'C:/Program Files/Git/usr/bin/openssl.exe' req -x509 -nodes -newkey rsa:2048 -days 365 -keyout nginx/certs/localhost.key -out nginx/certs/localhost.crt -subj '/CN=localhost' -addext 'subjectAltName=DNS:localhost,IP:127.0.0.1'
 ```
@@ -100,8 +99,7 @@ PAYMENT_WEBHOOK_SECRET и POSTGRES_PASSWORD. Prod использует собс�
 
 ```powershell
 docker compose -f docker-compose.prod.yml --env-file .env.prod up -d --build
-docker compose -f docker-compose.prod.yml --env-file .env.prod exec web python manage.py seed_catalog --images
-docker compose -f docker-compose.prod.yml --env-file .env.prod exec web python manage.py setup_demo --password "DemoShop2026!"
+docker compose -f docker-compose.prod.yml --env-file .env.prod exec web python manage.py seed_demo --password "DemoShop2026!"
 docker compose -f docker-compose.prod.yml --env-file .env.prod exec web python manage.py createsuperuser
 ```
 
@@ -116,7 +114,7 @@ Debug Toolbar, Ruff и Coverage. Код копируется в образ, bind
 
 ## Переменные окружения
 
-Шаблоны: [.env.example](.env.example), [.env.prod.example](.env.prod.example).
+Шаблоны: [.env.example](.env.example), [env/production.example](env/production.example).
 Настоящие файлы, сертификаты, ключи и backups не коммитятся и не включаются в образ.
 
 | Переменная | Назначение |
@@ -204,21 +202,21 @@ variant_sku/variant_name/variant_price/variant_stock и attributes (JSON).
 Аноним на закрытом API получает 401, вошедший без прав — 403, чужой заказ — 404.
 Непустой отдел при удалении — 409. JWT проверяется раньше сессии; сессия требует CSRF.
 Параметры каталога: q, category (slug), price_min/max, in_stock, on_sale, rating_min,
-ordering, page. Поиск использует PostgreSQL russian/pg_trgm, пример опечатки: «наушнеки».
+binding (hardcover/paperback), ordering, page. Поиск по названию и автору без учёта регистра использует PostgreSQL russian/pg_trgm, пример опечатки: «наушнеки».
 
 ## Автоматические проверки сдачи
 
 ```powershell
 docker compose exec web python manage.py check
 docker compose exec web python manage.py makemigrations --check --dry-run
-docker compose exec web coverage run manage.py test --settings=config.settings.test
-docker compose exec web coverage report --fail-under=80
+docker compose exec web coverage run --rcfile=/app/pyproject.toml manage.py test --settings=config.settings.test
+docker compose exec web coverage report --rcfile=/app/pyproject.toml --fail-under=80
 docker compose exec web python manage.py spectacular --validate --fail-on-warn --settings=config.settings.test
 uvx --from pre-commit==4.7.0 pre-commit run --all-files
 ```
 
 Последняя команда запускается на компьютере с Git и uv; pre-commit в контейнере без
-Git не используется. Ruff можно отдельно проверить `docker compose exec web ruff check .`.
+Git не используется. Ruff можно отдельно проверить `docker compose exec -w /app web ruff check backend scripts docker`.
 Тесты используют PostgreSQL, быстрый тестовый хешер, LocMemCache и синхронный Celery.
 Результаты контрольной проверки: [docs/checkpoint-verification.md](docs/checkpoint-verification.md).
 
@@ -278,3 +276,42 @@ Hotfix 1.1.1 устраняет конфликт старого STUDENT10 с д�
 отдельный CHECKPOINT10, а scripts/check_checkpoint.py поддерживает --promo-code.
 Старые промокоды, их сроки и скидки не перезаписываются. Перед повторной проверкой
 существующего стенда выполнить setup_demo ещё раз с прежним демопаролем.
+
+## Итоговый проект: рабочий вариант КТ1
+
+Предметная область — независимый книжный магазин «Книжная полка». Зачётный вариант
+М1 «Отзывы и рейтинг» и официальный шифр требуют подтверждения преподавателя;
+М2–М4 также запланированы. Демокаталог содержит книжные издания; прежние товары сохраняются до явной архивации. Новые функции появятся на следующих шагах. В репозитории Django находится
+в `backend/`, React — в `frontend/`; общие Compose и стенд остаются в корне.
+Основные зависимости: `pip install -r backend/requirements.txt`; для разработки —
+`pip install -r backend/requirements/dev.txt`. Локально запускать из корня командой
+`python backend/manage.py runserver`; медиа и `.env` остаются в корне.
+
+Роли: гость просматривает каталог, покупатель управляет своей корзиной и заказами,
+менеджер магазина работает с заказами и каталогом согласно правам Django.
+
+Сценарии: 1) поиск и фильтрация каталога; 2) просмотр карточки и вариантов;
+3) регистрация и вход; 4) добавление в корзину; 5) перенос гостевой корзины при
+входе; 6) оформление доставки и применение промокода; 7) учебная оплата;
+8) просмотр и отмена своих заказов; 9) смена статуса менеджером; 10) управление
+каталогом и отчётом в Django admin/существующих серверных страницах. React-кабинет
+каталога и отчёты запланированы, сейчас React-кабинет поддерживает заказы.
+
+Текущие API перечислены выше в разделе «Заказы и REST API». Планируемые адреса (контракт может
+уточняться при реализации): `/api/manager/` — операции сотрудников;
+`POST /api/promo/check/` — проверка промокода; уведомления о поступлении и SSE
+заказов — ещё не реализованы, их окончательные адреса не утверждены.
+
+Примеры тел запросов существующего API (цены рассчитывает сервер):
+
+```json
+{"username":"buyer_demo","password":"DemoShop2026!"}
+```
+
+```json
+{"product":1,"variant":null,"quantity":1}
+```
+
+```json
+{"status":"confirmed"}
+```

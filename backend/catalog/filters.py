@@ -1,6 +1,11 @@
 import django_filters
 
-from .models import Category, Product
+from .models import BookEdition, Category, Product
+
+
+class StableOrderingFilter(django_filters.OrderingFilter):
+    def filter(self, qs, value):
+        return super().filter(qs, value).order_by(*value, "pk") if value else qs
 
 
 class ProductFilter(django_filters.FilterSet):
@@ -19,7 +24,10 @@ class ProductFilter(django_filters.FilterSet):
         min_value=0,
         max_value=5,
     )
-    ordering = django_filters.OrderingFilter(
+    binding = django_filters.ChoiceFilter(
+        field_name="book__binding", choices=BookEdition.Binding.choices, label="Переплёт"
+    )
+    ordering = StableOrderingFilter(
         fields=(
             ("price", "price"),
             ("created_at", "created_at"),

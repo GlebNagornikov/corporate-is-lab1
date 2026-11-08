@@ -63,7 +63,9 @@ class ProductQuerySet(models.QuerySet):
     def search(self, text):
         query = SearchQuery(text, config="russian", search_type="websearch")
         return (
-            self.filter(search_vector=query)
+            self.filter(
+                Q(search_vector=query) | Q(name__icontains=text) | Q(book__author__icontains=text)
+            )
             .annotate(
                 rank=SearchRank(F("search_vector"), query),
                 name_headline=SearchHeadline(
@@ -84,7 +86,7 @@ class ProductQuerySet(models.QuerySet):
                     min_words=10,
                 ),
             )
-            .order_by("-rank")
+            .order_by("-rank", "pk")
         )
 
     def similar_to(self, text, threshold=0.4):
@@ -162,6 +164,33 @@ class Product(models.Model):
         if not self.old_price:
             return 0
         return round((1 - self.price / self.old_price) * 100)
+
+
+class BookEdition(models.Model):
+    class Binding(models.TextChoices):
+        HARDCOVER = "hardcover", "Твёрдый"
+        PAPERBACK = "paperback", "Мягкий"
+
+    product = models.OneToOneField(Product, on_delete=models.CASCADE, related_name="book")
+    author = models.CharField("Автор", max_length=200)
+    publisher = models.CharField("Издательство", max_length=200)
+    year = models.PositiveSmallIntegerField("Год издания", validators=[MinValueValidator(1450)])
+    language = models.CharField("Язык", max_length=80)
+    binding = models.CharField("Переплёт", max_length=16, choices=Binding.choices)
+    isbn = models.CharField("ISBN-13", max_length=13, blank=True, default="")
+    pages = models.PositiveIntegerField("Число страниц", validators=[MinValueValidator(1)])
+
+    def __str__(self):
+        return f"{self.author}: {self.product.name}"
+
+    def clean(self):
+        super().clean()
+        if self.isbn:
+            if len(self.isbn) != 13 or not self.isbn.isascii() or not self.isbn.isdigit():
+                raise ValidationError({"isbn": "ISBN-13 должен содержать 13 цифр."})
+            total = sum(int(c) * (1 if i % 2 == 0 else 3) for i, c in enumerate(self.isbn))
+            if total % 10:
+                raise ValidationError({"isbn": "Неверная контрольная цифра ISBN-13."})
 
 
 class StockSubscription(models.Model):

@@ -651,8 +651,30 @@ export interface components {
             /** @default 1 */
             quantity: number;
         };
+        /**
+         * @description * `hardcover` - Твёрдый
+         *     * `paperback` - Мягкий
+         * @enum {string}
+         */
+        BindingEnum: "hardcover" | "paperback";
         /** @enum {unknown} */
         BlankEnum: "";
+        BookEdition: {
+            /** Автор */
+            author: string;
+            /** Издательство */
+            publisher: string;
+            /** Год издания */
+            year: number;
+            /** Язык */
+            language: string;
+            /** Переплёт */
+            binding: components["schemas"]["BindingEnum"];
+            /** ISBN-13 */
+            isbn?: string;
+            /** Число страниц */
+            pages: number;
+        };
         Cart: {
             items: components["schemas"]["CartItem"][];
             count: number;
@@ -961,6 +983,7 @@ export interface components {
             readonly id: number;
             /** Название */
             name: string;
+            readonly book: components["schemas"]["BookEdition"] | null;
             /** Адрес в URL */
             slug: string;
             /** Артикул */
@@ -1437,6 +1460,13 @@ export interface operations {
     api_catalog_products_list: {
         parameters: {
             query?: {
+                /**
+                 * @description Переплёт
+                 *
+                 *     * `hardcover` - Твёрдый
+                 *     * `paperback` - Мягкий
+                 */
+                binding?: "hardcover" | "paperback";
                 /** @description Категория */
                 category?: string;
                 /** @description В наличии */
