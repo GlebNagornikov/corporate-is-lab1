@@ -183,7 +183,7 @@ button:disabled { cursor: not-allowed; opacity: .65; }
 
 .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 12.7rem), 1fr)); gap: 1.7rem 1.25rem; }
 .editorial-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 1.5rem clamp(1rem, 3.8vw, 3.8rem); }
-.grid.stale, .table.stale { opacity: .65; }
+.table.stale { opacity: .65; }
 .card {
   display: flex;
   flex-direction: column;
@@ -207,6 +207,9 @@ button:disabled { cursor: not-allowed; opacity: .65; }
 .card > .card-image { margin-bottom: .7rem; }
 .card .cart-add { margin-top: auto; padding-top: .5rem; }
 .skeleton { min-height: 19rem; background: var(--wash); border-radius: .35rem; }
+.catalog-more { display: grid; justify-items: start; gap: .75rem; margin-top: 1.5rem; }
+.catalog-more > .grid { width: 100%; }
+.catalog-more p { margin: 0; }
 @media (prefers-reduced-motion: no-preference) { .skeleton { animation: pulse 1.25s ease-in-out infinite alternate; } }
 @keyframes pulse { to { opacity: .55; } }
 

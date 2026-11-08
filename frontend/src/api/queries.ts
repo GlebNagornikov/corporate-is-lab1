@@ -1,4 +1,4 @@
-import { keepPreviousData, queryOptions } from '@tanstack/react-query'
+import { queryOptions } from '@tanstack/react-query'
 import type { ProductQuery } from '../lib/catalogParams'
 import { api, requireData } from './client'
 
@@ -21,7 +21,6 @@ export const productsQuery = (query: ProductQuery) =>
           signal,
         }),
       ),
-    placeholderData: keepPreviousData,
   })
 
 export const productQuery = (slug: string) =>

@@ -6,6 +6,7 @@ from django.test import TestCase
 from rest_framework.test import APIClient
 
 from catalog.models import BookEdition, Category, Product, ProductImage
+from catalog.pagination import ProductPagination
 
 
 class BookCatalogTests(TestCase):
@@ -83,10 +84,28 @@ class BookCatalogTests(TestCase):
         self.assertNotIn("images", listing.json()["results"][0])
 
     def test_stable_sort_with_equal_price(self):
-        response = self.client.get("/api/catalog/products/", {"ordering": "price"})
-        self.assertEqual(
-            [x["id"] for x in response.json()["results"]], sorted([self.product.pk, self.legacy.pk])
+        size = ProductPagination.page_size
+        more_books = Product.objects.bulk_create(
+            [
+                Product(
+                    category=self.product.category,
+                    name=f"Книга {index}",
+                    slug=f"equal-price-{index}",
+                    sku=f"EQ-{index}",
+                    price=100,
+                )
+                for index in range(size)
+            ]
         )
+        ids = sorted([self.product.pk, self.legacy.pk, *(book.pk for book in more_books)])
+        for ordering in ("price", "-price"):
+            with self.subTest(ordering=ordering):
+                for page, expected in ((1, ids[:size]), (2, ids[size:])):
+                    response = self.client.get(
+                        "/api/catalog/products/", {"ordering": ordering, "page": page}
+                    )
+                    self.assertEqual(response.status_code, 200)
+                    self.assertEqual([x["id"] for x in response.json()["results"]], expected)
 
     def test_login(self):
         from django.contrib.auth import get_user_model

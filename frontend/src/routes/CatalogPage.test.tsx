@@ -76,6 +76,38 @@ test('при выборе другой страницы прокручивает
   expect(screen.getByRole('link', { name: '2' })).toHaveAttribute('aria-current', 'page')
 })
 
+test('отменяет старый поиск и показывает выдачу нового запроса', async () => {
+  let oldSignal: AbortSignal | undefined
+  let release = () => {}
+  const slow = new Promise<void>((resolve) => { release = resolve })
+  server.use(http.get('*/api/catalog/products/', async ({ request }) => {
+    const q = new URL(request.url).searchParams.get('q')
+    if (q === 'старый') {
+      oldSignal = request.signal
+      await slow
+      return HttpResponse.json(makePage([makeProduct({ name: 'Старый результат' })]))
+    }
+    return HttpResponse.json(makePage([makeProduct({ name: 'Новый результат' })]))
+  }))
+  const user = userEvent.setup()
+  renderRoute(<CatalogPage />, '/?q=старый&page=2')
+  try {
+    await waitFor(() => expect(oldSignal).toBeDefined())
+    expect(screen.getByRole('status', { name: 'Загрузка товаров' })).toBeInTheDocument()
+    const search = screen.getByRole('searchbox')
+    await user.clear(search)
+    await user.type(search, 'новый')
+
+    expect(await screen.findByRole('link', { name: 'Новый результат' })).toBeInTheDocument()
+    expect(screen.getByTestId('location').textContent).not.toContain('page=')
+    await waitFor(() => expect(oldSignal?.aborted).toBe(true))
+    release()
+    expect(screen.queryByRole('link', { name: 'Старый результат' })).not.toBeInTheDocument()
+  } finally {
+    release()
+  }
+})
+
 test('показывает ошибку сервера и загружает каталог после повтора', async () => {
   const user = userEvent.setup()
   server.use(
