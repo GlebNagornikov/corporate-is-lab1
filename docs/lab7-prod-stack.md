@@ -26,11 +26,12 @@ Nginx устанавливает `X-Forwarded-Proto`, Django распознаё�
 
 ## Подготовка на новом компьютере
 
-Нужен запущенный Docker Desktop. Команды выполняются из корня проекта.
+Для воспроизведения лабораторной используйте checkout тега `v1.0.1` и запущенный Docker Desktop.
+Команды выполняются из корня этого checkout. Актуальный запуск описан в [корневом README](../README.md).
 Ниже команды PowerShell; в Git Bash вместо `curl.exe` используется `curl`.
 
 ```powershell
-Copy-Item env/production.example .env.prod
+Copy-Item .env.prod.example .env.prod
 New-Item -ItemType Directory -Force nginx/certs
 ```
 

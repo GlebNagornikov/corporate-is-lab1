@@ -14,7 +14,7 @@ RUN pip install -r backend/requirements/dev.txt
 
 COPY . .
 
-RUN chown -R app:app /app
+RUN mkdir -p /app/media && chown -R app:app /app
 USER app
 WORKDIR /app/backend
 

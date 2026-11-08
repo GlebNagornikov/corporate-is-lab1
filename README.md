@@ -52,7 +52,8 @@ docker compose exec web python manage.py seed_demo --password "DemoShop2026!"
 
 | Назначение | Dev | Prod |
 |---|---|---|
-| Магазин | http://127.0.0.1:8000/ | https://localhost/ |
+| React-магазин | http://127.0.0.1:5173/ | https://localhost/ |
+| Django-витрина | http://127.0.0.1:8000/ | — |
 | Админка | http://127.0.0.1:8000/admin/ | https://localhost/admin/ |
 | Swagger API | http://127.0.0.1:8000/api/docs/ | https://localhost/api/docs/ (только staff) |
 | Схема OpenAPI | http://127.0.0.1:8000/api/schema/ | https://localhost/api/schema/ (только staff) |
@@ -82,9 +83,9 @@ npm run e2e
 
 ## Прод-подобный стенд
 
-Чистый checkout релиза исключает незавершённые локальные изменения из образа.
-На новом компьютере можно клонировать сразу тег `v1.2.0`. Для существующей рабочей
-папки с изменениями использовать отдельный `git worktree add --detach <папка> v1.2.0`.
+Собирайте этот стенд из текущей версии репозитория с каталогом книг. На новом компьютере
+используйте тот же checkout, что и для запуска разработки. Для прежнего релиза
+`v1.2.0` используйте инструкции из README самого тега.
 
 ```powershell
 Copy-Item env/production.example .env.prod
@@ -92,8 +93,10 @@ New-Item -ItemType Directory -Force nginx/certs
 & 'C:/Program Files/Git/usr/bin/openssl.exe' req -x509 -nodes -newkey rsa:2048 -days 365 -keyout nginx/certs/localhost.key -out nginx/certs/localhost.crt -subj '/CN=localhost' -addext 'subjectAltName=DNS:localhost,IP:127.0.0.1'
 ```
 
-В `.env.prod` установить APP_VERSION=1.2.0, отдельные случайные SECRET_KEY,
-PAYMENT_WEBHOOK_SECRET и POSTGRES_PASSWORD. Prod использует собственную БД shop.
+В `.env.prod` установить `APP_VERSION=lab11`, отдельные случайные `SECRET_KEY`,
+`PAYMENT_WEBHOOK_SECRET` и `POSTGRES_PASSWORD`. Отдельный тег позволяет собрать стенд
+из текущего кода и сохранить образы прежнего релиза. Prod использует собственную БД `shop`.
+Если `.env.prod` и том PostgreSQL уже есть, сохраните действующие реквизиты БД.
 В Git Bash вместо пути к openssl использовать `openssl`; при преобразовании пути
 заменить `-subj '/CN=localhost'` на `-subj '//CN=localhost'`.
 
@@ -121,7 +124,7 @@ Debug Toolbar, Ruff и Coverage. Код копируется в образ, bind
 |---|---|
 | SECRET_KEY | Случайный ключ Django; отдельный для dev/prod |
 | PAYMENT_WEBHOOK_SECRET | Отдельный случайный HMAC-секрет учебного платёжного шлюза |
-| APP_VERSION | Общий тег образов `shop-web` и `shop-nginx`, текущий релиз `1.2.0` |
+| APP_VERSION | Общий тег образов `shop-web` и `shop-nginx`. Для проверки текущей версии используйте `lab11` |
 | POSTGRES_DB / USER / PASSWORD | Учётные данные отдельной БД окружения |
 | POSTGRES_HOST_PORT | Dev-порт PostgreSQL, 5432; prod БД наружу не публикуется |
 | DATABASE_URL | Для manage.py с хоста; Compose устанавливает внутренний адрес db |
@@ -143,6 +146,8 @@ Debug Toolbar, Ruff и Coverage. Код копируется в образ, bind
 
 Каждая реализована отдельной feature-веткой и PR в develop; бизнес-правила вынесены
 в сервисы/модели. У каждой не менее трёх тестов, включая негативные сценарии.
+Для сценариев с `DEMO-1`–`DEMO-5` на отдельной тестовой базе выполните
+`docker compose exec web python manage.py setup_demo --password "DemoShop2026!"`.
 
 | № | Доработка | Как проверить вручную | Тесты |
 |---|---|---|---|
@@ -150,7 +155,7 @@ Debug Toolbar, Ruff и Coverage. Код копируется в образ, bind
 | 2 | Сравнение | У гостя выбрать четыре DEMO-товара. Пятый и товар другой корневой категории отклоняются; разные характеристики подсвечены. | catalog.tests.test_comparison |
 | 3 | Варианты | У DEMO-товара выбрать S и L с разными ценами/остатками в admin. В корзине две строки; заказ сохраняет названия и цены; отмена возвращает соответствующие остатки. | catalog.tests.test_variants |
 | 4 | Поступление | Открыть DEMO-5 с нулевым остатком, оставить email. В admin увеличить остаток одного варианта: приходит одно письмо. Повторное увеличение не рассылает снова. | catalog.tests.test_restock |
-| 5 | CSV-импорт | Команда import_products examples/products.csv --dry-run, затем без флага. Повторить — дубля нет. Добавить отрицательную цену/неизвестную категорию — весь файл отклонён с номерами строк. В admin товаров есть «Импорт CSV». | catalog.tests.test_importing |
+| 5 | CSV-импорт | На тестовой базе после `seed_demo` выполните `docker compose exec web python manage.py import_products /app/examples/products.csv --dry-run`, затем без флага. Повторный импорт сохраняет один товар. Отрицательная цена или неизвестная категория приводят к отклонению файла с номерами строк. В admin товаров есть «Импорт CSV». | catalog.tests.test_importing |
 | 6 | Отчёт | Под manager_demo открыть «Панель менеджера → Заказы → Отчёт по продажам», выбрать период и скачать CSV. Покупателю 403. Выручка исключает отменённые заказы. SQL-запросов всегда шесть. | orders.tests.test_reporting |
 | 7 | Адреса | Создать два адреса. При оформлении основной уже в поле «Адрес доставки». Стрелка в поле позволяет выбрать другой адрес. Изменение в адресной книге не меняет оформленный заказ. Чужой адрес недоступен. | accounts.test_addresses, orders.tests.test_views |
 | 8 | Оплата | Оформить заказ → «Оплатить» → учебный успех/отказ. При успехе paid, далее менеджер confirmed/shipped/delivered. Повторный webhook не дублирует переход; неверная HMAC даёт 403. Покупатель paid не отменяет. | orders.tests.test_payments |
@@ -202,7 +207,8 @@ variant_sku/variant_name/variant_price/variant_stock и attributes (JSON).
 Аноним на закрытом API получает 401, вошедший без прав — 403, чужой заказ — 404.
 Непустой отдел при удалении — 409. JWT проверяется раньше сессии; сессия требует CSRF.
 Параметры каталога: q, category (slug), price_min/max, in_stock, on_sale, rating_min,
-binding (hardcover/paperback), ordering, page. Поиск по названию и автору без учёта регистра использует PostgreSQL russian/pg_trgm, пример опечатки: «наушнеки».
+binding (hardcover/paperback), ordering, page. Поиск по названию и автору работает
+без учёта регистра. Для `война мирво` PostgreSQL предлагает «Война миров / The War of the Worlds».
 
 ## Автоматические проверки сдачи
 
@@ -231,7 +237,8 @@ curl.exe -kI https://localhost/static/admin/css/base.css
 docker compose -f docker-compose.prod.yml --env-file .env.prod exec web python -c "import debug_toolbar"
 ```
 
-Ожидаются редирект 301 на HTTPS, версия 1.2.0 в `/healthz/` и подвале витрины и ответ 200 для CSS.
+Ожидаются редирект 301 на HTTPS, значение `APP_VERSION` в `/healthz/` и подвале витрины,
+а также ответ 200 для CSS.
 Импорт `debug_toolbar` завершается `ModuleNotFoundError`.
 
 Сквозные сценарии на стенде создают тестовых покупателей и заказы. После `npm ci --prefix frontend`
