@@ -1,6 +1,7 @@
 import { expect, test } from '@playwright/test'
 
 test('наведение загружает ленивые страницы до перехода', async ({ page, context }) => {
+  test.setTimeout(60_000)
   const cdp = await context.newCDPSession(page)
   await cdp.send('Network.enable')
   await cdp.send('Network.emulateNetworkConditions', {

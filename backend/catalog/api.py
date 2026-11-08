@@ -9,7 +9,12 @@ from rest_framework.routers import DefaultRouter
 from .filters import ProductFilter
 from .models import Category, Product, Review
 from .pagination import ProductPagination
-from .serializers import CategorySerializer, ProductSerializer, ReviewSerializer
+from .serializers import (
+    CategorySerializer,
+    ProductDetailSerializer,
+    ProductSerializer,
+    ReviewSerializer,
+)
 
 
 class CategoryViewSet(viewsets.ReadOnlyModelViewSet):
@@ -29,13 +34,19 @@ class ProductViewSet(viewsets.ReadOnlyModelViewSet):
     filterset_class = ProductFilter
 
     def get_queryset(self):
-        return (
+        queryset = (
             Product.objects.active()
             .select_related("category__parent", "book")
             .with_rating()
             .prefetch_related("variants")
             .order_by("-created_at", "pk")
         )
+        return queryset.prefetch_related("images") if self.action == "retrieve" else queryset
+
+    def get_serializer_class(self):
+        if self.action == "retrieve":
+            return ProductDetailSerializer
+        return super().get_serializer_class()
 
     @extend_schema(methods=["GET"], responses=ReviewSerializer(many=True), filters=False)
     @extend_schema(methods=["POST"], request=ReviewSerializer, responses={201: ReviewSerializer})

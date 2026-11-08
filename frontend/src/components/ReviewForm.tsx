@@ -1,5 +1,5 @@
 import { zodResolver } from '@hookform/resolvers/zod'
-import { useQueryClient } from '@tanstack/react-query'
+import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { useForm, useWatch } from 'react-hook-form'
 import { api, requireData } from '../api/client'
 import { productQuery } from '../api/queries'
@@ -19,15 +19,17 @@ export default function ReviewForm({ slug }: { slug: string }) {
       resolver: zodResolver(schema), defaultValues: { rating: '', text: '' },
     })
   const rating = Number(useWatch({ control, name: 'rating' }))
+  const review = useMutation({
+    mutationFn: async (body: z.output<typeof schema>) => requireData(await api.POST('/api/catalog/products/{slug}/reviews/', {
+      params: { path: { slug } }, body,
+    })),
+    onSuccess: () => client.invalidateQueries({ queryKey: productQuery(slug).queryKey }),
+  })
 
   async function submit(body: z.output<typeof schema>) {
     try {
-      requireData(await api.POST('/api/catalog/products/{slug}/reviews/', {
-        params: { path: { slug } }, body,
-      }))
+      await review.mutateAsync(body)
       reset()
-      // Ключ карточки является префиксом ключа отзывов.
-      await client.invalidateQueries({ queryKey: productQuery(slug).queryKey })
     } catch (error) {
       applyServerErrors(error, setError, ['rating', 'text'])
     }

@@ -5,7 +5,7 @@ from django.core.management import call_command
 from django.test import TestCase
 from rest_framework.test import APIClient
 
-from catalog.models import BookEdition, Category, Product
+from catalog.models import BookEdition, Category, Product, ProductImage
 
 
 class BookCatalogTests(TestCase):
@@ -64,6 +64,23 @@ class BookCatalogTests(TestCase):
         response = self.client.get("/api/catalog/products/legacy-book-test/")
         self.assertEqual(response.status_code, 200)
         self.assertIsNone(response.json()["book"])
+
+    def test_detail_has_ordered_gallery_and_list_keeps_its_contract(self):
+        for position, label in ((2, "Задняя обложка"), (1, "Разворот")):
+            ProductImage.objects.create(
+                product=self.product,
+                image=f"products/gallery/sample-{position}.jpg",
+                alt_text=label,
+                position=position,
+            )
+        detail = self.client.get("/api/catalog/products/war-worlds/")
+        self.assertEqual(detail.status_code, 200)
+        self.assertEqual(
+            [image["alt_text"] for image in detail.json()["images"]],
+            ["Разворот", "Задняя обложка"],
+        )
+        listing = self.client.get("/api/catalog/products/")
+        self.assertNotIn("images", listing.json()["results"][0])
 
     def test_stable_sort_with_equal_price(self):
         response = self.client.get("/api/catalog/products/", {"ordering": "price"})

@@ -1,5 +1,5 @@
 import type { QueryClient } from '@tanstack/react-query'
-import { data, type RouteObject } from 'react-router'
+import { data, type LoaderFunctionArgs, type RouteObject } from 'react-router'
 import { orderQuery, ordersQuery, readOrderPage } from './api/orders'
 import { categoriesQuery, productQuery, productsQuery } from './api/queries'
 import { meQuery, requireManager, requireUser } from './auth/session'
@@ -14,34 +14,36 @@ import NotFoundPage from './routes/NotFoundPage'
 import ProductPage from './routes/ProductPage'
 import RootLayout from './routes/RootLayout'
 import RouteError from './routes/RouteError'
+import RootError from './routes/RootError'
 
 export function createAppRoutes(queryClient: QueryClient): RouteObject[] {
+  const catalog = {
+    Component: CatalogPage,
+    loader: ({ request }: LoaderFunctionArgs) => {
+      void queryClient.prefetchQuery(categoriesQuery())
+      void queryClient.prefetchQuery(productsQuery(parseCatalogParams(new URL(request.url).searchParams)))
+      return null
+    },
+  }
   return [
     {
       path: '/',
       Component: RootLayout,
-      ErrorBoundary: RouteError,
-      HydrateFallback: () => <p role="status">Загрузка…</p>,
+      ErrorBoundary: RootError,
+      HydrateFallback: () => <p className="shell layout" role="status">Загрузка книжной полки…</p>,
       loader: async () => {
-        void queryClient.prefetchQuery(categoriesQuery())
         await queryClient.ensureQueryData(meQuery())
         return null
       },
       children: [
-        {
-          index: true,
-          Component: CatalogPage,
-          loader: ({ request }) => {
-            const query = parseCatalogParams(new URL(request.url).searchParams)
-            void queryClient.prefetchQuery(productsQuery(query))
-            return null
-          },
-        },
+        { index: true, ...catalog },
+        { path: 'catalog', ...catalog },
         {
           path: 'products/:slug',
           Component: ProductPage,
           ErrorBoundary: RouteError,
           loader: async ({ params }) => {
+            void queryClient.prefetchQuery(categoriesQuery())
             await queryClient.ensureQueryData(productQuery(params.slug!))
             return null
           },
@@ -49,18 +51,35 @@ export function createAppRoutes(queryClient: QueryClient): RouteObject[] {
         { path: 'cart', Component: CartPage },
         {
           path: 'login',
-          lazy: async () => ({ Component: (await import('./auth/LoginPage')).default }),
+          lazy: async () => {
+            const [{ default: Component }, { loginAction }] = await Promise.all([
+              import('./auth/LoginPage'), import('./auth/authActions'),
+            ])
+            return { Component, action: ({ request }) => loginAction(request, queryClient) }
+          },
         },
         {
           path: 'register',
-          lazy: async () => ({ Component: (await import('./auth/RegisterPage')).default }),
+          lazy: async () => {
+            const [{ default: Component }, { registerAction }] = await Promise.all([
+              import('./auth/RegisterPage'), import('./auth/authActions'),
+            ])
+            return { Component, action: ({ request }) => registerAction(request, queryClient) }
+          },
         },
         {
           Component: SessionOutlet,
           children: [
             {
               path: 'checkout',
-              lazy: async () => ({ Component: (await import('./orders/CheckoutPage')).default }),
+              shouldRevalidate: ({ actionResult, defaultShouldRevalidate }) =>
+                actionResult?.orderId ? false : defaultShouldRevalidate,
+              lazy: async () => {
+                const [{ default: Component }, { checkoutAction }] = await Promise.all([
+                  import('./orders/CheckoutPage'), import('./orders/checkoutAction'),
+                ])
+                return { Component, action: ({ request }) => checkoutAction(request, queryClient) }
+              },
               loader: async ({ request }) => {
                 await requireUser(request, queryClient)
                 void queryClient.prefetchQuery(cartQuery())

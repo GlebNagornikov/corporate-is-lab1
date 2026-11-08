@@ -1,6 +1,6 @@
 from rest_framework import serializers
 
-from .models import BookEdition, Category, Product, ProductVariant, Review
+from .models import BookEdition, Category, Product, ProductImage, ProductVariant, Review
 
 
 class CategorySerializer(serializers.ModelSerializer):
@@ -54,6 +54,19 @@ class ProductSerializer(serializers.ModelSerializer):
 
     def get_rating(self, product) -> float | None:
         return round(product.rating, 1) if product.rating is not None else None
+
+
+class ProductImageSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ProductImage
+        fields = ["id", "image", "alt_text"]
+
+
+class ProductDetailSerializer(ProductSerializer):
+    images = ProductImageSerializer(many=True, read_only=True)
+
+    class Meta(ProductSerializer.Meta):
+        fields = [*ProductSerializer.Meta.fields, "images"]
 
 
 class ReviewSerializer(serializers.ModelSerializer):

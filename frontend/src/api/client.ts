@@ -76,7 +76,7 @@ const publicAuthPaths = new Set([
 let refreshing: { version: number; promise: Promise<void> } | undefined
 
 export async function csrfHeaders() {
-  const { csrf_token } = requireData(await api.GET('/api/auth/session/csrf/'))
+  const { csrf_token } = requireData(await sessionApi.GET('/api/auth/session/csrf/'))
   return { 'X-CSRFToken': csrf_token }
 }
 
@@ -95,7 +95,7 @@ function tokenUser(access: string | null): string | undefined {
 
 async function refreshSession(version: number) {
   const result = await csrfHeaders()
-    .then((headers) => api.POST(REFRESH_PATH, { headers }))
+    .then((headers) => sessionApi.POST(REFRESH_PATH, { headers }))
     .catch(() => undefined)
 
   if (tokens.version() !== version) return
@@ -167,9 +167,17 @@ const authMiddleware: Middleware = {
   },
 }
 
-export const api = createClient<paths>({
-  baseUrl: window.location.origin,
+const requestOptions = {
   // MSW can replace fetch after this module is loaded.
-  fetch: (request) => fetch(request),
+  fetch: (request: Request) => fetch(request),
+  credentials: 'same-origin' as const,
+}
+
+export const sessionApi = createClient<paths>({ ...requestOptions, baseUrl: window.location.origin })
+export const api = createClient<paths>({
+  ...requestOptions,
+  baseUrl: import.meta.env.DEV && import.meta.env.VITE_API_URL?.trim()
+    ? new URL(import.meta.env.VITE_API_URL, window.location.origin).origin
+    : window.location.origin,
 })
 api.use(authMiddleware)

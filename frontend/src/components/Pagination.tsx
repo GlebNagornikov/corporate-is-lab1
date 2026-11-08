@@ -1,9 +1,10 @@
-import { Link, useSearchParams } from 'react-router'
+import { Link, useLocation, useSearchParams } from 'react-router'
 
 const PAGE_SIZE = 20
 
 export default function Pagination({ count, page }: { count: number; page: number }) {
   const [searchParams] = useSearchParams()
+  const { pathname } = useLocation()
   const pages = Math.ceil(count / PAGE_SIZE)
   if (pages <= 1) return null
 
@@ -12,7 +13,7 @@ export default function Pagination({ count, page }: { count: number; page: numbe
     if (target === 1) params.delete('page')
     else params.set('page', String(target))
     const search = params.toString()
-    return search ? `/?${search}` : '/'
+    return search ? `${pathname}?${search}` : pathname
   }
 
   return (

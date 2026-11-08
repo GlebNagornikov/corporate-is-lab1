@@ -1,15 +1,18 @@
 import { useQuery } from '@tanstack/react-query'
 import { Link } from 'react-router'
 import { formatPrice } from '../lib/format'
+import { usePageTitle } from '../lib/usePageTitle'
 import { useCart } from './useCart'
 import { priceChangesQuery } from './priceChanges'
 
 export default function CartPage() {
+  usePageTitle('Корзина')
   const cart = useCart()
   const { data: changes } = useQuery(priceChangesQuery())
 
   return (
-    <section className="details narrow">
+    <section>
+      <p className="eyebrow">Ваш выбор</p>
       <h1>Корзина</h1>
       {cart.error && <p className="error" role="alert">{cart.error.message}</p>}
       {changes.filter(({ item }) => cart.items.some((line) =>
@@ -23,8 +26,8 @@ export default function CartPage() {
       {cart.isLoading ? (
         <p role="status">Загрузка корзины…</p>
       ) : cart.items.length > 0 ? (
-        <>
-          <div className="table-scroll">
+        <div className="order-layout">
+          <div className="details table-scroll">
             <table className="table">
               <thead>
                 <tr><th scope="col">Товар</th><th scope="col">Количество</th><th scope="col">Сумма</th></tr>
@@ -35,8 +38,12 @@ export default function CartPage() {
                   return (
                     <tr key={`${item.product_id}:${item.variant_id ?? ''}`}>
                       <td>
-                        <Link to={`/products/${encodeURIComponent(item.slug)}`}>{item.name}</Link>
-                        {item.variant_name && <small className="line-variant muted">{item.variant_name}</small>}
+                        <div className="cart-line">
+                          {item.image && <img src={item.image} alt="" width="48" height="72" />}
+                          <div><Link to={`/products/${encodeURIComponent(item.slug)}`}>{item.name}</Link>
+                            {item.variant_name && <small className="line-variant muted">{item.variant_name}</small>}
+                          </div>
+                        </div>
                       </td>
                       <td>
                         <div className="qty">
@@ -59,16 +66,18 @@ export default function CartPage() {
               </tbody>
             </table>
           </div>
-          <p className="price">Итого: {formatPrice(cart.total)}</p>
-          {cart.isGuest && (
-            <p className="muted">Цены предварительные. После входа сервер пересчитает сумму.</p>
-          )}
-          <Link className="button" to="/checkout" onMouseEnter={() => void import('../orders/CheckoutPage')}>
-            Оформить заказ
-          </Link>
-        </>
+          <aside className="details order-summary" aria-label="Сводка корзины">
+            <h2>Ваш заказ</h2>
+            <p className="price">Итого: {formatPrice(cart.total)}</p>
+            {cart.isGuest && <p className="muted">Цены предварительные. После входа сервер пересчитает сумму.</p>}
+            <Link className="button" to="/checkout" onMouseEnter={() => void import('../orders/CheckoutPage')}
+              onFocus={() => void import('../orders/CheckoutPage')}>
+              Оформить заказ
+            </Link>
+          </aside>
+        </div>
       ) : !cart.error && (
-        <p className="muted">Корзина пуста. <Link to="/">В каталог</Link></p>
+        <p className="details state-panel">Корзина пуста. <Link to="/catalog">В каталог</Link></p>
       )}
     </section>
   )
