@@ -13,6 +13,7 @@ export default function ProductCard({ product }: { product: Product }) {
     <article className="card">
       <img className="card-image" src={product.image ?? '/no-image.svg'} alt="" loading="lazy" />
       <span className="muted">{product.category.name}</span>
+      {product.book && <p className="muted">{product.book.author}</p>}
       <h2>
         <Link
           to={`/products/${encodeURIComponent(product.slug)}`}

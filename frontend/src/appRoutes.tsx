@@ -8,6 +8,7 @@ import CartPage from './cart/CartPage'
 import { cartQuery } from './cart/queries'
 import { parseCatalogParams } from './lib/catalogParams'
 import { orderFilters } from './manager/orderFilters'
+import { ManagerLayout, ManagerPlaceholder } from './manager/ManagerLayout'
 import CatalogPage from './routes/CatalogPage'
 import NotFoundPage from './routes/NotFoundPage'
 import ProductPage from './routes/ProductPage'
@@ -92,13 +93,19 @@ export function createAppRoutes(queryClient: QueryClient): RouteObject[] {
             },
             {
               path: 'manager',
+              Component: ManagerLayout,
               ErrorBoundary: RouteError,
               loader: async ({ request }) => {
                 await requireManager(request, queryClient)
                 void queryClient.prefetchQuery(ordersQuery(orderFilters(new URL(request.url).searchParams)))
                 return null
               },
-              children: [{
+              children: [
+                { path: 'catalog', element: <ManagerPlaceholder title="Каталог" /> },
+                { path: 'reviews', element: <ManagerPlaceholder title="Отзывы" /> },
+                { path: 'promos', element: <ManagerPlaceholder title="Промокоды" /> },
+                { path: 'reports', element: <ManagerPlaceholder title="Отчёты" /> },
+                {
                 path: 'orders',
                 lazy: async () => ({
                   Component: (await import('./manager/ManagerOrdersPage')).default,

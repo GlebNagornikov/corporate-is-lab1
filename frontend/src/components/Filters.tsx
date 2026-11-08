@@ -113,6 +113,15 @@ export default function Filters() {
         Со скидкой
       </label>
       <label>
+        Переплёт
+        <select value={searchParams.get('binding') ?? ''}
+          onChange={(event) => update([['binding', event.target.value]])}>
+          <option value="">Любой</option>
+          <option value="hardcover">Твёрдый</option>
+          <option value="paperback">Мягкий</option>
+        </select>
+      </label>
+      <label>
         Сортировка
         <select
           value={searchParams.get('ordering') ?? ''}

@@ -1,6 +1,6 @@
 from rest_framework import serializers
 
-from .models import Category, Product, ProductVariant, Review
+from .models import BookEdition, Category, Product, ProductVariant, Review
 
 
 class CategorySerializer(serializers.ModelSerializer):
@@ -17,7 +17,14 @@ class VariantSerializer(serializers.ModelSerializer):
         fields = ["id", "name", "sku", "price", "stock", "is_active", "is_default"]
 
 
+class BookEditionSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = BookEdition
+        fields = ["author", "publisher", "year", "language", "binding", "isbn", "pages"]
+
+
 class ProductSerializer(serializers.ModelSerializer):
+    book = BookEditionSerializer(read_only=True, allow_null=True, default=None)
     variants = VariantSerializer(many=True, read_only=True)
     category = CategorySerializer(read_only=True)
     rating = serializers.SerializerMethodField()
@@ -28,6 +35,7 @@ class ProductSerializer(serializers.ModelSerializer):
         fields = [
             "id",
             "name",
+            "book",
             "slug",
             "sku",
             "category",

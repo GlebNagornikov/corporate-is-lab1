@@ -32,15 +32,14 @@ docker run --rm python:3.13-slim python -c "import secrets; print(secrets.token_
 ```powershell
 docker compose up -d --build
 docker compose exec web python manage.py migrate
-docker compose exec web python manage.py seed_catalog --images
-docker compose exec web python manage.py setup_demo --password "DemoShop2026!"
+docker compose exec web python manage.py seed_demo --password "DemoShop2026!"
 ```
 
-`seed_catalog` создаёт 30 товаров и картинки; повторный запуск **обновляет** цены и
-остатки демокаталога. Для своей базы этот шаг пропустить. `setup_demo` добавляет пять
-отдельных DEMO-товаров с вариантами, характеристиками и фото, промокод CHECKPOINT10,
-покупателя и менеджера. Повторный запуск не меняет существующие пароли; для явного
-сброса есть `--reset-password`. Аккаунт с несовпадающей ролью не изменяется.
+`seed_demo` загружает 21 конкретное англоязычное печатное издание с локальными обложками.
+Повторный запуск сохраняет существующие пароли, цены, остатки и фотографии. На старой
+базе сначала просмотрите список учебных товаров командой `docker compose exec web python manage.py archive_legacy_demo`;
+для архивации именно показанных известных позиций выполните её с `--apply`. Ссылки
+заказов и сами товары сохраняются. Источники и условия — в [описании обложек](docs/lab11-cover-research.md).
 
 | Аккаунт | Логин | Пароль при приведённой выше команде |
 |---|---|---|
@@ -53,7 +52,8 @@ docker compose exec web python manage.py setup_demo --password "DemoShop2026!"
 
 | Назначение | Dev | Prod |
 |---|---|---|
-| Магазин | http://127.0.0.1:8000/ | https://localhost/ |
+| React-магазин | http://127.0.0.1:5173/ | https://localhost/ |
+| Django-витрина | http://127.0.0.1:8000/ | — |
 | Админка | http://127.0.0.1:8000/admin/ | https://localhost/admin/ |
 | Swagger API | http://127.0.0.1:8000/api/docs/ | https://localhost/api/docs/ (только staff) |
 | Схема OpenAPI | http://127.0.0.1:8000/api/schema/ | https://localhost/api/schema/ (только staff) |
@@ -76,32 +76,33 @@ npm run e2e
 ```
 
 Для Playwright нужен запущенный React-магазин на `http://127.0.0.1:5173`, книги в наличии
-и демо-менеджер из `setup_demo`. Адрес и реквизиты менеджера можно задать через
+и демо-менеджер из `seed_demo`. Адрес и реквизиты менеджера можно задать через
 `E2E_BASE_URL`, `E2E_MANAGER_USERNAME` и `E2E_MANAGER_PASSWORD`.
 Тесты создают отдельных покупателей и заказы в базе выбранного стенда.
 При падении Playwright сохраняет трассировку в `frontend/test-results/`.
 
 ## Прод-подобный стенд
 
-Чистый checkout релиза исключает незавершённые локальные изменения из образа.
-На новом компьютере можно клонировать сразу тег `v1.2.0`. Для существующей рабочей
-папки с изменениями использовать отдельный `git worktree add --detach <папка> v1.2.0`.
+Собирайте этот стенд из текущей версии репозитория с каталогом книг. На новом компьютере
+используйте тот же checkout, что и для запуска разработки. Для прежнего релиза
+`v1.2.0` используйте инструкции из README самого тега.
 
 ```powershell
-Copy-Item .env.prod.example .env.prod
+Copy-Item env/production.example .env.prod
 New-Item -ItemType Directory -Force nginx/certs
 & 'C:/Program Files/Git/usr/bin/openssl.exe' req -x509 -nodes -newkey rsa:2048 -days 365 -keyout nginx/certs/localhost.key -out nginx/certs/localhost.crt -subj '/CN=localhost' -addext 'subjectAltName=DNS:localhost,IP:127.0.0.1'
 ```
 
-В `.env.prod` установить APP_VERSION=1.2.0, отдельные случайные SECRET_KEY,
-PAYMENT_WEBHOOK_SECRET и POSTGRES_PASSWORD. Prod использует собственную БД shop.
+В `.env.prod` установить `APP_VERSION=lab11`, отдельные случайные `SECRET_KEY`,
+`PAYMENT_WEBHOOK_SECRET` и `POSTGRES_PASSWORD`. Отдельный тег позволяет собрать стенд
+из текущего кода и сохранить образы прежнего релиза. Prod использует собственную БД `shop`.
+Если `.env.prod` и том PostgreSQL уже есть, сохраните действующие реквизиты БД.
 В Git Bash вместо пути к openssl использовать `openssl`; при преобразовании пути
 заменить `-subj '/CN=localhost'` на `-subj '//CN=localhost'`.
 
 ```powershell
 docker compose -f docker-compose.prod.yml --env-file .env.prod up -d --build
-docker compose -f docker-compose.prod.yml --env-file .env.prod exec web python manage.py seed_catalog --images
-docker compose -f docker-compose.prod.yml --env-file .env.prod exec web python manage.py setup_demo --password "DemoShop2026!"
+docker compose -f docker-compose.prod.yml --env-file .env.prod exec web python manage.py seed_demo --password "DemoShop2026!"
 docker compose -f docker-compose.prod.yml --env-file .env.prod exec web python manage.py createsuperuser
 ```
 
@@ -116,14 +117,14 @@ Debug Toolbar, Ruff и Coverage. Код копируется в образ, bind
 
 ## Переменные окружения
 
-Шаблоны: [.env.example](.env.example), [.env.prod.example](.env.prod.example).
+Шаблоны: [.env.example](.env.example), [env/production.example](env/production.example).
 Настоящие файлы, сертификаты, ключи и backups не коммитятся и не включаются в образ.
 
 | Переменная | Назначение |
 |---|---|
 | SECRET_KEY | Случайный ключ Django; отдельный для dev/prod |
 | PAYMENT_WEBHOOK_SECRET | Отдельный случайный HMAC-секрет учебного платёжного шлюза |
-| APP_VERSION | Общий тег образов `shop-web` и `shop-nginx`, текущий релиз `1.2.0` |
+| APP_VERSION | Общий тег образов `shop-web` и `shop-nginx`. Для проверки текущей версии используйте `lab11` |
 | POSTGRES_DB / USER / PASSWORD | Учётные данные отдельной БД окружения |
 | POSTGRES_HOST_PORT | Dev-порт PostgreSQL, 5432; prod БД наружу не публикуется |
 | DATABASE_URL | Для manage.py с хоста; Compose устанавливает внутренний адрес db |
@@ -145,6 +146,8 @@ Debug Toolbar, Ruff и Coverage. Код копируется в образ, bind
 
 Каждая реализована отдельной feature-веткой и PR в develop; бизнес-правила вынесены
 в сервисы/модели. У каждой не менее трёх тестов, включая негативные сценарии.
+Для сценариев с `DEMO-1`–`DEMO-5` на отдельной тестовой базе выполните
+`docker compose exec web python manage.py setup_demo --password "DemoShop2026!"`.
 
 | № | Доработка | Как проверить вручную | Тесты |
 |---|---|---|---|
@@ -152,7 +155,7 @@ Debug Toolbar, Ruff и Coverage. Код копируется в образ, bind
 | 2 | Сравнение | У гостя выбрать четыре DEMO-товара. Пятый и товар другой корневой категории отклоняются; разные характеристики подсвечены. | catalog.tests.test_comparison |
 | 3 | Варианты | У DEMO-товара выбрать S и L с разными ценами/остатками в admin. В корзине две строки; заказ сохраняет названия и цены; отмена возвращает соответствующие остатки. | catalog.tests.test_variants |
 | 4 | Поступление | Открыть DEMO-5 с нулевым остатком, оставить email. В admin увеличить остаток одного варианта: приходит одно письмо. Повторное увеличение не рассылает снова. | catalog.tests.test_restock |
-| 5 | CSV-импорт | Команда import_products examples/products.csv --dry-run, затем без флага. Повторить — дубля нет. Добавить отрицательную цену/неизвестную категорию — весь файл отклонён с номерами строк. В admin товаров есть «Импорт CSV». | catalog.tests.test_importing |
+| 5 | CSV-импорт | На тестовой базе после `seed_demo` выполните `docker compose exec web python manage.py import_products /app/examples/products.csv --dry-run`, затем без флага. Повторный импорт сохраняет один товар. Отрицательная цена или неизвестная категория приводят к отклонению файла с номерами строк. В admin товаров есть «Импорт CSV». | catalog.tests.test_importing |
 | 6 | Отчёт | Под manager_demo открыть «Панель менеджера → Заказы → Отчёт по продажам», выбрать период и скачать CSV. Покупателю 403. Выручка исключает отменённые заказы. SQL-запросов всегда шесть. | orders.tests.test_reporting |
 | 7 | Адреса | Создать два адреса. При оформлении основной уже в поле «Адрес доставки». Стрелка в поле позволяет выбрать другой адрес. Изменение в адресной книге не меняет оформленный заказ. Чужой адрес недоступен. | accounts.test_addresses, orders.tests.test_views |
 | 8 | Оплата | Оформить заказ → «Оплатить» → учебный успех/отказ. При успехе paid, далее менеджер confirmed/shipped/delivered. Повторный webhook не дублирует переход; неверная HMAC даёт 403. Покупатель paid не отменяет. | orders.tests.test_payments |
@@ -204,21 +207,22 @@ variant_sku/variant_name/variant_price/variant_stock и attributes (JSON).
 Аноним на закрытом API получает 401, вошедший без прав — 403, чужой заказ — 404.
 Непустой отдел при удалении — 409. JWT проверяется раньше сессии; сессия требует CSRF.
 Параметры каталога: q, category (slug), price_min/max, in_stock, on_sale, rating_min,
-ordering, page. Поиск использует PostgreSQL russian/pg_trgm, пример опечатки: «наушнеки».
+binding (hardcover/paperback), ordering, page. Поиск по названию и автору работает
+без учёта регистра. Для `война мирво` PostgreSQL предлагает «Война миров / The War of the Worlds».
 
 ## Автоматические проверки сдачи
 
 ```powershell
 docker compose exec web python manage.py check
 docker compose exec web python manage.py makemigrations --check --dry-run
-docker compose exec web coverage run manage.py test --settings=config.settings.test
-docker compose exec web coverage report --fail-under=80
+docker compose exec web coverage run --rcfile=/app/pyproject.toml manage.py test --settings=config.settings.test
+docker compose exec web coverage report --rcfile=/app/pyproject.toml --fail-under=80
 docker compose exec web python manage.py spectacular --validate --fail-on-warn --settings=config.settings.test
 uvx --from pre-commit==4.7.0 pre-commit run --all-files
 ```
 
 Последняя команда запускается на компьютере с Git и uv; pre-commit в контейнере без
-Git не используется. Ruff можно отдельно проверить `docker compose exec web ruff check .`.
+Git не используется. Ruff можно отдельно проверить `docker compose exec -w /app web ruff check backend scripts docker`.
 Тесты используют PostgreSQL, быстрый тестовый хешер, LocMemCache и синхронный Celery.
 Результаты контрольной проверки: [docs/checkpoint-verification.md](docs/checkpoint-verification.md).
 
@@ -233,7 +237,8 @@ curl.exe -kI https://localhost/static/admin/css/base.css
 docker compose -f docker-compose.prod.yml --env-file .env.prod exec web python -c "import debug_toolbar"
 ```
 
-Ожидаются редирект 301 на HTTPS, версия 1.2.0 в `/healthz/` и подвале витрины и ответ 200 для CSS.
+Ожидаются редирект 301 на HTTPS, значение `APP_VERSION` в `/healthz/` и подвале витрины,
+а также ответ 200 для CSS.
 Импорт `debug_toolbar` завершается `ModuleNotFoundError`.
 
 Сквозные сценарии на стенде создают тестовых покупателей и заказы. После `npm ci --prefix frontend`
@@ -278,3 +283,42 @@ Hotfix 1.1.1 устраняет конфликт старого STUDENT10 с д�
 отдельный CHECKPOINT10, а scripts/check_checkpoint.py поддерживает --promo-code.
 Старые промокоды, их сроки и скидки не перезаписываются. Перед повторной проверкой
 существующего стенда выполнить setup_demo ещё раз с прежним демопаролем.
+
+## Итоговый проект: рабочий вариант КТ1
+
+Предметная область — независимый книжный магазин «Книжная полка». Зачётный вариант
+М1 «Отзывы и рейтинг» и официальный шифр требуют подтверждения преподавателя;
+М2–М4 также запланированы. Демокаталог содержит книжные издания; прежние товары сохраняются до явной архивации. Новые функции появятся на следующих шагах. В репозитории Django находится
+в `backend/`, React — в `frontend/`; общие Compose и стенд остаются в корне.
+Основные зависимости: `pip install -r backend/requirements.txt`; для разработки —
+`pip install -r backend/requirements/dev.txt`. Локально запускать из корня командой
+`python backend/manage.py runserver`; медиа и `.env` остаются в корне.
+
+Роли: гость просматривает каталог, покупатель управляет своей корзиной и заказами,
+менеджер магазина работает с заказами и каталогом согласно правам Django.
+
+Сценарии: 1) поиск и фильтрация каталога; 2) просмотр карточки и вариантов;
+3) регистрация и вход; 4) добавление в корзину; 5) перенос гостевой корзины при
+входе; 6) оформление доставки и применение промокода; 7) учебная оплата;
+8) просмотр и отмена своих заказов; 9) смена статуса менеджером; 10) управление
+каталогом и отчётом в Django admin/существующих серверных страницах. React-кабинет
+каталога и отчёты запланированы, сейчас React-кабинет поддерживает заказы.
+
+Текущие API перечислены выше в разделе «Заказы и REST API». Планируемые адреса (контракт может
+уточняться при реализации): `/api/manager/` — операции сотрудников;
+`POST /api/promo/check/` — проверка промокода; уведомления о поступлении и SSE
+заказов — ещё не реализованы, их окончательные адреса не утверждены.
+
+Примеры тел запросов существующего API (цены рассчитывает сервер):
+
+```json
+{"username":"buyer_demo","password":"DemoShop2026!"}
+```
+
+```json
+{"product":1,"variant":null,"quantity":1}
+```
+
+```json
+{"status":"confirmed"}
+```

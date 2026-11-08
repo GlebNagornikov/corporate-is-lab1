@@ -19,6 +19,7 @@ export default function ProductPage() {
     <article className="details">
       <ProductBreadcrumbs category={product.category} name={product.name} />
       <h1>{product.name}</h1>
+      {product.book && <p>{product.book.author}</p>}
       <img className="product-image" src={product.image ?? '/no-image.svg'} alt={product.name} />
       <p className="muted">Артикул {product.sku}</p>
       <p className="price">
@@ -30,6 +31,17 @@ export default function ProductPage() {
       </p>
       <AddToCartButton key={product.id} product={product} />
       <p>{product.description}</p>
+      {product.book && <section>
+        <h2>Об издании</h2>
+        <dl>
+          <dt>Издательство</dt><dd>{product.book.publisher}</dd>
+          <dt>Год</dt><dd>{product.book.year}</dd>
+          <dt>Язык</dt><dd>{product.book.language}</dd>
+          <dt>Переплёт</dt><dd>{product.book.binding === 'hardcover' ? 'Твёрдый' : 'Мягкий'}</dd>
+          <dt>Страниц</dt><dd>{product.book.pages}</dd>
+          {product.book.isbn && <><dt>ISBN-13</dt><dd>{product.book.isbn}</dd></>}
+        </dl>
+      </section>}
       <h2>Отзывы ({product.reviews_count})</h2>
       {me && (
         <Suspense fallback={<p className="muted" role="status">Загрузка формы отзыва…</p>}>

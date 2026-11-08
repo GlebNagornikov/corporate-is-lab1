@@ -18,7 +18,8 @@ from redis.backoff import NoBackoff
 from redis.retry import Retry
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
-BASE_DIR = Path(__file__).resolve().parent.parent.parent
+BACKEND_DIR = Path(__file__).resolve().parent.parent.parent
+BASE_DIR = BACKEND_DIR.parent
 
 env = environ.Env()
 environ.Env.read_env(BASE_DIR / ".env")
@@ -74,7 +75,7 @@ ROOT_URLCONF = "config.urls"
 TEMPLATES = [
     {
         "BACKEND": "django.template.backends.django.DjangoTemplates",
-        "DIRS": [BASE_DIR / "templates"],
+        "DIRS": [BACKEND_DIR / "templates"],
         "APP_DIRS": True,
         "OPTIONS": {
             "context_processors": [

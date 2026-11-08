@@ -6,9 +6,9 @@ test('страницы магазина не вызывают ошибок JavaS
   page.on('console', (message) => {
     if (message.type() === 'error') errors.push(message.text())
   })
-  await page.goto('/?category=books')
-  await page.getByRole('link', { name: /Чистый код/ }).first().click()
-  await expect(page).toHaveURL(/\/products\/bk-001/)
+  await page.goto('/?category=books&q=война%20миров')
+  await page.getByRole('link', { name: /Война миров/ }).first().click()
+  await expect(page).toHaveURL(/\/products\/war-of-worlds-1898/)
   await page.getByRole('link', { name: /Корзина/ }).click()
   await page.getByRole('link', { name: 'Войти', exact: true }).click()
   await page.getByRole('link', { name: 'Регистрация' }).click()

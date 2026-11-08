@@ -31,10 +31,10 @@ class ProductViewSet(viewsets.ReadOnlyModelViewSet):
     def get_queryset(self):
         return (
             Product.objects.active()
-            .select_related("category__parent")
+            .select_related("category__parent", "book")
             .with_rating()
             .prefetch_related("variants")
-            .order_by("-created_at")
+            .order_by("-created_at", "pk")
         )
 
     @extend_schema(methods=["GET"], responses=ReviewSerializer(many=True), filters=False)
