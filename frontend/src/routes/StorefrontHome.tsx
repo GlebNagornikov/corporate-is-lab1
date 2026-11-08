@@ -21,7 +21,7 @@ export default function StorefrontHome({ books, loading }: { books: Product[]; l
       {(loading || selected.length > 0) && (
         <section className="editorial" aria-labelledby="editorial-title">
           <div className="section-lead">
-            <div><p className="eyebrow">С полки редакции</p><h2 id="editorial-title">Выбор редакции</h2></div>
+            <h2 id="editorial-title">Выбор редакции</h2>
             <Link to="/catalog">Все книги <span aria-hidden="true">→</span></Link>
           </div>
           <div className="grid editorial-grid" aria-busy={loading}>

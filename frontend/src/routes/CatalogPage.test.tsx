@@ -1,7 +1,7 @@
 import { screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { http, HttpResponse } from 'msw'
-import { expect, test } from 'vitest'
+import { expect, test, vi } from 'vitest'
 import { makePage, makeProduct } from '../test/fixtures'
 import { renderRoute } from '../test/render'
 import { server } from '../test/server'
@@ -40,6 +40,40 @@ test('сортировка меняет адрес и сбрасывает ст�
   await user.selectOptions(screen.getByLabelText('Сортировка'), '-price')
 
   await waitFor(() => expect(screen.getByTestId('location').textContent).toBe('/?ordering=-price'))
+})
+
+test('после очистки поиска на главной прокручивает страницу к каталогу', async () => {
+  const user = userEvent.setup()
+  renderRoute(<CatalogPage />)
+  const catalog = await screen.findByRole('region', { name: 'Каталог' })
+  const scrollIntoView = vi.fn()
+  Object.assign(catalog, { scrollIntoView })
+  const search = screen.getByRole('searchbox')
+
+  await user.type(search, 'Канбан')
+  await waitFor(() => expect(screen.getByTestId('location')).toHaveTextContent('/?q='))
+  expect(scrollIntoView).not.toHaveBeenCalled()
+
+  await user.clear(search)
+  await waitFor(() => expect(scrollIntoView).toHaveBeenCalledOnce())
+  expect(screen.getByTestId('location').textContent).toBe('/')
+  expect(search).toHaveFocus()
+})
+
+test('при выборе другой страницы прокручивает к началу каталога', async () => {
+  const user = userEvent.setup()
+  server.use(http.get('*/api/catalog/products/', () =>
+    HttpResponse.json(makePage([makeProduct()], { count: 21 })),
+  ))
+  renderRoute(<CatalogPage />, '/?q=код')
+  const catalog = await screen.findByRole('region', { name: 'Каталог' })
+  const scrollIntoView = vi.fn()
+  Object.assign(catalog, { scrollIntoView })
+
+  await user.click(await screen.findByRole('link', { name: '2' }))
+
+  await waitFor(() => expect(scrollIntoView).toHaveBeenCalledOnce())
+  expect(screen.getByRole('link', { name: '2' })).toHaveAttribute('aria-current', 'page')
 })
 
 test('показывает ошибку сервера и загружает каталог после повтора', async () => {

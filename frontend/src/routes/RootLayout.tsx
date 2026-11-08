@@ -39,7 +39,7 @@ function Storefront() {
     <>
       <a className="skip-link" href="#main">К содержимому</a>
       <header className="header shell">
-        <Link to="/" className="brand">Книжная полка<span aria-hidden="true">.</span></Link>
+        <Link to="/" className="brand">Книжная полка</Link>
         <nav className="nav" aria-label="Основное меню">
           <NavLink to="/catalog">Каталог</NavLink>
           <span className="planned" title="Избранное появится позже"><StoreIcon name="heart" />Избранное</span>

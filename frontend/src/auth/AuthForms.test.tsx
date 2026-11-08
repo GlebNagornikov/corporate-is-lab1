@@ -23,6 +23,7 @@ test('форма входа показывает ошибку пароля и п
   server.use(
     http.post('*/api/auth/session/login/', token),
     http.get('*/api/auth/me/', () => HttpResponse.json({ id: 1, username: 'buyer' })),
+    http.get('*/api/cart/', () => HttpResponse.json({ items: [], count: 0, total: '0.00' })),
   )
   const user = userEvent.setup()
   renderRoute(<LoginPage />, '/?next=%2F%3Ffrom%3Dcheckout', loginAction)

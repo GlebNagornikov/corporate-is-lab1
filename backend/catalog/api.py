@@ -1,4 +1,5 @@
 from django.db import IntegrityError, transaction
+from django.db.models import Exists, OuterRef
 from django_filters.rest_framework import DjangoFilterBackend
 from drf_spectacular.utils import extend_schema
 from rest_framework import permissions, serializers, status, viewsets
@@ -23,6 +24,22 @@ class CategoryViewSet(viewsets.ReadOnlyModelViewSet):
     lookup_field = "slug"
     pagination_class = None
     permission_classes = [permissions.AllowAny]
+
+    def list(self, request, *args, **kwargs):
+        """Категории активных товаров и их родительские категории."""
+        active_products = Product.objects.active().filter(category_id=OuterRef("pk"))
+        categories = self.get_queryset().annotate(has_active_products=Exists(active_products))
+        by_id = {category.pk: category for category in categories}
+        visible_ids = set()
+        for category in by_id.values():
+            if not category.has_active_products:
+                continue
+            category_id = category.pk
+            while category_id is not None and category_id not in visible_ids:
+                visible_ids.add(category_id)
+                category_id = by_id[category_id].parent_id
+        visible = [category for category in by_id.values() if category.pk in visible_ids]
+        return Response(self.get_serializer(visible, many=True).data)
 
 
 class ProductViewSet(viewsets.ReadOnlyModelViewSet):

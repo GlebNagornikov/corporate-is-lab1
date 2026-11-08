@@ -98,8 +98,10 @@ class BookCatalogTests(TestCase):
         self.assertEqual(response.status_code, 200)
 
     def test_legacy_archive_is_preview_by_default_and_does_not_touch_changed_product(self):
+        root = Category.objects.create(name="Бытовая техника", slug="appliances")
+        subcategory = Category.objects.create(name="Демо", slug="demo", parent=root)
         known = Product.objects.create(
-            category=self.product.category,
+            category=subcategory,
             sku="DEMO-1",
             slug="demo-shirt-1",
             name="Демо-футболка 1",
@@ -126,6 +128,11 @@ class BookCatalogTests(TestCase):
         csv_demo.refresh_from_db()
         self.assertTrue(known.is_active)
         self.assertTrue(csv_demo.is_active)
+        category_url = "/api/catalog/categories/"
+        self.assertEqual(
+            {entry["slug"] for entry in self.client.get(category_url).json()},
+            {"appliances", "demo", "novels"},
+        )
         call_command("archive_legacy_demo", apply=True, stdout=io.StringIO())
         known.refresh_from_db()
         changed.refresh_from_db()
@@ -133,3 +140,7 @@ class BookCatalogTests(TestCase):
         self.assertFalse(known.is_active)
         self.assertFalse(csv_demo.is_active)
         self.assertTrue(changed.is_active)
+        self.assertEqual(
+            [entry["slug"] for entry in self.client.get(category_url).json()], ["novels"]
+        )
+        self.assertEqual(self.client.get(f"{category_url}appliances/").status_code, 200)
