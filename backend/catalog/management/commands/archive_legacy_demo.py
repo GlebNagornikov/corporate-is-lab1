@@ -1,6 +1,7 @@
 from django.core.management.base import BaseCommand
 from django.db import transaction
 
+from catalog.caching import invalidate_catalog
 from catalog.management.commands.seed_catalog import PRODUCTS
 from catalog.models import Product
 
@@ -17,6 +18,8 @@ class Command(BaseCommand):
         expected.update(
             {f"DEMO-{i}": (f"demo-shirt-{i}", f"Демо-футболка {i}") for i in range(1, 6)}
         )
+        # The sample import in examples/products.csv was part of the legacy demo.
+        expected["CSV-DEMO"] = ("csv-demo", "Демонстрационная книга")
         candidates = (
             Product.objects.select_for_update()
             .filter(sku__in=expected, is_active=True)
@@ -32,8 +35,6 @@ class Command(BaseCommand):
         self.stdout.write(f"К архивации: {len(selected)}")
         if options["apply"]:
             Product.objects.filter(pk__in=selected).update(is_active=False)
-            from catalog.caching import invalidate_catalog
-
             transaction.on_commit(invalidate_catalog)
             self.stdout.write("Архивация выполнена; товары и ссылки заказов сохранены.")
         else:

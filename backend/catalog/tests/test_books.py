@@ -36,12 +36,17 @@ class BookCatalogTests(TestCase):
             price=100,
         )
 
-    def test_isbn_checksum_validation(self):
-        self.book.isbn = "9780306406157"
-        self.book.full_clean()
-        self.book.isbn = "9780306406158"
-        with self.assertRaises(ValidationError):
-            self.book.full_clean()
+    def test_isbn_validation(self):
+        for valid in ("", "9780306406157", "9791090636071"):
+            with self.subTest(valid=valid):
+                self.book.isbn = valid
+                self.book.full_clean()
+        for invalid in ("9780306406158", "0000000000000", "9790000000001"):
+            with self.subTest(invalid=invalid):
+                self.book.isbn = invalid
+                with self.assertRaises(ValidationError) as error:
+                    self.book.full_clean()
+                self.assertIn("isbn", error.exception.message_dict)
 
     def test_case_insensitive_author_and_title(self):
         for query in ("УЭЛЛС", "уэллс", "ВОЙНА МИРОВ", "война миров"):
@@ -90,11 +95,24 @@ class BookCatalogTests(TestCase):
             name="Своя книга",
             price=100,
         )
-        call_command("archive_legacy_demo", stdout=io.StringIO())
+        csv_demo = Product.objects.create(
+            category=self.product.category,
+            sku="CSV-DEMO",
+            slug="csv-demo",
+            name="Демонстрационная книга",
+            price=900,
+        )
+        preview = io.StringIO()
+        call_command("archive_legacy_demo", stdout=preview)
+        self.assertIn("CSV-DEMO: Демонстрационная книга", preview.getvalue())
         known.refresh_from_db()
+        csv_demo.refresh_from_db()
         self.assertTrue(known.is_active)
+        self.assertTrue(csv_demo.is_active)
         call_command("archive_legacy_demo", apply=True, stdout=io.StringIO())
         known.refresh_from_db()
         changed.refresh_from_db()
+        csv_demo.refresh_from_db()
         self.assertFalse(known.is_active)
+        self.assertFalse(csv_demo.is_active)
         self.assertTrue(changed.is_active)

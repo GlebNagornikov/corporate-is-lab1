@@ -188,6 +188,8 @@ class BookEdition(models.Model):
         if self.isbn:
             if len(self.isbn) != 13 or not self.isbn.isascii() or not self.isbn.isdigit():
                 raise ValidationError({"isbn": "ISBN-13 должен содержать 13 цифр."})
+            if not self.isbn.startswith(("978", "979")) or self.isbn.startswith("9790"):
+                raise ValidationError({"isbn": "Недопустимый префикс ISBN-13."})
             total = sum(int(c) * (1 if i % 2 == 0 else 3) for i, c in enumerate(self.isbn))
             if total % 10:
                 raise ValidationError({"isbn": "Неверная контрольная цифра ISBN-13."})
