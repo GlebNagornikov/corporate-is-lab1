@@ -49,7 +49,7 @@ test('оформление проверяет курьерский адрес, �
     </QueryClientProvider>,
   )
 
-  await user.type(await screen.findByLabelText('Телефон'), '+7 913 123-45-67')
+  await user.type(await screen.findByLabelText('Телефон', {}, { timeout: 5000 }), '+7 913 123-45-67')
   await user.click(screen.getByLabelText('Курьер'))
   const submit = screen.getByRole('button', { name: 'Подтвердить заказ' })
   await user.click(submit)

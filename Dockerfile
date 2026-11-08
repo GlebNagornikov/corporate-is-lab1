@@ -9,13 +9,14 @@ RUN useradd --uid 1000 --create-home app
 WORKDIR /app
 
 FROM base AS dev
-COPY requirements/ requirements/
-RUN pip install -r requirements/dev.txt
+COPY backend/requirements/ backend/requirements/
+RUN pip install -r backend/requirements/dev.txt
 
 COPY . .
 
 RUN chown -R app:app /app
 USER app
+WORKDIR /app/backend
 
 EXPOSE 8000
 CMD ["python", "manage.py", "runserver", "0.0.0.0:8000"]
@@ -23,8 +24,8 @@ CMD ["python", "manage.py", "runserver", "0.0.0.0:8000"]
 FROM base AS builder
 RUN python -m venv /opt/venv
 ENV PATH="/opt/venv/bin:$PATH"
-COPY requirements/ requirements/
-RUN pip install -r requirements/base.txt
+COPY backend/requirements/ backend/requirements/
+RUN pip install -r backend/requirements/base.txt
 
 FROM base AS prod
 ENV PATH="/opt/venv/bin:$PATH" \
@@ -34,6 +35,7 @@ COPY --chown=app:app . .
 RUN mkdir -p staticfiles media && chown app:app staticfiles media \
     && chmod +x /app/docker/entrypoint.sh
 USER app
+WORKDIR /app/backend
 EXPOSE 8000
 ENTRYPOINT ["/app/docker/entrypoint.sh"]
-CMD ["gunicorn", "config.wsgi:application", "-c", "docker/gunicorn.conf.py"]
+CMD ["gunicorn", "config.wsgi:application", "-c", "/app/docker/gunicorn.conf.py"]

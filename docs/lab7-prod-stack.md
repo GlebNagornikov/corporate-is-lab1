@@ -30,7 +30,7 @@ Nginx устанавливает `X-Forwarded-Proto`, Django распознаё�
 Ниже команды PowerShell; в Git Bash вместо `curl.exe` используется `curl`.
 
 ```powershell
-Copy-Item .env.prod.example .env.prod
+Copy-Item env/production.example .env.prod
 New-Item -ItemType Directory -Force nginx/certs
 ```
 
