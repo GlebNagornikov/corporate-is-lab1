@@ -1,4 +1,6 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import { SessionProvider } from '../auth/SessionProvider'
+import { CartProvider } from './CartProvider'
 import { act, renderHook, waitFor } from '@testing-library/react'
 import { http, HttpResponse } from 'msw'
 import type { ReactNode } from 'react'
@@ -14,7 +16,7 @@ afterEach(() => guestCart.clear())
 
 function wrapperFor(client: QueryClient) {
   return ({ children }: { children: ReactNode }) => (
-    <QueryClientProvider client={client}>{children}</QueryClientProvider>
+    <QueryClientProvider client={client}><SessionProvider><CartProvider>{children}</CartProvider></SessionProvider></QueryClientProvider>
   )
 }
 

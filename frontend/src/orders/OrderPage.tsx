@@ -5,9 +5,11 @@ import { orderQuery } from '../api/orders'
 import { tokens } from '../auth/tokens'
 import { formatDate, formatPrice } from '../lib/format'
 import { statusLabels } from '../lib/statuses'
+import { usePageTitle } from '../lib/usePageTitle'
 
 export default function OrderPage() {
   const id = Number(useParams<'orderId'>().orderId)
+  usePageTitle(`Заказ №${id}`)
   const { state }: { state: unknown } = useLocation()
   const justPlaced = state !== null && typeof state === 'object' &&
     'justPlaced' in state && state.justPlaced === true

@@ -1,5 +1,6 @@
 import { Link, isRouteErrorResponse, useParams, useRouteError } from 'react-router'
 import { ApiError } from '../api/client'
+import { usePageTitle } from '../lib/usePageTitle'
 
 export default function RouteError() {
   const error = useRouteError()
@@ -22,11 +23,13 @@ export default function RouteError() {
     message = `${error.status} ${error.statusText}`
   }
 
+  usePageTitle(title)
   return (
-    <section className="details" role="alert">
+    <section className="details state-panel" role="alert">
+      <p className="eyebrow">Книжная полка</p>
       <h1>{title}</h1>
       <p>{message}</p>
-      <Link to="/">← В каталог</Link>
+      <Link className="button" to="/">На главную</Link>
     </section>
   )
 }

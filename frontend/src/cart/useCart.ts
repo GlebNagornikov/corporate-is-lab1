@@ -1,9 +1,9 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { api, ApiError, requireData, type Cart, type Product, type Variant } from '../api/client'
-import { meQuery } from '../auth/session'
 import { tokens } from '../auth/tokens'
+import { useCartSnapshot } from './useCartSnapshot'
 import {
-  guestCart, limitQuantity, matchesLine, summarizeCart, useGuestCart, withQuantity,
+  guestCart, limitQuantity, matchesLine, summarizeCart, withQuantity,
 } from './guestCart'
 import { cartQuery } from './queries'
 
@@ -22,14 +22,11 @@ type CartChange = { productId: number; variantId: number | null; version: number
   { type: 'add' } | { type: 'quantity'; quantity: number }
 )
 
-const emptyCart: Cart = { items: [], count: 0, total: '0.00' }
 const changeKey = (version: number) => ['cart', 'change', version]
 
 export function useCart(): CartState {
   const client = useQueryClient()
-  const { data: me } = useQuery(meQuery())
-  const guestItems = useGuestCart()
-  const server = useQuery({ ...cartQuery(), enabled: Boolean(me) })
+  const snapshot = useCartSnapshot()
   const queryKey = cartQuery().queryKey
   const version = tokens.version()
 
@@ -88,9 +85,9 @@ export function useCart(): CartState {
     },
   })
 
-  if (!me) {
+  if (snapshot.isGuest) {
     return {
-      ...summarizeCart(guestItems),
+      ...snapshot.cart,
       isGuest: true,
       isLoading: false,
       isAdding: false,
@@ -101,9 +98,9 @@ export function useCart(): CartState {
   }
 
   return {
-    ...(server.data ?? emptyCart),
+    ...snapshot.cart,
     isGuest: false,
-    isLoading: server.isPending,
+    isLoading: snapshot.isLoading,
     isAdding: change.isPending && change.variables.version === version && change.variables.type === 'add',
     add: (product, variant) => change.mutate({
       type: 'add', productId: product.id, variantId: variant?.id ?? null, version,
@@ -117,6 +114,6 @@ export function useCart(): CartState {
         type: 'quantity', productId, variantId: variant, quantity, version,
       })
     },
-    error: (change.variables?.version === version ? change.error : null) ?? server.error,
+    error: (change.variables?.version === version ? change.error : null) ?? snapshot.error,
   }
 }

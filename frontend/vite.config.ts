@@ -6,6 +6,10 @@ const apiTarget = process.env.VITE_PROXY_TARGET ?? 'http://127.0.0.1:8000'
 
 export default defineConfig({
   plugins: [react(), ...(process.env.ANALYZE === '1' ? [visualizer({ filename: 'dist/stats.html', gzipSize: true })] : [])],
+  build: {
+    // HTTPS CSP loads fonts from the shop origin.
+    assetsInlineLimit: (filePath) => filePath.endsWith('.woff2') ? false : undefined,
+  },
   server: {
     proxy: {
       '/api': { target: apiTarget, changeOrigin: false },

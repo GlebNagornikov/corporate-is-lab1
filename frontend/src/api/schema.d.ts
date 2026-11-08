@@ -1017,6 +1017,55 @@ export interface components {
             readonly rating: number | null;
             readonly reviews_count: number;
         };
+        ProductDetail: {
+            readonly id: number;
+            /** Название */
+            name: string;
+            readonly book: components["schemas"]["BookEdition"] | null;
+            /** Адрес в URL */
+            slug: string;
+            /** Артикул */
+            sku: string;
+            readonly category: components["schemas"]["Category"];
+            /** Описание */
+            description?: string;
+            /** Характеристики */
+            attributes?: unknown;
+            readonly variants: components["schemas"]["Variant"][];
+            /**
+             * Цена
+             * Format: decimal
+             */
+            price: string;
+            /**
+             * Старая цена
+             * Format: decimal
+             */
+            old_price?: string | null;
+            readonly discount_percent: number;
+            /** Остаток */
+            stock?: number;
+            readonly in_stock: boolean;
+            /**
+             * Фото
+             * Format: uri
+             */
+            image?: string | null;
+            /** Format: double */
+            readonly rating: number | null;
+            readonly reviews_count: number;
+            readonly images: components["schemas"]["ProductImage"][];
+        };
+        ProductImage: {
+            readonly id: number;
+            /**
+             * Фото
+             * Format: uri
+             */
+            image: string;
+            /** Описание фото */
+            alt_text?: string;
+        };
         Register: {
             readonly id: number;
             /**
@@ -1529,7 +1578,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["Product"];
+                    "application/json": components["schemas"]["ProductDetail"];
                 };
             };
         };

@@ -8,6 +8,7 @@ import { server } from '../test/server'
 import LoginPage from './LoginPage'
 import { nextPath } from './nextPath'
 import RegisterPage from './RegisterPage'
+import { loginAction, registerAction } from './authActions'
 import { tokens } from './tokens'
 
 afterEach(() => {
@@ -24,7 +25,7 @@ test('форма входа показывает ошибку пароля и п
     http.get('*/api/auth/me/', () => HttpResponse.json({ id: 1, username: 'buyer' })),
   )
   const user = userEvent.setup()
-  renderRoute(<LoginPage />, '/?next=%2F%3Ffrom%3Dcheckout')
+  renderRoute(<LoginPage />, '/?next=%2F%3Ffrom%3Dcheckout', loginAction)
 
   await user.type(screen.getByLabelText('Имя пользователя'), 'buyer')
   await user.type(screen.getByLabelText('Пароль'), 'secret')
@@ -42,7 +43,7 @@ test('форма регистрации проверяет совпадение 
   }, { status: 400 }))
   server.use(http.post('*/api/auth/register/', registration))
   const user = userEvent.setup()
-  renderRoute(<RegisterPage />)
+  renderRoute(<RegisterPage />, '/', registerAction)
 
   await user.type(screen.getByLabelText('Имя пользователя'), 'buyer')
   await user.type(screen.getByLabelText('Электронная почта'), 'buyer@example.test')

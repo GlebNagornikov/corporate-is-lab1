@@ -13,6 +13,7 @@ export const handlers = [
       makeProduct({ id: 2, name: 'Книга «Канбан»', slug: 'bk-007', sku: 'BK-007', price: '1190.00' }),
     ])),
   ),
+  http.get('*/api/catalog/products/:slug/', () => HttpResponse.json({}, { status: 404 })),
 ]
 
 export const server = setupServer(...handlers)
