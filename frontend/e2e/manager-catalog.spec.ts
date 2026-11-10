@@ -123,7 +123,7 @@ test('покупатель получает отказ на прямых ссы�
   }
 })
 
-test('сотрудник проверяет CSV, импортирует две книги и удаляет карточку', async ({ page }) => {
+test('сотрудник проверяет JSON, импортирует две книги и удаляет карточку', async ({ page }) => {
   const suffix = randomUUID().slice(0, 8)
   const slug = `import-${suffix}`
   const title = `Импорт ${suffix}`
@@ -133,29 +133,36 @@ test('сотрудник проверяет CSV, импортирует две �
   await expect(current).toHaveText('Страница 1')
   expect(await current.evaluate((element) => parseFloat(getComputedStyle(element).paddingLeft))).toBeGreaterThan(8)
   expect(await current.evaluate((element) => parseFloat(getComputedStyle(element).borderRadius))).toBeGreaterThan(0)
-  await page.getByRole('link', { name: 'Импорт CSV' }).click()
+  await page.getByRole('link', { name: 'Импорт JSON' }).click()
   await expect(page).toHaveURL('/manager/catalog/import')
-  expect((await page.request.get('/manager-books.csv')).status()).toBe(200)
-  const input = page.getByLabel('Файл CSV')
-  const check = page.getByRole('button', { name: 'Проверить CSV' })
+  const template = await page.request.get('/manager-books.json')
+  expect(template.ok()).toBe(true)
+  expect(await template.json()).toEqual([expect.objectContaining({ sku: expect.any(String) })])
+  const help = page.getByText(/Для новой книги используйте поля из шаблона/)
+  const fieldFont = await help.locator('code').first().evaluate((field) => getComputedStyle(field).fontFamily)
+  expect(fieldFont).toBe(await help.evaluate((paragraph) => getComputedStyle(paragraph).fontFamily))
+  const input = page.getByLabel('Файл JSON')
+  const check = page.getByRole('button', { name: 'Проверить JSON' })
   const apply = page.getByRole('button', { name: 'Импортировать книги' })
-  const header = 'sku;name;slug;category;price;stock;author;publisher;year;language;binding;pages;is_active'
-  const row = (number: number, year: string) =>
-    `${slug}-${number};${title} ${number};${slug}-${number};fairy-tales;405.00;5;Автор;Полка;${year};Русский;hardcover;240;true`
-  async function select(secondYear: string) {
-    const csv = `\uFEFF${header}\n${row(1, '2025')}\n${row(2, secondYear)}\n`
-    await input.setInputFiles({ name: 'books.csv', mimeType: 'text/csv', buffer: Buffer.from(csv) })
+  const book = (number: number, year: number | string) => ({
+    sku: `${slug}-${number}`, name: `${title} ${number}`, slug: `${slug}-${number}`,
+    category: 'fairy-tales', price: '405.00', stock: 5, author: 'Автор', publisher: 'Полка',
+    year, language: 'Русский', binding: 'hardcover', pages: 240, is_active: true,
+  })
+  async function select(secondYear: number | string) {
+    const json = JSON.stringify([book(1, 2025), book(2, secondYear)])
+    await input.setInputFiles({ name: 'books.json', mimeType: 'application/json', buffer: Buffer.from(json) })
   }
   await select('invalid')
   await check.click()
-  await expect(page.getByRole('alert')).toContainText('Строка 3, year')
+  await expect(page.getByRole('alert')).toContainText('Запись 2, year')
   await expect(apply).toBeDisabled()
-  await select('2026')
+  await select(2026)
   await check.click()
-  await expect(page.getByText('Строк проверено — 2.')).toBeVisible()
+  await expect(page.getByText('Книг проверено — 2.')).toBeVisible()
   expect((await page.request.get(`/api/catalog/products/${slug}-1/`)).status()).toBe(404)
   await apply.click()
-  await expect(page.getByText('Строк импортировано — 2.')).toBeVisible()
+  await expect(page.getByText('Книг импортировано — 2.')).toBeVisible()
 
   await page.goto('/')
   const editorial = page.getByRole('region', { name: 'Выбор редакции' })

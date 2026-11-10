@@ -66,6 +66,11 @@ test('менеджер подтверждает заказ после учебн
   await expect(page.getByRole('heading', { name: `Заказ №${id}` })).toBeVisible()
   await expect(page.getByRole('heading', { name: 'История' })).toBeVisible()
   await expect(page.getByText('Анна Смирнова', { exact: true })).toBeVisible()
+  const quantity = page.getByRole('columnheader', { name: 'Количество', exact: true })
+  await expect(quantity).toHaveCSS('white-space', 'nowrap')
+  await page.setViewportSize({ width: 360, height: 780 })
+  await expect(quantity).toHaveCSS('white-space', 'nowrap')
+  expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(360)
 })
 
 test('покупатель не попадает в раздел менеджера', async ({ page, request }) => {

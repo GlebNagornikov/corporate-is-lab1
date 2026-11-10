@@ -24,7 +24,7 @@ export default function ManagerCatalogPage() {
         <div className="manager-catalog-buttons">
           <button type="submit" form="manager-catalog-search">Найти</button>
           <Link className="button" to="/manager/catalog/new">Добавить книгу</Link>
-          <Link className="button" to="/manager/catalog/import">Импорт CSV</Link>
+          <Link className="button" to="/manager/catalog/import">Импорт JSON</Link>
         </div>
         {filters.q && <Link className="manager-catalog-reset" to="/manager/catalog">Сбросить</Link>}
       </div>

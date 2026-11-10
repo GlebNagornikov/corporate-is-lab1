@@ -4,7 +4,7 @@ Django, PostgreSQL, REST API с JWT. В версии **1.1.0** выпущены 
 пункта 8.2. В версии **1.2.0** на HTTPS-стенде работает витрина React.
 
 Покупатель ищет товары, выбирает вариант, оформляет доставку и оплачивает заказ
-в учебном шлюзе. Менеджер управляет каталогом, вариантами и статусами, импортирует CSV
+в учебном шлюзе. Менеджер управляет каталогом, вариантами и статусами, импортирует книги из JSON
 и смотрит отчёт продаж. Реальные платежи не выполняются.
 
 ## Быстрый запуск разработки
@@ -62,6 +62,12 @@ docker compose exec web python manage.py seed_demo --password "DemoShop2026!"
 
 Выход выполняется POST-формой. Для dev после работы с HTTPS использовать 127.0.0.1:
 HSTS у localhost действует на все порты ещё 60 секунд.
+
+Для работы с текущим кодом используйте dev-адрес `http://127.0.0.1:5173` и команды
+`docker compose exec web …` из этого каталога. Фронтенд проксирует API в `web` проекта
+`corporate-is-lab1`. HTTPS-стенд использует отдельно собранный релиз и свой том PostgreSQL,
+поэтому аккаунты и права зависят от выбранного стенда. Список проектов показывает
+`docker compose ls -a`, а контейнеры и порты текущего проекта — `docker compose ps`.
 
 ### Тесты React-витрины
 
@@ -324,7 +330,7 @@ Bearer-токен сотрудника. `me.is_manager` соответствуе
 | POST | `/api/manager/catalog/` | `catalog.add_product`, `catalog.view_category` | Создать издание через multipart. По умолчанию книга скрыта. |
 | PATCH | `/api/manager/catalog/{id}/` | `catalog.view_product`, `catalog.change_product`, `catalog.view_category` | Обновить карточку через multipart. |
 | DELETE | `/api/manager/catalog/{id}/` | `catalog.view_product`, `catalog.delete_product` | Удалить книгу. Для книги из истории заказов возвращает 409. |
-| POST | `/api/manager/catalog/import-csv/` | `catalog.view_category`, `catalog.add_product`, `catalog.change_product` | Проверить или импортировать UTF-8 CSV через multipart. |
+| POST | `/api/manager/catalog/import-json/` | `catalog.view_category`, `catalog.add_product`, `catalog.change_product` | Проверить или импортировать файл с JSON-массивом книг в UTF-8 через multipart. |
 | PATCH | `/api/manager/catalog/{id}/variants/{variant_id}/` | `catalog.view_product`, `catalog.change_productvariant` | Изменить цену, остаток и активность существующего складского варианта. |
 | GET | `/api/manager/categories/` | `catalog.view_category` | Жанры для формы, включая пустые. Раздел «Книги» в список жанров не входит. |
 | POST | `/api/manager/categories/` | `catalog.view_category`, `catalog.add_category` | Создать жанр по полю `name`. Он сразу доступен в форме книги. |
@@ -376,12 +382,14 @@ ISBN-13 можно вводить с дефисами или пробелами.
    Контракты и коды ответов доступны в [Swagger](http://127.0.0.1:8000/api/docs/).
 5. Откройте [импорт книг](http://127.0.0.1:5173/manager/catalog/import), скачайте шаблон
    и укажите собственные SKU и адреса. Подставьте код жанра из списка на странице.
-   Нажмите «Проверить CSV». Книги появятся в каталоге после «Импортировать книги».
-   Повторный импорт обновляет карточки по SKU. Ошибка в любой строке отклоняет весь файл.
-   Для обновления можно оставить в заголовке только `sku` и меняемые поля.
+   Нажмите «Проверить JSON». Книги появятся в каталоге после «Импортировать книги».
+   Повторный импорт обновляет карточки по SKU. Ошибка в любой записи отклоняет весь файл.
+   Для обновления достаточно объекта с `sku` и меняемыми полями, например
+   `[{"sku":"BOOK-JSON-001","stock":12,"old_price":null}]`.
 6. Откройте карточку импортированной книги в каталоге сотрудника и нажмите «Удалить книгу».
-   После подтверждения она исчезнет из каталога. Если книга уже встречается в заказе,
-   сервер сохранит карточку и предложит снять её с продажи.
+   Карточка исчезнет из каталога, если книги нет ни в одном заказе. Ссылка из любого заказа,
+   включая отменённый, блокирует удаление с ответом 409. Чтобы закрыть новые продажи,
+   снимите отметку «Показывать на витрине». Существующие заказы остаются доступны для обработки.
 
 Для проверок с отдельной базой выполните `npm --prefix frontend run e2e -- manager-catalog.spec.ts orders.spec.ts`.
 Для API выполните `docker compose exec web python manage.py test catalog.tests.test_manager_api orders.tests.test_api --settings=config.settings.test`.

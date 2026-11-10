@@ -8,13 +8,13 @@ import { usePageTitle } from '../lib/usePageTitle'
 import { managerCategoriesQuery, refreshCatalog } from './queries'
 
 export default function ManagerImportPage() {
-  usePageTitle('Импорт книг из CSV')
+  usePageTitle('Импорт книг из JSON')
   const [file, setFile] = useState<File>()
   const client = useQueryClient()
   const { data: genres } = useSuspenseQuery(managerCategoriesQuery())
   const upload = useMutation({
     mutationFn: async ({ file, dryRun }: { file: File; dryRun: boolean; version: number }) =>
-      requireData(await api.POST('/api/manager/catalog/import-csv/', {
+      requireData(await api.POST('/api/manager/catalog/import-json/', {
         body: { file: file.name, dry_run: dryRun },
         bodySerializer: () => {
           const form = new FormData()
@@ -37,30 +37,30 @@ export default function ManagerImportPage() {
   }
 
   return (
-    <section className="details manager-editor">
+    <section className="details manager-editor manager-import">
       <div className="manager-toolbar">
-        <h1>Импорт книг из CSV</h1>
+        <h1>Импорт книг из JSON</h1>
         <Link to="/manager/catalog">К каталогу сотрудника</Link>
       </div>
-      <p>Загрузите CSV в кодировке UTF-8. Допускаются запятая и точка с запятой.
-        Максимум 1 МБ и 1000 строк с книгами.</p>
-      <p>Для новой книги заполните столбцы из шаблона. Поля <code>description</code>, <code>isbn</code> и
-        {' '}<code>old_price</code> можно оставить пустыми. Для обновления укажите <code>sku</code> и
-        столбцы, которые хотите изменить. Значение <code>true</code> в <code>is_active</code> публикует книгу.</p>
-      <p><a href="/manager-books.csv" download>Скачать шаблон CSV</a></p>
+      <p>Загрузите JSON-файл в кодировке UTF-8 с массивом книг. Максимум 1 МБ и 1000 книг.</p>
+      <p>Для новой книги используйте поля из шаблона. Поля <code>description</code>, <code>isbn</code> и
+        {' '}<code>old_price</code> можно пропустить. Значение <code>null</code> в <code>old_price</code> очищает
+        старую цену. Для обновления укажите <code>sku</code> и поля, которые хотите изменить.
+        Значение <code>true</code> в <code>is_active</code> публикует книгу.</p>
+      <p><a href="/manager-books.json" download>Скачать шаблон JSON</a></p>
       <details>
-        <summary>Коды жанров для столбца category</summary>
+        <summary>Коды жанров для поля <code>category</code></summary>
         <ul>{genres.map((genre) => <li key={genre.id}>{genre.name} · <code>{genre.slug}</code></li>)}</ul>
       </details>
       <div className="form manager-card-actions" aria-busy={busy}>
-        <FormInput label="Файл CSV" name="file" type="file" accept=".csv,text/csv" disabled={busy}
-          aria-describedby={errors?.length ? 'csv-import-errors' : undefined}
+        <FormInput label="Файл JSON" name="file" type="file" accept=".json,application/json" disabled={busy}
+          aria-describedby={errors?.length ? 'json-import-errors' : undefined}
           onChange={({ target }) => {
             upload.reset()
             setFile(target.files?.[0])
           }} />
         {upload.error && (
-          <div role="alert" id="csv-import-errors" className="error">
+          <div role="alert" id="json-import-errors" className="error">
             {errors?.length
               ? <ul>{errors.map((message, index) => <li key={index}>{message}</li>)}</ul>
               : <p>{upload.error.message}</p>}
@@ -68,12 +68,12 @@ export default function ManagerImportPage() {
         )}
         {upload.data && (
           <p className="success" role="status">
-            {upload.data.dry_run ? 'Строк проверено' : 'Строк импортировано'} — {upload.data.processed}.
+            {upload.data.dry_run ? 'Книг проверено' : 'Книг импортировано'} — {upload.data.processed}.
           </p>
         )}
         <div className="actions">
           <button type="button" className="secondary" disabled={!file || busy} onClick={() => submit(true)}>
-            Проверить CSV
+            Проверить JSON
           </button>
           <button type="button" disabled={!file || busy || !upload.data?.dry_run} onClick={() => submit(false)}>
             Импортировать книги

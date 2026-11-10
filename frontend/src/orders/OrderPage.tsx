@@ -43,7 +43,7 @@ export default function OrderPage({ manager = false }: { manager?: boolean }) {
   const isUpdating = pay.isPending || cancel.isPending
 
   return (
-    <section className="details narrow">
+    <section className={manager ? 'details manager-order-detail' : 'details narrow'}>
       {justPlaced && <p className="success" role="status">Заказ оформлен. Спасибо!</p>}
       <h1>Заказ №{order.id}</h1>
       <p>{formatDate(order.created_at)} · <strong>{order.status_display}</strong></p>
@@ -59,7 +59,11 @@ export default function OrderPage({ manager = false }: { manager?: boolean }) {
       <div className="table-scroll">
         <table className="table">
           <thead>
-            <tr><th scope="col">Товар</th><th scope="col">Количество</th><th scope="col">Сумма</th></tr>
+            <tr>
+              <th scope="col">Товар</th>
+              <th scope="col" className="order-quantity">Количество</th>
+              <th scope="col">Сумма</th>
+            </tr>
           </thead>
           <tbody>
             {order.items.map((item) => (

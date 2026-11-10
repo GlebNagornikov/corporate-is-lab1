@@ -1,4 +1,4 @@
-import csv
+import json
 from io import BytesIO, StringIO
 from tempfile import TemporaryDirectory
 
@@ -16,7 +16,7 @@ from catalog.models import BookEdition, Category, Product, ProductVariant
 CATALOG = "/api/manager/catalog/"
 CATEGORIES = "/api/manager/categories/"
 STOREFRONT = "/api/catalog/products/"
-CSV_IMPORT = f"{CATALOG}import-csv/"
+JSON_IMPORT = f"{CATALOG}import-json/"
 
 
 def cover(image_format="PNG"):
@@ -80,14 +80,10 @@ class ManagerCatalogApiTests(APITestCase):
         self.assertEqual(response.status_code, 201, response.data)
         return response.data
 
-    def upload_csv(self, rows, *, delimiter=",", **form):
-        stream = StringIO()
-        writer = csv.DictWriter(stream, fieldnames=list(rows[0]), delimiter=delimiter)
-        writer.writeheader()
-        writer.writerows(rows)
-        file = SimpleUploadedFile("books.csv", stream.getvalue().encode("utf-8-sig"), "text/csv")
+    def upload_json(self, contents, **form):
+        file = SimpleUploadedFile("books.json", contents.encode("utf-8-sig"), "application/json")
         self.client.force_authenticate(self.manager)
-        return self.client.post(CSV_IMPORT, {"file": file, **form}, format="multipart")
+        return self.client.post(JSON_IMPORT, {"file": file, **form}, format="multipart")
 
     def test_all_manager_catalog_methods_require_authentication(self):
         detail = f"{CATALOG}{self.legacy.pk}/"
@@ -98,7 +94,7 @@ class ManagerCatalogApiTests(APITestCase):
             ("patch", detail),
             ("delete", detail),
             ("patch", f"{detail}variants/{self.variant.pk}/"),
-            ("post", CSV_IMPORT),
+            ("post", JSON_IMPORT),
             ("get", CATEGORIES),
             ("post", CATEGORIES),
         ]
@@ -123,7 +119,7 @@ class ManagerCatalogApiTests(APITestCase):
         self.assertEqual(self.client.post(CATALOG, self.payload).status_code, 403)
         self.assertEqual(self.client.patch(f"{CATALOG}{self.legacy.pk}/").status_code, 403)
         self.assertEqual(self.client.delete(f"{CATALOG}{self.legacy.pk}/").status_code, 403)
-        self.assertEqual(self.client.post(CSV_IMPORT).status_code, 403)
+        self.assertEqual(self.client.post(JSON_IMPORT).status_code, 403)
         variant_url = f"{CATALOG}{self.legacy.pk}/variants/{self.variant.pk}/"
         self.assertEqual(self.client.patch(variant_url).status_code, 403)
         self.assertEqual(self.client.get("/api/manager/orders/").status_code, 403)
@@ -197,34 +193,59 @@ class ManagerCatalogApiTests(APITestCase):
         self.assertEqual(self.client.get(f"{STOREFRONT}forest/").status_code, 404)
         self.assertFalse(BookEdition.objects.filter(product_id=book["id"]).exists())
 
-    def test_csv_preview_and_import_create_books_and_update_by_sku(self):
-        first = {**self.payload, "category": self.genre.slug, "isbn": "978-0-14-044913-6"}
+    def test_json_preview_and_import_create_books_and_update_by_sku(self):
+        first = {
+            **self.payload,
+            "category": self.genre.slug,
+            "isbn": "978-0-14-044913-6",
+            "old_price": "350.00",
+        }
         second = {**first, "sku": "LAKE", "slug": "lake", "name": "Озеро"}
-        preview = self.upload_csv([first, second], delimiter=";")
+        contents = json.dumps([first, second], ensure_ascii=False)
+        preview = self.upload_json(contents)
         self.assertEqual(preview.status_code, 200, preview.data)
         self.assertEqual(preview.data, {"processed": 2, "dry_run": True})
         self.assertFalse(Product.objects.filter(sku="FOREST").exists())
-        applied = self.upload_csv([first, second], delimiter=";", dry_run="false")
+        applied = self.upload_json(contents, dry_run="false")
         self.assertEqual(applied.status_code, 200, applied.data)
         self.assertEqual(applied.data, {"processed": 2, "dry_run": False})
         book = Product.objects.get(sku="FOREST")
         self.assertEqual(book.book.isbn, "9780140449136")
         self.assertFalse(book.is_active)
-        updated = self.upload_csv([{"sku": "FOREST", "stock": 12}], dry_run="false")
+        updated = self.upload_json(
+            '[{"sku":"FOREST","stock":12,"old_price":null,"is_active":true}]', dry_run="false"
+        )
         self.assertEqual(updated.status_code, 200, updated.data)
         book.refresh_from_db()
         self.assertEqual(
             (book.slug, book.stock, book.book.author), ("forest", 12, self.payload["author"])
         )
+        self.assertTrue(book.is_active)
+        self.assertIsNone(book.old_price)
         self.assertTrue(Product.objects.filter(sku="LAKE").exists())
 
-    def test_csv_import_reports_row_errors_and_rejects_whole_file(self):
+    def test_json_import_reports_entry_errors_and_rejects_whole_file(self):
         first = {**self.payload, "category": self.genre.slug}
         invalid = {**first, "sku": "OTHER", "slug": "other", "year": "bad"}
-        response = self.upload_csv([first, invalid], dry_run="false")
+        response = self.upload_json(json.dumps([first, invalid]), dry_run="false")
         self.assertEqual(response.status_code, 400, response.data)
-        self.assertIn("Строка 3, year", response.data["file"][0])
+        self.assertIn("Запись 2, year", response.data["file"][0])
         self.assertFalse(Product.objects.filter(sku__in=["FOREST", "OTHER"]).exists())
+
+    def test_json_import_rejects_invalid_format_and_shape(self):
+        for contents, message in (
+            ("sku,name\nFOREST,Лес", "неверный JSON"),
+            ('{"sku":"FOREST"}', "непустой JSON-массив"),
+            ("[]", "непустой JSON-массив"),
+            ("[42]", "ожидается объект"),
+            ('[{"sku":42}]', "укажите артикул строкой"),
+            ('[{"sku":"FOREST","sku":"LAKE"}]', "не должны повторяться"),
+            ('[{"sku":"FOREST","image":"cover.png"}]', "неизвестные поля"),
+        ):
+            with self.subTest(contents=contents):
+                response = self.upload_json(contents, dry_run="false")
+                self.assertEqual(response.status_code, 400, response.data)
+                self.assertIn(message, response.data["file"][0])
 
     def test_editorial_keeps_oz_after_newer_books_fill_the_first_page(self):
         oz = Product.objects.create(

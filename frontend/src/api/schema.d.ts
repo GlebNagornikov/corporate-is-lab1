@@ -520,7 +520,7 @@ export interface paths {
         get: operations["api_manager_catalog_retrieve"];
         put?: never;
         post?: never;
-        /** @description Удаляет карточку. Если издание есть в истории заказов, вернёт 409. */
+        /** @description Удаляет карточку. Если издание есть хотя бы в одном заказе, вернёт 409 при любом статусе заказа. */
         delete: operations["api_manager_catalog_destroy"];
         options?: never;
         head?: never;
@@ -545,7 +545,7 @@ export interface paths {
         patch: operations["api_manager_catalog_variants_partial_update"];
         trace?: never;
     };
-    "/api/manager/catalog/import-csv/": {
+    "/api/manager/catalog/import-json/": {
         parameters: {
             query?: never;
             header?: never;
@@ -554,8 +554,8 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** @description Проверяет или импортирует книги из UTF-8 CSV. Сопоставляет строки по SKU. */
-        post: operations["api_manager_catalog_import_csv_create"];
+        /** @description Проверяет или импортирует массив книг из файла JSON в UTF-8. Сопоставляет записи по SKU. */
+        post: operations["api_manager_catalog_import_json_create"];
         delete?: never;
         options?: never;
         head?: never;
@@ -812,16 +812,6 @@ export interface components {
         BindingEnum: "hardcover" | "paperback";
         /** @enum {unknown} */
         BlankEnum: "";
-        BookCsvResult: {
-            processed: number;
-            dry_run: boolean;
-        };
-        BookCsvUploadRequest: {
-            /** Format: binary */
-            file: string;
-            /** @default true */
-            dry_run: boolean;
-        };
         BookEdition: {
             /** Автор */
             author: string;
@@ -837,6 +827,16 @@ export interface components {
             isbn?: string;
             /** Число страниц */
             pages: number;
+        };
+        BookJsonResult: {
+            processed: number;
+            dry_run: boolean;
+        };
+        BookJsonUploadRequest: {
+            /** Format: binary */
+            file: string;
+            /** @default true */
+            dry_run: boolean;
         };
         Cart: {
             items: components["schemas"]["CartItem"][];
@@ -2511,7 +2511,7 @@ export interface operations {
             };
         };
     };
-    api_manager_catalog_import_csv_create: {
+    api_manager_catalog_import_json_create: {
         parameters: {
             query?: never;
             header?: never;
@@ -2520,7 +2520,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "multipart/form-data": components["schemas"]["BookCsvUploadRequest"];
+                "multipart/form-data": components["schemas"]["BookJsonUploadRequest"];
             };
         };
         responses: {
@@ -2529,10 +2529,10 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["BookCsvResult"];
+                    "application/json": components["schemas"]["BookJsonResult"];
                 };
             };
-            /** @description Ошибки файла с номерами строк в поле file. */
+            /** @description Ошибки формата и записей в поле file. */
             400: {
                 headers: {
                     [name: string]: unknown;

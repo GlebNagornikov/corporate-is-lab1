@@ -263,6 +263,9 @@ button:disabled { cursor: not-allowed; opacity: .65; }
 .manager-toolbar h1 { margin: 0; }
 .manager-editor { max-width: 54rem; }
 .manager-editor > .form { margin-top: 1rem; }
+.manager-import > .manager-toolbar { margin-bottom: 1.5rem; }
+.manager-import code { font: inherit; }
+.manager-order-detail { max-width: 42rem; }
 .form .manager-fields {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(min(100%, 16rem), 1fr));
@@ -310,6 +313,7 @@ button.manager-delete { background: var(--danger-bg); border-color: var(--danger
 }
 .table { width: 100%; border-collapse: collapse; text-align: left; }
 .table th, .table td { padding: .55rem .45rem; border-bottom: 1px solid var(--line); vertical-align: middle; overflow-wrap: anywhere; }
+.table th.order-quantity { white-space: nowrap; }
 .table th { font-size: .85rem; }
 .qty, .actions { display: flex; align-items: center; flex-wrap: wrap; gap: .35rem; }
 .qty { flex-wrap: nowrap; }

@@ -1,2 +1,0 @@
-sku,name,slug,category,price,stock,author,publisher,year,language,binding,pages,isbn,description,old_price,is_active
-BOOK-CSV-001,Пример книги,primer-knigi,fairy-tales,650.00,5,Имя автора,Название издательства,2025,Русский,hardcover,240,,Краткая аннотация,,false

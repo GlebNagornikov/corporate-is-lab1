@@ -18,7 +18,7 @@ from rest_framework.response import Response
 from accounts.manager_permissions import IsShopManager
 from config.api_docs import MANAGER_ACCESS_ERRORS
 
-from .book_import import MAX_BOOK_CSV_BYTES, import_books
+from .book_import import MAX_BOOK_JSON_BYTES, import_books
 from .manager_serializers import (
     ManagerBookSerializer,
     ManagerBookWriteSerializer,
@@ -40,17 +40,17 @@ BOOK_PAYLOAD = {"multipart/form-data": ManagerBookWriteSerializer}
 BOOK_NOT_FOUND = OpenApiResponse(description="Издание не найдено.")
 
 
-class BookCsvUploadSerializer(serializers.Serializer):
+class BookJsonUploadSerializer(serializers.Serializer):
     file = serializers.FileField()
     dry_run = serializers.BooleanField(default=True)
 
     def validate_file(self, file):
-        if file.size > MAX_BOOK_CSV_BYTES:
-            raise serializers.ValidationError("Размер CSV должен быть не больше 1 МБ.")
+        if file.size > MAX_BOOK_JSON_BYTES:
+            raise serializers.ValidationError("Размер JSON должен быть не больше 1 МБ.")
         return file
 
 
-class BookCsvResultSerializer(serializers.Serializer):
+class BookJsonResultSerializer(serializers.Serializer):
     processed = serializers.IntegerField()
     dry_run = serializers.BooleanField()
 
@@ -126,7 +126,7 @@ class ManagerBookViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, views
             "catalog.change_product",
         ),
         "destroy": ("catalog.view_product", "catalog.delete_product"),
-        "import_csv": ("catalog.view_category", "catalog.add_product", "catalog.change_product"),
+        "import_json": ("catalog.view_category", "catalog.add_product", "catalog.change_product"),
         "variant": ("catalog.view_product", "catalog.change_productvariant"),
     }
 
@@ -163,7 +163,10 @@ class ManagerBookViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, views
         return self.save_book(request, status.HTTP_200_OK, product)
 
     @extend_schema(
-        description="Удаляет карточку. Если издание есть в истории заказов, вернёт 409.",
+        description=(
+            "Удаляет карточку. Если издание есть хотя бы в одном заказе, "
+            "вернёт 409 при любом статусе заказа."
+        ),
         responses={
             204: None,
             404: BOOK_NOT_FOUND,
@@ -179,23 +182,28 @@ class ManagerBookViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, views
             product.delete()
         except ProtectedError:
             return Response(
-                {"detail": "Книга есть в истории заказов. Снимите её с продажи в карточке."},
+                {"detail": "Книга есть в заказах. Снимите её с продажи в карточке."},
                 status=status.HTTP_409_CONFLICT,
             )
         return Response(status=status.HTTP_204_NO_CONTENT)
 
     @extend_schema(
-        description="Проверяет или импортирует книги из UTF-8 CSV. Сопоставляет строки по SKU.",
-        request={"multipart/form-data": BookCsvUploadSerializer},
+        description=(
+            "Проверяет или импортирует массив книг из файла JSON в UTF-8. "
+            "Сопоставляет записи по SKU."
+        ),
+        request={"multipart/form-data": BookJsonUploadSerializer},
         responses={
-            200: BookCsvResultSerializer,
-            400: OpenApiResponse(description="Ошибки файла с номерами строк в поле file."),
+            200: BookJsonResultSerializer,
+            400: OpenApiResponse(description="Ошибки формата и записей в поле file."),
             **MANAGER_ACCESS_ERRORS,
         },
     )
-    @action(detail=False, methods=["post"], url_path="import-csv", parser_classes=[MultiPartParser])
-    def import_csv(self, request):
-        payload = BookCsvUploadSerializer(data=request.data)
+    @action(
+        detail=False, methods=["post"], url_path="import-json", parser_classes=[MultiPartParser]
+    )
+    def import_json(self, request):
+        payload = BookJsonUploadSerializer(data=request.data)
         payload.is_valid(raise_exception=True)
         upload = payload.validated_data["file"]
         dry_run = payload.validated_data["dry_run"]

@@ -38,7 +38,8 @@ export default function BookDeleteDialog({ book, close }: { book: ManagerBook; c
       onCancel={(event) => { event.preventDefault(); if (!remove.isPending) close() }}>
       <div className="form" aria-busy={remove.isPending}>
         <h2 id="delete-book-title">Удалить книгу?</h2>
-        <p>Карточка «{book.name}», её отзывы и позиции в корзинах будут удалены.</p>
+        <p>Если книги «{book.name}» нет ни в одном заказе, её карточка, отзывы и позиции в корзинах будут удалены.</p>
+        <p>Если книга уже есть в заказе, её можно снять с продажи в карточке.</p>
         {remove.error && <p className="error" role="alert">{remove.error.message}</p>}
         <div className="actions">
           <button type="button" ref={cancel} className="secondary" disabled={remove.isPending} onClick={close}>
