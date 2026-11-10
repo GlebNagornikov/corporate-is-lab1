@@ -2,12 +2,14 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useEffect, useId, useRef, useState } from 'react'
 import { Link, useSearchParams } from 'react-router'
 import { api, requireData, type Order, type OrderStatus } from '../api/client'
-import { orderQuery, ordersQuery } from '../api/orders'
+import { orderQuery } from '../api/orders'
 import { tokens } from '../auth/tokens'
 import { formatDate, formatPrice } from '../lib/format'
 import { statusLabels, transitionLabels } from '../lib/statuses'
+import { usePageTitle } from '../lib/usePageTitle'
 import OrderPagination from '../orders/OrderPagination'
 import { orderFilters, statuses } from './orderFilters'
+import { managerOrderQuery, managerOrdersQuery } from './queries'
 
 function StatusDialog({ status, trigger, pending, error, close, submit }: {
   status: OrderStatus
@@ -67,24 +69,28 @@ function OrderRow({ order, stale }: { order: Order; stale: boolean }) {
   const [dialog, setDialog] = useState<{ status: OrderStatus; trigger: HTMLButtonElement } | null>(null)
   const change = useMutation({
     mutationFn: async ({ status, comment }: { status: OrderStatus; comment: string; version: number }) =>
-      requireData(await api.POST('/api/orders/{id}/status/', {
+      requireData(await api.POST('/api/manager/orders/{id}/status/', {
         params: { path: { id: order.id } },
         body: { status, comment },
       })),
     onSuccess: (updated, { version }) => {
       if (version !== tokens.version()) return
-      client.setQueryData(orderQuery(order.id).queryKey, updated)
-      return client.invalidateQueries({ queryKey: ['orders', 'list'] })
+      client.setQueryData(managerOrderQuery(order.id).queryKey, updated)
+      client.removeQueries({ queryKey: orderQuery(order.id).queryKey })
+      return Promise.all([
+        client.invalidateQueries({ queryKey: ['manager', 'orders', 'list'] }),
+        client.invalidateQueries({ queryKey: ['orders', 'list'] }),
+      ])
     },
   })
 
   return (
     <tr>
-      <th scope="row"><Link to={`/orders/${order.id}`}>№{order.id}</Link></th>
-      <td>{formatDate(order.created_at)}</td>
-      <td>{order.full_name}</td>
-      <td>{formatPrice(order.total)}</td>
-      <td>{order.status_display}</td>
+      <th scope="row"><Link to={`/manager/orders/${order.id}`}>№{order.id}</Link></th>
+      <td data-label="Дата">{formatDate(order.created_at)}</td>
+      <td data-label="Получатель">{order.full_name}</td>
+      <td data-label="Сумма">{formatPrice(order.total)}</td>
+      <td data-label="Статус">{order.status_display}</td>
       <td>
         <div className="actions">
           {[...order.allowed_transitions].sort((a, b) => Number(a === 'cancelled') - Number(b === 'cancelled')).map((status) => (
@@ -111,9 +117,10 @@ function OrderRow({ order, stale }: { order: Order; stale: boolean }) {
 }
 
 export default function ManagerOrdersPage() {
+  usePageTitle('Заказы магазина')
   const [search, setSearch] = useSearchParams()
   const filters = orderFilters(search)
-  const orders = useQuery(ordersQuery(filters))
+  const orders = useQuery(managerOrdersQuery(filters))
 
   return (
     <section className="details">
@@ -135,7 +142,7 @@ export default function ManagerOrdersPage() {
       ) : (
         <>
         <div className="table-scroll" aria-busy={orders.isPlaceholderData}>
-          <table className={orders.isPlaceholderData ? 'table stale' : 'table'}>
+          <table className={orders.isPlaceholderData ? 'table manager-table stale' : 'table manager-table'}>
             <thead>
               <tr>
                 <th scope="col">Заказ</th><th scope="col">Дата</th><th scope="col">Получатель</th>

@@ -12,6 +12,7 @@ export default function RouteError() {
     title = 'Не найдено'
     message = slug ? 'Такого товара нет или он снят с продажи.' : error.message
   } else if (error instanceof ApiError) {
+    if (error.status === 403) title = 'Нет доступа'
     message = error.message
   } else if (isRouteErrorResponse(error) && error.status === 403) {
     title = 'Нет доступа'

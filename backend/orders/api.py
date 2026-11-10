@@ -1,12 +1,14 @@
 from django.core.exceptions import ValidationError
 from django_filters.rest_framework import DjangoFilterBackend
-from drf_spectacular.utils import OpenApiExample, OpenApiResponse, extend_schema
+from drf_spectacular.utils import OpenApiExample, OpenApiResponse, extend_schema, extend_schema_view
 from rest_framework import mixins, permissions, serializers, status, viewsets
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.routers import SimpleRouter
 
+from accounts.manager_permissions import IsShopManager
 from cart.services import get_cart
+from config.api_docs import MANAGER_ACCESS_ERRORS
 
 from .models import Order
 from .serializers import (
@@ -25,14 +27,57 @@ from .services import (
 )
 
 
-class IsOrderManager(permissions.BasePermission):
-    message = "Менять статус заказов могут только менеджеры магазина."
+class IsOrderManager(IsShopManager):
+    message = "Менять статус заказов могут только менеджеры магазина с нужными правами."
 
-    def has_permission(self, request, view):
-        return request.user.has_perm("orders.change_order")
+
+ORDER_NOT_FOUND = OpenApiResponse(description="Заказ не найден.")
+
+
+class OrderStatusMixin:
+    @extend_schema(
+        description="Меняет статус заказа по допустимым переходам. При отмене нужна причина.",
+        request=StatusChangeSerializer,
+        responses={
+            200: OrderSerializer,
+            400: OpenApiResponse(
+                description="Недопустимый переход или отсутствует причина отмены."
+            ),
+            404: ORDER_NOT_FOUND,
+            **MANAGER_ACCESS_ERRORS,
+        },
+    )
+    @action(
+        detail=True,
+        methods=["post"],
+        url_path="status",
+        permission_classes=[permissions.IsAuthenticated, IsOrderManager],
+    )
+    def set_status(self, request, pk=None):
+        data = StatusChangeSerializer(data=request.data)
+        data.is_valid(raise_exception=True)
+        try:
+            order = change_status(
+                self.get_object(),
+                data.validated_data["status"],
+                by=request.user,
+                comment=data.validated_data.get("comment", ""),
+            )
+        except OrderError as error:
+            raise serializers.ValidationError({"detail": str(error)}) from error
+        return Response(self.get_serializer(order).data)
+
+
+def orders_for_display():
+    return (
+        Order.objects.prefetch_related("items", "history__changed_by")
+        .select_related("promo_code")
+        .order_by("-created_at", "-pk")
+    )
 
 
 class OrderViewSet(
+    OrderStatusMixin,
     mixins.ListModelMixin,
     mixins.RetrieveModelMixin,
     mixins.CreateModelMixin,
@@ -41,13 +86,12 @@ class OrderViewSet(
     serializer_class = OrderSerializer
     filter_backends = [DjangoFilterBackend]
     filterset_fields = ["status"]
+    manager_permissions = {}
 
     def get_queryset(self):
         if getattr(self, "swagger_fake_view", False):
             return Order.objects.none()
-        queryset = Order.objects.prefetch_related("items", "history__changed_by").select_related(
-            "promo_code"
-        )
+        queryset = orders_for_display()
         if self.action not in {"cancel", "pay"} and self.request.user.has_perm("orders.view_order"):
             return queryset
         return queryset.filter(user=self.request.user)
@@ -145,26 +189,28 @@ class OrderViewSet(
             raise serializers.ValidationError({"detail": str(error)}) from error
         return Response(self.get_serializer(order).data)
 
-    @extend_schema(request=StatusChangeSerializer, responses=OrderSerializer)
-    @action(
-        detail=True,
-        methods=["post"],
-        url_path="status",
-        permission_classes=[permissions.IsAuthenticated, IsOrderManager],
-    )
-    def set_status(self, request, pk=None):
-        data = StatusChangeSerializer(data=request.data)
-        data.is_valid(raise_exception=True)
-        try:
-            order = change_status(
-                self.get_object(),
-                data.validated_data["status"],
-                by=request.user,
-                comment=data.validated_data.get("comment", ""),
-            )
-        except OrderError as error:
-            raise serializers.ValidationError({"detail": str(error)}) from error
-        return Response(self.get_serializer(order).data)
+
+@extend_schema_view(
+    list=extend_schema(
+        description="Заказы магазина с пагинацией и фильтром по статусу.",
+        responses={200: OrderSerializer(many=True), **MANAGER_ACCESS_ERRORS},
+    ),
+    retrieve=extend_schema(
+        description="Карточка заказа и история его статусов для сотрудника.",
+        responses={200: OrderSerializer, 404: ORDER_NOT_FOUND, **MANAGER_ACCESS_ERRORS},
+    ),
+)
+class ManagerOrderViewSet(OrderStatusMixin, viewsets.ReadOnlyModelViewSet):
+    queryset = orders_for_display()
+    serializer_class = OrderSerializer
+    filter_backends = [DjangoFilterBackend]
+    filterset_fields = ["status"]
+    permission_classes = [permissions.IsAuthenticated, IsShopManager]
+    manager_permissions = {
+        "list": ("orders.view_order",),
+        "retrieve": ("orders.view_order",),
+        "set_status": ("orders.view_order", "orders.change_order"),
+    }
 
 
 router = SimpleRouter()

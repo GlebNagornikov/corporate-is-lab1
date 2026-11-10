@@ -17,8 +17,11 @@ export async function createBuyer(request: APIRequestContext): Promise<Credentia
 async function submitLogin(page: Page, { username, password }: Credentials) {
   await page.getByLabel('Имя пользователя').fill(username)
   await page.getByLabel('Пароль', { exact: true }).fill(password)
-  await page.getByRole('button', { name: 'Войти', exact: true }).click()
-  await expect(page.getByRole('button', { name: 'Выйти' })).toBeVisible()
+  const [response] = await Promise.all([
+    page.waitForResponse((result) => result.url().endsWith('/api/auth/session/login/')),
+    page.getByRole('button', { name: 'Войти', exact: true }).click(),
+  ])
+  expect(response.status()).toBe(200)
 }
 
 export async function loginAs(page: Page, credentials: Credentials, next: string) {

@@ -6,15 +6,16 @@ import { tokens } from '../auth/tokens'
 import { formatDate, formatPrice } from '../lib/format'
 import { statusLabels } from '../lib/statuses'
 import { usePageTitle } from '../lib/usePageTitle'
+import { managerOrderQuery } from '../manager/queries'
 
-export default function OrderPage() {
+export default function OrderPage({ manager = false }: { manager?: boolean }) {
   const id = Number(useParams<'orderId'>().orderId)
   usePageTitle(`Заказ №${id}`)
   const { state }: { state: unknown } = useLocation()
   const justPlaced = state !== null && typeof state === 'object' &&
     'justPlaced' in state && state.justPlaced === true
   const client = useQueryClient()
-  const query = orderQuery(id)
+  const query = manager ? managerOrderQuery(id) : orderQuery(id)
   const { data: order } = useSuspenseQuery(query)
   function updateOrder(updated: Order, version: number) {
     if (version !== tokens.version()) return
@@ -46,6 +47,15 @@ export default function OrderPage() {
       {justPlaced && <p className="success" role="status">Заказ оформлен. Спасибо!</p>}
       <h1>Заказ №{order.id}</h1>
       <p>{formatDate(order.created_at)} · <strong>{order.status_display}</strong></p>
+      {manager && (
+        <dl className="order-totals">
+          <dt>Получатель</dt><dd>{order.full_name}</dd>
+          <dt>Телефон</dt><dd>{order.phone}</dd>
+          <dt>Почта</dt><dd>{order.email}</dd>
+          <dt>Доставка</dt><dd>{order.delivery_method === 'courier' ? order.address : 'Самовывоз'}</dd>
+          {order.comment && <><dt>Комментарий</dt><dd>{order.comment}</dd></>}
+        </dl>
+      )}
       <div className="table-scroll">
         <table className="table">
           <thead>
@@ -76,7 +86,7 @@ export default function OrderPage() {
         <dt>Доставка</dt><dd>{formatPrice(order.delivery_cost)}</dd>
         <dt className="price">Итого</dt><dd className="price">{formatPrice(order.total)}</dd>
       </dl>
-      {order.can_pay && (
+      {!manager && order.can_pay && (
         <details className="order-payment">
           <summary>Оплатить</summary>
           <p>Учебный платёжный шлюз. Реальные деньги не списываются.</p>
@@ -96,7 +106,7 @@ export default function OrderPage() {
           {pay.error && <p className="error" role="alert">{pay.error.message}</p>}
         </details>
       )}
-      {order.can_cancel && (
+      {!manager && order.can_cancel && (
         <button type="button" disabled={isUpdating} onClick={() => cancel.mutate(tokens.version())}>
           Отменить заказ
         </button>
@@ -112,7 +122,11 @@ export default function OrderPage() {
           </li>
         ))}
       </ul>
-      <Link to="/orders">К списку заказов</Link>
+      <Link to={manager ? '/manager/orders' : '/orders'}>К списку заказов</Link>
     </section>
   )
+}
+
+export function ManagerOrderPage() {
+  return <OrderPage manager />
 }

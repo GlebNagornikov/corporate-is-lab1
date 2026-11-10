@@ -1,9 +1,10 @@
 import { Link, useSearchParams } from 'react-router'
 
-export default function OrderPagination({ page, previous, next }: {
+export default function OrderPagination({ page, previous, next, label = 'Страницы заказов' }: {
   page: number
   previous?: string | null
   next?: string | null
+  label?: string
 }) {
   const [search] = useSearchParams()
   if (!previous && !next) return null
@@ -15,7 +16,7 @@ export default function OrderPagination({ page, previous, next }: {
   }
 
   return (
-    <nav className="pagination" aria-label="Страницы заказов">
+    <nav className="pagination" aria-label={label}>
       {previous && <Link to={pageLink(page - 1)}>Предыдущая</Link>}
       <span aria-current="page">Страница {page}</span>
       {next && <Link to={pageLink(page + 1)}>Следующая</Link>}

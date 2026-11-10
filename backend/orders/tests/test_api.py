@@ -92,6 +92,39 @@ class OrderApiTests(APITestCase):
         self.client.force_authenticate(self.manager)
         self.assertTrue(self.client.get("/api/auth/me/").data["is_manager"])
 
+    def test_staff_orders_endpoints_require_manager_role(self):
+        order_id = self.buy(self.buyer)
+        listing = "/api/manager/orders/"
+        detail = f"{listing}{order_id}/"
+        for user, expected in [(None, 401), (self.other, 403)]:
+            self.client.force_authenticate(user)
+            self.assertEqual(self.client.get(listing).status_code, expected)
+            self.assertEqual(self.client.get(detail).status_code, expected)
+            self.assertEqual(self.client.post(f"{detail}status/").status_code, expected)
+        self.assertEqual(self.client.get(f"/api/orders/{order_id}/").status_code, 404)
+        self.client.force_authenticate(self.manager)
+        self.assertEqual(self.client.get(detail).status_code, 200)
+        self.assertEqual(self.client.get(f"{listing}999999/").status_code, 404)
+
+    def test_staff_order_transition_shares_service_and_filter(self):
+        order_id = self.buy(self.buyer)
+        self.client.post(f"/api/orders/{order_id}/simulate-payment/", {"outcome": "success"})
+        self.client.force_authenticate(self.manager)
+        listing = "/api/manager/orders/"
+        detail = f"{listing}{order_id}/"
+        before = self.client.get(detail).data
+        self.assertEqual(before["status"], "paid")
+        self.assertEqual(set(before["allowed_transitions"]), {"confirmed", "cancelled"})
+        result = self.client.post(f"{detail}status/", {"status": "delivered"})
+        self.assertEqual(result.status_code, 400, result.data)
+        after = self.client.get(detail).data
+        self.assertEqual((after["status"], after["history"]), (before["status"], before["history"]))
+        valid = self.client.post(f"{detail}status/", {"status": "confirmed"})
+        self.assertEqual(valid.status_code, 200, valid.data)
+        self.assertEqual(valid.data["history"][-1]["to_status"], "confirmed")
+        filtered = self.client.get(listing, {"status": "confirmed"})
+        self.assertEqual([row["id"] for row in filtered.data["results"]], [order_id])
+
     def test_merge_caps_quantity_and_skips_missing_or_inactive_products(self):
         cart = Cart.objects.create(user=self.buyer)
         CartItem.objects.create(cart=cart, product=self.book, quantity=2)

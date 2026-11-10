@@ -5,6 +5,8 @@ from django.db import IntegrityError, transaction
 from django.urls import include, path
 from rest_framework import generics, permissions, serializers
 
+from .manager_permissions import is_manager
+
 User = get_user_model()
 
 
@@ -48,7 +50,7 @@ class MeSerializer(serializers.ModelSerializer):
         read_only_fields = fields
 
     def get_is_manager(self, user) -> bool:
-        return user.has_perm("orders.change_order")
+        return is_manager(user)
 
 
 class RegisterView(generics.CreateAPIView):

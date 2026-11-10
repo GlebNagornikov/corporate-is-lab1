@@ -6,7 +6,7 @@ import { createMemoryRouter } from 'react-router'
 import { RouterProvider } from 'react-router/dom'
 import { afterEach, expect, test, vi } from 'vitest'
 import type { Me } from '../api/client'
-import { orderQuery } from '../api/orders'
+import { managerOrderQuery } from '../manager/queries'
 import { createAppRoutes } from '../appRoutes'
 import { meQuery } from '../auth/session'
 import { guestCart } from '../cart/guestCart'
@@ -126,12 +126,12 @@ test('менеджер фильтрует заказы и выполняет д�
     return HttpResponse.json(order)
   })
   server.use(
-    http.get('*/api/orders/', ({ request }) => {
+    http.get('*/api/manager/orders/', ({ request }) => {
       const status = new URL(request.url).searchParams.get('status')
       const results = !status || status === order.status ? [order] : []
       return HttpResponse.json({ results, count: results.length })
     }),
-    http.post('*/api/orders/7/status/', change),
+    http.post('*/api/manager/orders/7/status/', change),
   )
   const { client, router } = renderShop('/manager/orders?status=new', { ...buyer, is_manager: true })
   const user = userEvent.setup()
@@ -146,7 +146,7 @@ test('менеджер фильтрует заказы и выполняет д�
   await user.click(screen.getByRole('button', { name: 'Подтвердить действие' }))
   expect(await screen.findByText('Заказов нет.')).toBeInTheDocument()
   expect(change).toHaveBeenCalledOnce()
-  expect(client.getQueryData(orderQuery(7).queryKey)?.status).toBe('confirmed')
+  expect(client.getQueryData(managerOrderQuery(7).queryKey)?.status).toBe('confirmed')
 
   await user.selectOptions(screen.getByLabelText('Статус'), 'confirmed')
   const table = await screen.findByRole('table')
@@ -160,7 +160,7 @@ test.each(['/orders', '/manager/orders?status=paid'])(
     let release!: () => void
     const pending = new Promise<void>((resolve) => { release = resolve })
     const isManager = path.startsWith('/manager')
-    server.use(http.get('*/api/orders/', async ({ request }) => {
+    server.use(http.get(isManager ? '*/api/manager/orders/' : '*/api/orders/', async ({ request }) => {
       const search = new URL(request.url).searchParams
       expect(search.get('status')).toBe(isManager ? 'paid' : null)
       if (search.get('page') === '2') {

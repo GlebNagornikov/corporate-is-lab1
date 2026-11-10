@@ -2,10 +2,18 @@ from django.conf import settings
 from django.conf.urls.static import static
 from django.contrib import admin
 from django.urls import include, path
+from rest_framework.routers import SimpleRouter
 from rest_framework_simplejwt.views import TokenRefreshView
 
+from catalog.manager_api import ManagerBookViewSet, ManagerCategoryViewSet
 from config.api_docs import ShopSchemaView, ShopSwaggerView, ShopTokenView
 from config.health import healthz
+from orders.api import ManagerOrderViewSet
+
+manager_router = SimpleRouter()
+manager_router.register("orders", ManagerOrderViewSet, basename="manager-order")
+manager_router.register("catalog", ManagerBookViewSet, basename="manager-book")
+manager_router.register("categories", ManagerCategoryViewSet, basename="manager-category")
 
 urlpatterns = [
     path("api/schema/", ShopSchemaView.as_view(), name="api-schema"),
@@ -19,6 +27,7 @@ urlpatterns = [
     path("admin/", admin.site.urls),
     path("api/", include("employees.urls")),
     path("api/catalog/", include("catalog.api")),
+    path("api/manager/", include(manager_router.urls)),
     path("api/auth/token/", ShopTokenView.as_view(), name="token_obtain_pair"),
     path("api/auth/token/refresh/", TokenRefreshView.as_view(), name="token_refresh"),
     path("api/", include("accounts.api")),

@@ -119,7 +119,7 @@ test('открывает ленивый маршрут заказов для м�
   server.use(
     http.get('*/api/auth/me/', () => HttpResponse.json({ ...buyer, is_manager: true })),
     http.get('*/api/cart/', () => HttpResponse.json(emptyCart)),
-    http.get('*/api/orders/', () => HttpResponse.json({ count: 0, results: [] })),
+    http.get('*/api/manager/orders/', () => HttpResponse.json({ count: 0, results: [] })),
   )
   renderApp('/manager/orders')
   expect(await screen.findByRole('heading', { name: 'Заказы магазина' })).toBeInTheDocument()
@@ -129,6 +129,7 @@ test('истёкшая сессия очищает приватный кэш и 
   tokens.save({ access: 'expired' })
   queryClient.setQueryData(cartQuery().queryKey, emptyCart)
   queryClient.setQueryData(['orders', 'list'], { results: [] })
+  queryClient.setQueryData(['manager', 'catalog', 'list'], { results: [] })
   const invalid = () => HttpResponse.json({ detail: 'Токен недействителен' }, { status: 401 })
   server.use(
     http.get('*/api/auth/me/', invalid),
@@ -140,4 +141,5 @@ test('истёкшая сессия очищает приватный кэш и 
   expect(tokens.access()).toBeNull()
   expect(queryClient.getQueryData(cartQuery().queryKey)).toBeUndefined()
   expect(queryClient.getQueryData(['orders', 'list'])).toBeUndefined()
+  expect(queryClient.getQueryData(['manager', 'catalog', 'list'])).toBeUndefined()
 })

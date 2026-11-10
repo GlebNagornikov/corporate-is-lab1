@@ -61,6 +61,11 @@ test('менеджер подтверждает заказ после учебн
   await expect(dialog.getByRole('button', { name: 'Подтвердить действие' })).toBeDisabled()
   await page.keyboard.press('Escape')
   await expect(cancel).toBeFocused()
+  await row.getByRole('link', { name: `№${id}` }).click()
+  await expect(page).toHaveURL(`/manager/orders/${id}`)
+  await expect(page.getByRole('heading', { name: `Заказ №${id}` })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'История' })).toBeVisible()
+  await expect(page.getByText('Анна Смирнова', { exact: true })).toBeVisible()
 })
 
 test('покупатель не попадает в раздел менеджера', async ({ page, request }) => {
