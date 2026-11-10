@@ -47,6 +47,16 @@ export function managerRoutes(client: QueryClient): RouteObject {
         },
       },
       {
+        path: 'catalog/import',
+        ErrorBoundary: RouteError,
+        lazy: async () => ({ Component: (await import('./ManagerImportPage')).default }),
+        loader: async ({ request }) => {
+          await requireManager(request, client)
+          await client.ensureQueryData(managerCategoriesQuery())
+          return null
+        },
+      },
+      {
         path: 'catalog',
         lazy: async () => ({ Component: (await import('./ManagerCatalogPage')).default }),
         loader: async ({ request }) => {

@@ -24,9 +24,11 @@ export default function ManagerCatalogPage() {
         <div className="manager-catalog-buttons">
           <button type="submit" form="manager-catalog-search">Найти</button>
           <Link className="button" to="/manager/catalog/new">Добавить книгу</Link>
+          <Link className="button" to="/manager/catalog/import">Импорт CSV</Link>
         </div>
         {filters.q && <Link className="manager-catalog-reset" to="/manager/catalog">Сбросить</Link>}
       </div>
+      {search.has('deleted') && <p className="success" role="status">Книга удалена.</p>}
       {books.isPending && <p role="status">Загрузка книг…</p>}
       {books.isError && (
         <div role="alert">

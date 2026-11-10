@@ -298,6 +298,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/catalog/editorial/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description До четырёх доступных карточек из подборки «Выбор редакции». */
+        get: operations["api_catalog_editorial_list"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/catalog/products/": {
         parameters: {
             query?: never;
@@ -503,7 +520,8 @@ export interface paths {
         get: operations["api_manager_catalog_retrieve"];
         put?: never;
         post?: never;
-        delete?: never;
+        /** @description Удаляет карточку. Если издание есть в истории заказов, вернёт 409. */
+        delete: operations["api_manager_catalog_destroy"];
         options?: never;
         head?: never;
         /** @description Редактирует поля издания. Без нового файла сохраняет прежнюю обложку. */
@@ -525,6 +543,23 @@ export interface paths {
         head?: never;
         /** @description Меняет цену, остаток и доступность существующего складского варианта. */
         patch: operations["api_manager_catalog_variants_partial_update"];
+        trace?: never;
+    };
+    "/api/manager/catalog/import-csv/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Проверяет или импортирует книги из UTF-8 CSV. Сопоставляет строки по SKU. */
+        post: operations["api_manager_catalog_import_csv_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
         trace?: never;
     };
     "/api/manager/categories/": {
@@ -777,6 +812,16 @@ export interface components {
         BindingEnum: "hardcover" | "paperback";
         /** @enum {unknown} */
         BlankEnum: "";
+        BookCsvResult: {
+            processed: number;
+            dry_run: boolean;
+        };
+        BookCsvUploadRequest: {
+            /** Format: binary */
+            file: string;
+            /** @default true */
+            dry_run: boolean;
+        };
         BookEdition: {
             /** Автор */
             author: string;
@@ -1745,6 +1790,25 @@ export interface operations {
             };
         };
     };
+    api_catalog_editorial_list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Product"][];
+                };
+            };
+        };
+    };
     api_catalog_products_list: {
         parameters: {
             query?: {
@@ -2287,6 +2351,55 @@ export interface operations {
             };
         };
     };
+    api_manager_catalog_destroy: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A unique integer value identifying this товар. */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No response body */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Требуется Bearer-токен. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Недостаточно прав сотрудника. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Издание не найдено. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Книга есть в заказах, её можно снять с продажи. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
     api_manager_catalog_partial_update: {
         parameters: {
             query?: never;
@@ -2391,6 +2504,50 @@ export interface operations {
             };
             /** @description Издание или его складской вариант не найден. */
             404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    api_manager_catalog_import_csv_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": components["schemas"]["BookCsvUploadRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BookCsvResult"];
+                };
+            };
+            /** @description Ошибки файла с номерами строк в поле file. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Требуется Bearer-токен. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Недостаточно прав сотрудника. */
+            403: {
                 headers: {
                     [name: string]: unknown;
                 };

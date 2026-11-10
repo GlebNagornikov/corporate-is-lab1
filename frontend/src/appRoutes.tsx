@@ -1,7 +1,7 @@
 import type { QueryClient } from '@tanstack/react-query'
 import { data, type LoaderFunctionArgs, type RouteObject } from 'react-router'
 import { orderQuery, ordersQuery, readOrderPage } from './api/orders'
-import { categoriesQuery, productQuery, productsQuery } from './api/queries'
+import { categoriesQuery, editorialQuery, productQuery, productsQuery } from './api/queries'
 import { meQuery, requireUser } from './auth/session'
 import SessionOutlet from './auth/SessionOutlet'
 import CartPage from './cart/CartPage'
@@ -19,8 +19,10 @@ export function createAppRoutes(queryClient: QueryClient): RouteObject[] {
   const catalog = {
     Component: CatalogPage,
     loader: ({ request }: LoaderFunctionArgs) => {
+      const { pathname, searchParams } = new URL(request.url)
       void queryClient.prefetchQuery(categoriesQuery())
-      void queryClient.prefetchQuery(productsQuery(parseCatalogParams(new URL(request.url).searchParams)))
+      void queryClient.prefetchQuery(productsQuery(parseCatalogParams(searchParams)))
+      if (pathname === '/' && searchParams.size === 0) void queryClient.prefetchQuery(editorialQuery())
       return null
     },
   }

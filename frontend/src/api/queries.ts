@@ -23,6 +23,11 @@ export const productsQuery = (query: ProductQuery) =>
       ),
   })
 
+export const editorialQuery = () => queryOptions({
+  queryKey: ['products', 'editorial'],
+  queryFn: async ({ signal }) => requireData(await api.GET('/api/catalog/editorial/', { signal })),
+})
+
 export const productQuery = (slug: string) =>
   queryOptions({
     queryKey: ['products', 'detail', slug],

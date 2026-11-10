@@ -106,6 +106,15 @@ class OrderApiTests(APITestCase):
         self.assertEqual(self.client.get(detail).status_code, 200)
         self.assertEqual(self.client.get(f"{listing}999999/").status_code, 404)
 
+    def test_staff_cannot_delete_book_referenced_by_an_order(self):
+        order_id = self.buy(self.buyer)
+        self.client.force_authenticate(self.manager)
+        response = self.client.delete(f"/api/manager/catalog/{self.book.pk}/")
+        self.assertEqual(response.status_code, 409, response.data)
+        self.assertIn("Снимите её с продажи", response.data["detail"])
+        self.assertTrue(Product.objects.filter(pk=self.book.pk).exists())
+        self.assertTrue(Order.objects.get(pk=order_id).items.filter(product=self.book).exists())
+
     def test_staff_order_transition_shares_service_and_filter(self):
         order_id = self.buy(self.buyer)
         self.client.post(f"/api/orders/{order_id}/simulate-payment/", {"outcome": "success"})

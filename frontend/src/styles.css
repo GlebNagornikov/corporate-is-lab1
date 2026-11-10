@@ -249,7 +249,7 @@ button:disabled { cursor: not-allowed; opacity: .65; }
 .actions.manager-account { gap: 1.25rem; }
 .manager-catalog-controls { display: flex; flex-wrap: wrap; align-items: end; gap: .75rem 1rem; }
 .manager-catalog-search { flex: 1 1 17rem; max-width: 28rem; min-width: 0; }
-.manager-catalog-buttons { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .75rem; }
+.manager-catalog-buttons { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: .75rem; }
 .manager-catalog-buttons > * {
   display: inline-flex;
   align-items: center;
@@ -280,7 +280,11 @@ button:disabled { cursor: not-allowed; opacity: .65; }
 .manager-check { display: flex; align-items: center; gap: .5rem; }
 .manager-cover { display: block; width: 9rem; aspect-ratio: 2 / 3; object-fit: contain; }
 .manager-variant { margin-bottom: 1rem; }
+.manager-card-actions { margin-top: 1rem; padding-top: 1rem; border-top: 1px solid var(--line); }
+button.manager-delete { background: var(--danger-bg); border-color: var(--danger); color: var(--danger); }
 @media (max-width: 42rem) {
+  .manager-catalog-buttons { grid-template-columns: repeat(2, minmax(0, 1fr)); max-width: 100%; }
+  .manager-catalog-buttons > :last-child { grid-column: 1 / -1; }
   .manager-table, .manager-table tbody { display: block; }
   .manager-table thead {
     position: absolute;
@@ -354,7 +358,12 @@ button:disabled { cursor: not-allowed; opacity: .65; }
 .rating input { position: absolute; opacity: 0; width: 1px; height: 1px; }
 .rating input:focus-visible + span { outline: 2px solid var(--accent); outline-offset: 2px; }
 .pagination { display: flex; flex-wrap: wrap; gap: .45rem; margin-top: 1rem; }
-.pagination a { padding: .33rem .7rem; border: 1px solid var(--control); border-radius: .3rem; text-decoration: none; }
+.pagination a, .pagination span[aria-current='page'] {
+  padding: .33rem .7rem;
+  border: 1px solid var(--control);
+  border-radius: .3rem;
+  text-decoration: none;
+}
 .pagination [aria-current='page'] { background: var(--accent); color: var(--on-accent); }
 
 @media (max-width: 60rem) {

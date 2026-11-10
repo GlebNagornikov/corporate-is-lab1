@@ -15,6 +15,7 @@ GROUPS = {
         "catalog.view_product",
         "catalog.change_product",
         "catalog.add_product",
+        "catalog.delete_product",
         "catalog.view_productvariant",
         "catalog.add_productvariant",
         "catalog.change_productvariant",

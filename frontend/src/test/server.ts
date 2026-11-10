@@ -7,6 +7,7 @@ export const handlers = [
   http.post('*/api/auth/session/refresh/', () => HttpResponse.json({}, { status: 401 })),
   http.post('*/api/auth/session/logout/', () => new HttpResponse(null, { status: 204 })),
   http.get('*/api/catalog/categories/', () => HttpResponse.json(categories)),
+  http.get('*/api/catalog/editorial/', () => HttpResponse.json([])),
   http.get('*/api/catalog/products/', () =>
     HttpResponse.json(makePage([
       makeProduct(),

@@ -323,6 +323,8 @@ Bearer-токен сотрудника. `me.is_manager` соответствуе
 | GET | `/api/manager/catalog/{id}/` | `catalog.view_product` | Карточка сотрудника и её складские варианты. |
 | POST | `/api/manager/catalog/` | `catalog.add_product`, `catalog.view_category` | Создать издание через multipart. По умолчанию книга скрыта. |
 | PATCH | `/api/manager/catalog/{id}/` | `catalog.view_product`, `catalog.change_product`, `catalog.view_category` | Обновить карточку через multipart. |
+| DELETE | `/api/manager/catalog/{id}/` | `catalog.view_product`, `catalog.delete_product` | Удалить книгу. Для книги из истории заказов возвращает 409. |
+| POST | `/api/manager/catalog/import-csv/` | `catalog.view_category`, `catalog.add_product`, `catalog.change_product` | Проверить или импортировать UTF-8 CSV через multipart. |
 | PATCH | `/api/manager/catalog/{id}/variants/{variant_id}/` | `catalog.view_product`, `catalog.change_productvariant` | Изменить цену, остаток и активность существующего складского варианта. |
 | GET | `/api/manager/categories/` | `catalog.view_category` | Жанры для формы, включая пустые. Раздел «Книги» в список жанров не входит. |
 | POST | `/api/manager/categories/` | `catalog.view_category`, `catalog.add_category` | Создать жанр по полю `name`. Он сразу доступен в форме книги. |
@@ -333,6 +335,7 @@ Bearer-токен сотрудника. `me.is_manager` соответствуе
 ISBN-13 можно вводить с дефисами или пробелами. API сохраняет 13 цифр и проверяет контрольную цифру.
 Ошибки формы возвращаются как массивы сообщений по именам полей. Общая ошибка приходит в `detail`.
 Прежний адрес смены статуса `POST /api/orders/{id}/status/` также доступен.
+Публичный `GET /api/catalog/editorial/` возвращает подборку «Выбор редакции» независимо от страниц каталога.
 
 Примеры тел запросов существующего API (цены рассчитывает сервер):
 
@@ -352,8 +355,8 @@ ISBN-13 можно вводить с дефисами или пробелами.
 
 1. На тестовой базе запустите `docker compose up -d`, примените миграции и выполните
    `docker compose exec web python manage.py seed_demo --password "DemoShop2026!"`.
-   Для существующей базы обновите права сотрудников командой
-   `docker compose exec web python manage.py setup_groups`.
+   Миграция `orders.0005_manager_catalog_permissions` добавляет существующей группе менеджеров
+   права на создание жанров и удаление книг.
 2. Под `buyer_demo` откройте [витрину](http://127.0.0.1:5173/catalog), положите книгу в корзину,
    оформите заказ и на его странице нажмите «Оплатить» → «Успех». Запомните номер.
    В другом профиле войдите как `manager_demo` и откройте
@@ -371,6 +374,14 @@ ISBN-13 можно вводить с дефисами или пробелами.
    ошибку, данные книги останутся прежними. В профиле покупателя откройте
    [каталог сотрудника](http://127.0.0.1:5173/manager/catalog). Появится «Нет доступа».
    Контракты и коды ответов доступны в [Swagger](http://127.0.0.1:8000/api/docs/).
+5. Откройте [импорт книг](http://127.0.0.1:5173/manager/catalog/import), скачайте шаблон
+   и укажите собственные SKU и адреса. Подставьте код жанра из списка на странице.
+   Нажмите «Проверить CSV». Книги появятся в каталоге после «Импортировать книги».
+   Повторный импорт обновляет карточки по SKU. Ошибка в любой строке отклоняет весь файл.
+   Для обновления можно оставить в заголовке только `sku` и меняемые поля.
+6. Откройте карточку импортированной книги в каталоге сотрудника и нажмите «Удалить книгу».
+   После подтверждения она исчезнет из каталога. Если книга уже встречается в заказе,
+   сервер сохранит карточку и предложит снять её с продажи.
 
 Для проверок с отдельной базой выполните `npm --prefix frontend run e2e -- manager-catalog.spec.ts orders.spec.ts`.
 Для API выполните `docker compose exec web python manage.py test catalog.tests.test_manager_api orders.tests.test_api --settings=config.settings.test`.

@@ -1,8 +1,9 @@
 from django.db import IntegrityError, transaction
-from django.db.models import Exists, OuterRef
+from django.db.models import Case, Exists, OuterRef, Value, When
+from django.urls import path
 from django_filters.rest_framework import DjangoFilterBackend
-from drf_spectacular.utils import extend_schema
-from rest_framework import permissions, serializers, status, viewsets
+from drf_spectacular.utils import extend_schema, extend_schema_view
+from rest_framework import generics, permissions, serializers, status, viewsets
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.routers import DefaultRouter
@@ -16,6 +17,39 @@ from .serializers import (
     ProductSerializer,
     ReviewSerializer,
 )
+
+EDITORIAL_SLUGS = (
+    "war-of-worlds-1898",
+    "wonderful-wizard-oz-1900",
+    "anne-green-gables-1908",
+    "peter-pan-kensington-1906",
+    "story-amulet-1906",
+)
+
+
+def storefront_products():
+    return (
+        Product.objects.active()
+        .select_related("category__parent", "book")
+        .with_rating()
+        .prefetch_related("variants")
+    )
+
+
+@extend_schema_view(
+    get=extend_schema(description="До четырёх доступных карточек из подборки «Выбор редакции»."),
+)
+class EditorialView(generics.ListAPIView):
+    queryset = Product.objects.none()
+    serializer_class = ProductSerializer
+    pagination_class = None
+    permission_classes = [permissions.AllowAny]
+
+    def get_queryset(self):
+        editorial_order = Case(
+            *(When(slug=slug, then=Value(index)) for index, slug in enumerate(EDITORIAL_SLUGS))
+        )
+        return storefront_products().filter(slug__in=EDITORIAL_SLUGS).order_by(editorial_order)[:4]
 
 
 class CategoryViewSet(viewsets.ReadOnlyModelViewSet):
@@ -51,13 +85,7 @@ class ProductViewSet(viewsets.ReadOnlyModelViewSet):
     filterset_class = ProductFilter
 
     def get_queryset(self):
-        queryset = (
-            Product.objects.active()
-            .select_related("category__parent", "book")
-            .with_rating()
-            .prefetch_related("variants")
-            .order_by("-created_at", "pk")
-        )
+        queryset = storefront_products().order_by("-created_at", "pk")
         return queryset.prefetch_related("images") if self.action == "retrieve" else queryset
 
     def get_serializer_class(self):
@@ -95,4 +123,4 @@ router = DefaultRouter()
 router.register("categories", CategoryViewSet)
 router.register("products", ProductViewSet, basename="product")
 
-urlpatterns = router.urls
+urlpatterns = [path("editorial/", EditorialView.as_view(), name="catalog-editorial"), *router.urls]

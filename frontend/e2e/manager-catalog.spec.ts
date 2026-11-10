@@ -116,9 +116,58 @@ test('сотрудник создаёт черновик с обложкой, п
 test('покупатель получает отказ на прямых ссылках кабинета', async ({ page, request }) => {
   const buyer = await createBuyer(request)
   await loginAs(page, buyer, '/orders')
-  for (const path of ['/manager', '/manager/catalog', '/manager/catalog/new',
+  for (const path of ['/manager', '/manager/catalog', '/manager/catalog/new', '/manager/catalog/import',
     '/manager/catalog/1/edit', '/manager/orders/1']) {
     await page.goto(path)
     await expect(page.getByRole('heading', { name: 'Нет доступа' })).toBeVisible()
   }
+})
+
+test('сотрудник проверяет CSV, импортирует две книги и удаляет карточку', async ({ page }) => {
+  const suffix = randomUUID().slice(0, 8)
+  const slug = `import-${suffix}`
+  const title = `Импорт ${suffix}`
+  await loginAs(page, manager, '/manager/catalog')
+  const current = page.getByRole('navigation', { name: 'Страницы каталога сотрудника' })
+    .locator('[aria-current="page"]')
+  await expect(current).toHaveText('Страница 1')
+  expect(await current.evaluate((element) => parseFloat(getComputedStyle(element).paddingLeft))).toBeGreaterThan(8)
+  expect(await current.evaluate((element) => parseFloat(getComputedStyle(element).borderRadius))).toBeGreaterThan(0)
+  await page.getByRole('link', { name: 'Импорт CSV' }).click()
+  await expect(page).toHaveURL('/manager/catalog/import')
+  expect((await page.request.get('/manager-books.csv')).status()).toBe(200)
+  const input = page.getByLabel('Файл CSV')
+  const check = page.getByRole('button', { name: 'Проверить CSV' })
+  const apply = page.getByRole('button', { name: 'Импортировать книги' })
+  const header = 'sku;name;slug;category;price;stock;author;publisher;year;language;binding;pages;is_active'
+  const row = (number: number, year: string) =>
+    `${slug}-${number};${title} ${number};${slug}-${number};fairy-tales;405.00;5;Автор;Полка;${year};Русский;hardcover;240;true`
+  async function select(secondYear: string) {
+    const csv = `\uFEFF${header}\n${row(1, '2025')}\n${row(2, secondYear)}\n`
+    await input.setInputFiles({ name: 'books.csv', mimeType: 'text/csv', buffer: Buffer.from(csv) })
+  }
+  await select('invalid')
+  await check.click()
+  await expect(page.getByRole('alert')).toContainText('Строка 3, year')
+  await expect(apply).toBeDisabled()
+  await select('2026')
+  await check.click()
+  await expect(page.getByText('Строк проверено — 2.')).toBeVisible()
+  expect((await page.request.get(`/api/catalog/products/${slug}-1/`)).status()).toBe(404)
+  await apply.click()
+  await expect(page.getByText('Строк импортировано — 2.')).toBeVisible()
+
+  await page.goto('/')
+  const editorial = page.getByRole('region', { name: 'Выбор редакции' })
+  await expect(editorial.locator('a[href="/products/wonderful-wizard-oz-1900"]')).toBeVisible()
+  await page.goto(`/manager/catalog?q=${slug}`)
+  await expect(page.getByRole('link', { name: `${title} 2`, exact: true })).toBeVisible()
+  await page.getByRole('link', { name: `${title} 1`, exact: true }).click()
+  await page.getByRole('button', { name: 'Удалить книгу', exact: true }).click()
+  const confirmation = page.getByRole('dialog', { name: 'Удалить книгу?' })
+  await expect(confirmation.getByRole('button', { name: 'Отмена' })).toBeFocused()
+  await confirmation.getByRole('button', { name: 'Удалить книгу', exact: true }).click()
+  await expect(page.getByText('Книга удалена.')).toBeVisible()
+  expect((await page.request.get(`/api/catalog/products/${slug}-1/`)).status()).toBe(404)
+  expect((await page.request.get(`/api/catalog/products/${slug}-2/`)).status()).toBe(200)
 })

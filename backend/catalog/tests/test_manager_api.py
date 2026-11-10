@@ -1,3 +1,4 @@
+import csv
 from io import BytesIO, StringIO
 from tempfile import TemporaryDirectory
 
@@ -15,6 +16,7 @@ from catalog.models import BookEdition, Category, Product, ProductVariant
 CATALOG = "/api/manager/catalog/"
 CATEGORIES = "/api/manager/categories/"
 STOREFRONT = "/api/catalog/products/"
+CSV_IMPORT = f"{CATALOG}import-csv/"
 
 
 def cover(image_format="PNG"):
@@ -78,6 +80,15 @@ class ManagerCatalogApiTests(APITestCase):
         self.assertEqual(response.status_code, 201, response.data)
         return response.data
 
+    def upload_csv(self, rows, *, delimiter=",", **form):
+        stream = StringIO()
+        writer = csv.DictWriter(stream, fieldnames=list(rows[0]), delimiter=delimiter)
+        writer.writeheader()
+        writer.writerows(rows)
+        file = SimpleUploadedFile("books.csv", stream.getvalue().encode("utf-8-sig"), "text/csv")
+        self.client.force_authenticate(self.manager)
+        return self.client.post(CSV_IMPORT, {"file": file, **form}, format="multipart")
+
     def test_all_manager_catalog_methods_require_authentication(self):
         detail = f"{CATALOG}{self.legacy.pk}/"
         endpoints = [
@@ -85,7 +96,9 @@ class ManagerCatalogApiTests(APITestCase):
             ("post", CATALOG),
             ("get", detail),
             ("patch", detail),
+            ("delete", detail),
             ("patch", f"{detail}variants/{self.variant.pk}/"),
+            ("post", CSV_IMPORT),
             ("get", CATEGORIES),
             ("post", CATEGORIES),
         ]
@@ -109,6 +122,8 @@ class ManagerCatalogApiTests(APITestCase):
         self.assertEqual(self.client.get(CATALOG).status_code, 200)
         self.assertEqual(self.client.post(CATALOG, self.payload).status_code, 403)
         self.assertEqual(self.client.patch(f"{CATALOG}{self.legacy.pk}/").status_code, 403)
+        self.assertEqual(self.client.delete(f"{CATALOG}{self.legacy.pk}/").status_code, 403)
+        self.assertEqual(self.client.post(CSV_IMPORT).status_code, 403)
         variant_url = f"{CATALOG}{self.legacy.pk}/variants/{self.variant.pk}/"
         self.assertEqual(self.client.patch(variant_url).status_code, 403)
         self.assertEqual(self.client.get("/api/manager/orders/").status_code, 403)
@@ -173,6 +188,64 @@ class ManagerCatalogApiTests(APITestCase):
         self.assertTrue(first["next"])
         self.assertTrue(second["previous"])
         self.assertEqual(len({row["id"] for row in first["results"] + second["results"]}), 22)
+
+    def test_delete_unused_book_removes_public_and_manager_cards(self):
+        book = self.create_book(is_active="true")
+        url = f"{CATALOG}{book['id']}/"
+        self.assertEqual(self.client.delete(url).status_code, 204)
+        self.assertEqual(self.client.get(url).status_code, 404)
+        self.assertEqual(self.client.get(f"{STOREFRONT}forest/").status_code, 404)
+        self.assertFalse(BookEdition.objects.filter(product_id=book["id"]).exists())
+
+    def test_csv_preview_and_import_create_books_and_update_by_sku(self):
+        first = {**self.payload, "category": self.genre.slug, "isbn": "978-0-14-044913-6"}
+        second = {**first, "sku": "LAKE", "slug": "lake", "name": "Озеро"}
+        preview = self.upload_csv([first, second], delimiter=";")
+        self.assertEqual(preview.status_code, 200, preview.data)
+        self.assertEqual(preview.data, {"processed": 2, "dry_run": True})
+        self.assertFalse(Product.objects.filter(sku="FOREST").exists())
+        applied = self.upload_csv([first, second], delimiter=";", dry_run="false")
+        self.assertEqual(applied.status_code, 200, applied.data)
+        self.assertEqual(applied.data, {"processed": 2, "dry_run": False})
+        book = Product.objects.get(sku="FOREST")
+        self.assertEqual(book.book.isbn, "9780140449136")
+        self.assertFalse(book.is_active)
+        updated = self.upload_csv([{"sku": "FOREST", "stock": 12}], dry_run="false")
+        self.assertEqual(updated.status_code, 200, updated.data)
+        book.refresh_from_db()
+        self.assertEqual(
+            (book.slug, book.stock, book.book.author), ("forest", 12, self.payload["author"])
+        )
+        self.assertTrue(Product.objects.filter(sku="LAKE").exists())
+
+    def test_csv_import_reports_row_errors_and_rejects_whole_file(self):
+        first = {**self.payload, "category": self.genre.slug}
+        invalid = {**first, "sku": "OTHER", "slug": "other", "year": "bad"}
+        response = self.upload_csv([first, invalid], dry_run="false")
+        self.assertEqual(response.status_code, 400, response.data)
+        self.assertIn("Строка 3, year", response.data["file"][0])
+        self.assertFalse(Product.objects.filter(sku__in=["FOREST", "OTHER"]).exists())
+
+    def test_editorial_keeps_oz_after_newer_books_fill_the_first_page(self):
+        oz = Product.objects.create(
+            category=self.genre,
+            slug="wonderful-wizard-oz-1900",
+            sku="OZ",
+            name="Страна Оз",
+            price=1,
+        )
+        Product.objects.bulk_create(
+            Product(category=self.genre, slug=f"new-{i}", sku=f"N-{i}", name=f"Новая {i}", price=1)
+            for i in range(21)
+        )
+        first = self.client.get(STOREFRONT).data["results"]
+        self.assertNotIn(oz.pk, [book["id"] for book in first])
+        selection = self.client.get("/api/catalog/editorial/")
+        self.assertEqual(selection.status_code, 200, selection.data)
+        self.assertEqual([book["id"] for book in selection.data], [oz.pk])
+        oz.is_active = False
+        oz.save(update_fields=["is_active"])
+        self.assertEqual(self.client.get("/api/catalog/editorial/").data, [])
 
     def test_create_uploads_cover_and_keeps_book_metadata(self):
         book = self.create_book(image=cover())

@@ -1,12 +1,10 @@
+import { useQuery } from '@tanstack/react-query'
 import { Link } from 'react-router'
-import type { Product } from '../api/client'
+import { editorialQuery } from '../api/queries'
 import ProductCard from '../components/ProductCard'
 
-const picks = ['war-of-worlds-1898', 'wonderful-wizard-oz-1900', 'anne-green-gables-1908',
-  'peter-pan-kensington-1906', 'story-amulet-1906']
-
-export default function StorefrontHome({ books, loading }: { books: Product[]; loading: boolean }) {
-  const selected = picks.flatMap((slug) => books.find((book) => book.slug === slug) ?? []).slice(0, 4)
+export default function StorefrontHome() {
+  const { data: selected = [], isPending: loading } = useQuery(editorialQuery())
   return (
     <>
       <section className="hero" aria-labelledby="hero-title">
@@ -25,7 +23,7 @@ export default function StorefrontHome({ books, loading }: { books: Product[]; l
             <Link to="/catalog">Все книги <span aria-hidden="true">→</span></Link>
           </div>
           <div className="grid editorial-grid" aria-busy={loading}>
-            {loading ? picks.slice(0, 4).map((slug) => <div key={slug} className="card skeleton" aria-hidden="true" />)
+            {loading ? [1, 2, 3, 4].map((slot) => <div key={slot} className="card skeleton" aria-hidden="true" />)
               : selected.map((book) => <ProductCard key={book.id} product={book} eager />)}
           </div>
         </section>

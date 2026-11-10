@@ -7,7 +7,7 @@ import { requireManager } from '../auth/session'
 import { tokens } from '../auth/tokens'
 import { submitRouteForm } from '../lib/routeForm'
 import { z } from '../lib/zod'
-import { managerBookQuery, type ManagerBook } from './queries'
+import { managerBookQuery, refreshCatalog, type ManagerBook } from './queries'
 import { routeId } from './routes'
 
 const integer = (min: number, max: number) => z.string().regex(/^\d+$/, 'Введите целое число.')
@@ -70,11 +70,7 @@ export async function bookAction(request: Request, client: QueryClient, bookId?:
     if (version !== tokens.version()) throw new ApiError(401, 'Сессия изменилась. Войдите снова.')
     client.setQueryData(key, book)
     client.removeQueries({ queryKey: productQuery(book.slug).queryKey, exact: true })
-    await Promise.all([
-      client.invalidateQueries({ queryKey: ['manager', 'catalog', 'list'] }),
-      client.invalidateQueries({ queryKey: ['products'] }),
-      client.invalidateQueries({ queryKey: ['categories'] }),
-    ])
+    await refreshCatalog(client)
     return redirect(`/manager/catalog/${book.id}/edit?saved=${variant ? 'variant' : 'book'}`)
   }
 

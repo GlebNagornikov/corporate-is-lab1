@@ -6,6 +6,7 @@ import FormInput from '../components/FormInput'
 import { formatPrice } from '../lib/format'
 import { usePageTitle } from '../lib/usePageTitle'
 import type { bookAction } from './bookAction'
+import BookDeleteDialog from './BookDeleteDialog'
 import GenreDialog from './GenreDialog'
 import { managerBookQuery, managerCategoriesQuery, type ManagerBook } from './queries'
 
@@ -66,6 +67,7 @@ function BookEditor({ book, categories }: { book?: ManagerBook; categories: Cate
   const fetcher = useFetcher<BookAction>()
   const [category, setCategory] = useState(book?.category.id)
   const [addingGenre, setAddingGenre] = useState(false)
+  const [deletingBook, setDeletingBook] = useState(false)
   const [search] = useSearchParams()
   const edition = book?.book
   const variants = book?.variants.filter((variant) => !variant.is_default) ?? []
@@ -171,6 +173,13 @@ function BookEditor({ book, categories }: { book?: ManagerBook; categories: Cate
           <h2>Складские варианты</h2>
           {variants.map((variant) => <VariantForm key={variant.id} variant={variant} bookId={book.id} />)}
         </section>
+      )}
+      {book && (
+        <div className="manager-card-actions">
+          <button type="button" className="secondary manager-delete" disabled={pending}
+            onClick={() => setDeletingBook(true)}>Удалить книгу</button>
+          {deletingBook && <BookDeleteDialog book={book} close={() => setDeletingBook(false)} />}
+        </div>
       )}
     </section>
   )

@@ -42,7 +42,7 @@ export default function CatalogPage() {
 
   return (
     <>
-      {isHome && <StorefrontHome books={first?.results ?? []} loading={!first && !failed} />}
+      {isHome && <StorefrontHome />}
       <section ref={catalog} className="catalog" id="catalog" aria-labelledby="catalog-title">
         <p className="eyebrow">Книги для вашей полки</p>
         {isHome ? <h2 id="catalog-title">Каталог</h2> : <h1 id="catalog-title">Каталог</h1>}

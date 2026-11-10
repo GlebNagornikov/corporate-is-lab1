@@ -1,10 +1,19 @@
-import { keepPreviousData, queryOptions } from '@tanstack/react-query'
+import { keepPreviousData, queryOptions, type QueryClient } from '@tanstack/react-query'
 import { api, requireData } from '../api/client'
 import { readOrderPage } from '../api/orders'
 import type { components } from '../api/schema'
 import { orderFilters } from './orderFilters'
 
 export type ManagerBook = components['schemas']['ManagerBook']
+
+export async function refreshCatalog(client: QueryClient) {
+  await Promise.all([
+    client.invalidateQueries({ queryKey: ['manager', 'catalog', 'list'] }),
+    client.invalidateQueries({ queryKey: ['products'] }),
+    client.invalidateQueries({ queryKey: ['categories'] }),
+    client.invalidateQueries({ queryKey: ['cart'] }),
+  ])
+}
 
 export function catalogFilters(search: URLSearchParams) {
   return { page: readOrderPage(search), q: search.get('q')?.trim() || undefined }
