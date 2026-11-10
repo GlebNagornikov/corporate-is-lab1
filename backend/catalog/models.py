@@ -14,6 +14,8 @@ from django.db import models, transaction
 from django.db.models import Avg, Count, F, Q
 from django.urls import reverse
 
+BOOKS_ROOT_SLUG = "books"
+
 
 class Category(models.Model):
     name = models.CharField("Название", max_length=100)

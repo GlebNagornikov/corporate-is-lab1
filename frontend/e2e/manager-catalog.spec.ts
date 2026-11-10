@@ -14,6 +14,13 @@ test('сотрудник создаёт черновик с обложкой, п
   const slug = `kt3-${suffix}`
   const name = `Книга КТ3 ${suffix}`
   await loginAs(page, manager, '/manager/catalog')
+  const storefront = await page.getByRole('link', { name: 'На витрину' }).boundingBox()
+  const logout = await page.getByRole('button', { name: 'Выйти' }).boundingBox()
+  expect(logout!.x - storefront!.x - storefront!.width).toBeGreaterThanOrEqual(18)
+  const find = await page.getByRole('button', { name: 'Найти' }).boundingBox()
+  const add = await page.getByRole('link', { name: 'Добавить книгу' }).boundingBox()
+  expect(find!.width).toBeCloseTo(add!.width)
+  expect(find!.height).toBeCloseTo(add!.height)
   await page.getByRole('link', { name: 'Добавить книгу' }).click()
   await expect(page).toHaveURL('/manager/catalog/new')
   await expect(page.getByRole('heading', { name: 'Новая книга' })).toBeVisible()
@@ -21,7 +28,26 @@ test('сотрудник создаёт черновик с обложкой, п
   await page.getByLabel('Автор', { exact: true }).fill('Тестовый Автор')
   await page.getByLabel('Адрес в URL').fill(slug)
   await page.getByLabel('Артикул (SKU)').fill(slug)
-  await page.getByLabel('Жанр', { exact: true }).selectOption({ index: 1 })
+  const genre = page.getByLabel('Жанр', { exact: true })
+  await expect(genre.locator('option').filter({ hasText: /^Книги$/ })).toHaveCount(0)
+  await page.getByRole('button', { name: 'Добавить жанр' }).click()
+  const dialog = page.getByRole('dialog', { name: 'Новый жанр' })
+  const genreName = `Тестовый жанр ${suffix}`
+  await dialog.getByLabel('Название жанра').fill(genreName)
+  await dialog.getByRole('button', { name: 'Сохранить жанр' }).click()
+  await expect(dialog).toHaveCount(0)
+  await expect(genre.locator('option:checked')).toHaveText(genreName)
+  await expect(page.getByLabel('Название', { exact: true })).toHaveValue(name)
+  for (const label of ['Артикул (SKU)', 'Жанр', 'Аннотация']) {
+    const labelBox = await page.locator('label').filter({ hasText: label })
+      .filter({ hasNot: page.locator('input, select, textarea') }).first().boundingBox()
+    const inputBox = await page.getByLabel(label, { exact: true }).boundingBox()
+    expect(inputBox!.y - labelBox!.y - labelBox!.height).toBeLessThanOrEqual(6)
+  }
+  const annotation = page.getByLabel('Аннотация', { exact: true })
+  const textarea = await annotation.boundingBox()
+  const fieldset = await annotation.locator('xpath=ancestor::fieldset').boundingBox()
+  expect(textarea!.width / fieldset!.width).toBeGreaterThan(0.9)
   await page.getByLabel('Издательство').fill('Полка')
   await page.getByLabel('Год издания').fill('2025')
   await page.getByLabel('Число страниц').fill('224')
@@ -31,6 +57,12 @@ test('сотрудник создаёт черновик с обложкой, п
 
   const upload = page.getByLabel('Обложка (JPEG или PNG)')
   const save = page.getByRole('button', { name: 'Сохранить книгу' })
+  const isbn = page.getByLabel('ISBN-13', { exact: true })
+  await isbn.fill('978-5-17-1542')
+  await save.click()
+  await expect(isbn).toHaveAttribute('aria-invalid', 'true')
+  await isbn.fill('978-0-14-044913-6')
+  await expect(isbn).toHaveValue('978-0-14-044913-6')
   await upload.setInputFiles({ name: 'fake.png', mimeType: 'image/png', buffer: Buffer.from('invalid') })
   const invalid = page.waitForResponse((result) =>
     result.url().endsWith('/api/manager/catalog/') && result.request().method() === 'POST')
@@ -46,6 +78,7 @@ test('сотрудник создаёт черновик с обложкой, п
   await expect(page).toHaveURL(/\/manager\/catalog\/\d+\/edit\?saved=book$/)
   await expect(page.getByText('Книга сохранена.')).toBeVisible()
   await expect(page.getByLabel('Показывать на витрине')).not.toBeChecked()
+  await expect(isbn).toHaveValue('9780140449136')
   await expect(page.getByRole('img', { name: 'Текущая обложка' })).toBeVisible()
   expect((await page.request.get(`/api/catalog/products/${slug}/`)).status()).toBe(404)
 

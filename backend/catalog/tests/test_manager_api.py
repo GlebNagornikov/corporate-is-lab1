@@ -32,6 +32,7 @@ class ManagerCatalogApiTests(APITestCase):
         cls.manager = users.create_user("manager")
         call_command("setup_groups", stdout=StringIO())
         cls.manager.groups.add(Group.objects.get(name="Менеджеры магазина"))
+        cls.root = Category.objects.create(name="Книги", slug="books")
         cls.genre = Category.objects.create(name="Проза", slug="fiction")
         cls.empty_genre = Category.objects.create(name="Детективы", slug="mystery")
         cls.legacy = Product.objects.create(
@@ -86,6 +87,7 @@ class ManagerCatalogApiTests(APITestCase):
             ("patch", detail),
             ("patch", f"{detail}variants/{self.variant.pk}/"),
             ("get", CATEGORIES),
+            ("post", CATEGORIES),
         ]
         for user, expected in [(None, 401), (self.buyer, 403), (self.staff, 403)]:
             self.client.force_authenticate(user)
@@ -110,11 +112,47 @@ class ManagerCatalogApiTests(APITestCase):
         variant_url = f"{CATALOG}{self.legacy.pk}/variants/{self.variant.pk}/"
         self.assertEqual(self.client.patch(variant_url).status_code, 403)
         self.assertEqual(self.client.get("/api/manager/orders/").status_code, 403)
+        self.assertEqual(self.client.post(CATEGORIES, {"name": "История"}).status_code, 403)
 
     def test_categories_include_genres_without_visible_books(self):
         self.client.force_authenticate(self.manager)
         ids = {row["id"] for row in self.client.get(CATEGORIES).data}
         self.assertIn(self.empty_genre.pk, ids)
+        self.assertNotIn(self.root.pk, ids)
+
+    def test_manager_creates_genre_under_books_and_can_use_it_immediately(self):
+        self.client.force_authenticate(self.manager)
+        genre = self.client.post(CATEGORIES, {"name": "  Исторический роман  "})
+        self.assertEqual(genre.status_code, 201, genre.data)
+        self.assertEqual(genre.data["parent"], "books")
+        self.assertEqual(genre.data["name"], "Исторический роман")
+        self.assertIn(genre.data, self.client.get(CATEGORIES).data)
+        duplicate = self.client.post(CATEGORIES, {"name": "исторический роман"})
+        self.assertEqual(duplicate.status_code, 400)
+        self.assertIn("name", duplicate.data)
+        book = self.create_book(category=genre.data["id"], is_active="true")
+        public = self.client.get(STOREFRONT, {"category": genre.data["slug"]})
+        self.assertEqual([row["id"] for row in public.data["results"]], [book["id"]])
+
+    def test_book_cannot_be_assigned_to_books_root(self):
+        self.client.force_authenticate(self.manager)
+        payload = {**self.payload, "category": self.root.pk}
+        response = self.client.post(CATALOG, payload, format="multipart")
+        self.assertEqual(response.status_code, 400)
+        self.assertIn("category", response.data)
+        book = self.create_book()
+        response = self.client.patch(f"{CATALOG}{book['id']}/", {"category": self.root.pk})
+        self.assertEqual(response.status_code, 400)
+        self.assertIn("category", response.data)
+
+    def test_isbn_with_separators_is_saved_as_thirteen_digits(self):
+        book = self.create_book(isbn="978–0 14-044913-6")
+        self.assertEqual(book["book"]["isbn"], "9780140449136")
+        url = f"{CATALOG}{book['id']}/"
+        invalid = self.client.patch(url, {"isbn": "978-5-17-1542"}, format="multipart")
+        self.assertEqual(invalid.status_code, 400)
+        self.assertIn("isbn", invalid.data)
+        self.assertEqual(self.client.get(url).data["book"]["isbn"], "9780140449136")
 
     def test_catalog_searches_author_case_insensitively_and_includes_drafts(self):
         draft = self.create_book()

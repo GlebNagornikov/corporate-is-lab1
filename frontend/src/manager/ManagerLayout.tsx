@@ -27,7 +27,7 @@ export function ManagerLayout() {
       <a className="skip-link" href="#main">К содержимому</a>
       <header className="header shell">
         <Link to="/manager" className="brand">Кабинет сотрудника</Link>
-        <div className="actions">
+        <div className="actions manager-account">
           <Link to="/">На витрину</Link>
           <button type="button" className="secondary" disabled={signOut.isPending}
             onClick={() => signOut.mutate()}>Выйти</button>

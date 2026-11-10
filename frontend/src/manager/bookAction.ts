@@ -34,7 +34,8 @@ const bookSchema = z.object({
   year: integer(1450, 32767),
   language: text(80),
   binding: z.enum(['hardcover', 'paperback'], { error: 'Выберите переплёт.' }),
-  isbn: z.string().trim().regex(/^(\d{13})?$/, 'Введите 13 цифр или оставьте поле пустым.'),
+  isbn: z.string().transform((value) => value.replace(/[\s\-\u2010-\u2015]/g, ''))
+    .pipe(z.string().regex(/^(\d{13})?$/, 'Укажите все 13 цифр ISBN или оставьте поле пустым.')),
   pages: integer(1, 2147483647),
   image: z.instanceof(File).optional(),
 })

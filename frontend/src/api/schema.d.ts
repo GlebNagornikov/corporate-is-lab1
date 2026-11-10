@@ -537,7 +537,8 @@ export interface paths {
         /** @description Все жанры для формы сотрудника, включая пустые. */
         get: operations["api_manager_categories_list"];
         put?: never;
-        post?: never;
+        /** @description Создаёт жанр внутри раздела «Книги». Адрес формируется автоматически. */
+        post: operations["api_manager_categories_create"];
         delete?: never;
         options?: never;
         head?: never;
@@ -915,7 +916,6 @@ export interface components {
             readonly variants: components["schemas"]["Variant"][];
         };
         ManagerBookWriteRequest: {
-            /** Категория */
             category: number;
             /** Название */
             name: string;
@@ -945,6 +945,9 @@ export interface components {
             binding: components["schemas"]["BindingEnum"];
             isbn?: string;
             pages: number;
+        };
+        ManagerGenreWriteRequest: {
+            name: string;
         };
         Me: {
             readonly id: number;
@@ -1166,7 +1169,6 @@ export interface components {
             department?: number;
         };
         PatchedManagerBookWriteRequest: {
-            /** Категория */
             category?: number;
             /** Название */
             name?: string;
@@ -2412,6 +2414,52 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["Category"][];
                 };
+            };
+            /** @description Требуется Bearer-токен. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Недостаточно прав сотрудника. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    api_manager_categories_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ManagerGenreWriteRequest"];
+                "application/x-www-form-urlencoded": components["schemas"]["ManagerGenreWriteRequest"];
+                "multipart/form-data": components["schemas"]["ManagerGenreWriteRequest"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Category"];
+                };
+            };
+            /** @description Ошибка поля name. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             /** @description Требуется Bearer-токен. */
             401: {

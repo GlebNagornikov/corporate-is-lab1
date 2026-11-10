@@ -246,14 +246,27 @@ button:disabled { cursor: not-allowed; opacity: .65; }
 .cart-line img { flex: none; object-fit: contain; background: var(--wash); }
 .table-scroll { max-width: 100%; overflow-x: auto; }
 .manager-nav { padding-block: .75rem; border-block-end: 1px solid var(--line); }
+.actions.manager-account { gap: 1.25rem; }
+.manager-catalog-controls { display: flex; flex-wrap: wrap; align-items: end; gap: .75rem 1rem; }
+.manager-catalog-search { flex: 1 1 17rem; max-width: 28rem; min-width: 0; }
+.manager-catalog-buttons { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .75rem; }
+.manager-catalog-buttons > * {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 2.7rem;
+  padding: .6rem .85rem;
+  line-height: 1.25;
+}
+.manager-catalog-reset { align-self: center; }
 .manager-toolbar { display: flex; flex-wrap: wrap; align-items: end; gap: 1rem; }
 .manager-toolbar h1 { margin: 0; }
-.manager-toolbar .actions { align-items: end; }
 .manager-editor { max-width: 54rem; }
 .manager-editor > .form { margin-top: 1rem; }
-.manager-fields {
+.form .manager-fields {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(min(100%, 16rem), 1fr));
+  align-items: start;
   gap: 1rem;
   min-width: 0;
   margin: 0;
@@ -263,6 +276,7 @@ button:disabled { cursor: not-allowed; opacity: .65; }
 }
 .manager-fields legend { padding-inline: .4rem; font-weight: 700; }
 .manager-wide { grid-column: 1 / -1; margin: 0; }
+.manager-genre .actions { margin-top: .25rem; }
 .manager-check { display: flex; align-items: center; gap: .5rem; }
 .manager-cover { display: block; width: 9rem; aspect-ratio: 2 / 3; object-fit: contain; }
 .manager-variant { margin-bottom: 1rem; }

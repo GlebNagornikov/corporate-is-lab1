@@ -6,6 +6,7 @@ import FormInput from '../components/FormInput'
 import { formatPrice } from '../lib/format'
 import { usePageTitle } from '../lib/usePageTitle'
 import type { bookAction } from './bookAction'
+import GenreDialog from './GenreDialog'
 import { managerBookQuery, managerCategoriesQuery, type ManagerBook } from './queries'
 
 type BookAction = typeof bookAction
@@ -34,7 +35,7 @@ function CoverInput({ current, error }: { current?: string | null; error?: strin
           objectUrl.current = file ? URL.createObjectURL(file) : undefined
           setPreview(objectUrl.current)
         }} />
-      <small className="muted">До 5 МБ и 20 млн пикселей.</small>
+      <small className="muted">Файл до 5 МБ. Для обложки подойдёт, например, 1200 × 1800 px.</small>
       {source && <img className="manager-cover" src={source} alt={preview ? 'Предпросмотр обложки' : 'Текущая обложка'} />}
     </div>
   )
@@ -63,6 +64,8 @@ function VariantForm({ bookId, variant }: { bookId: number; variant: Variant }) 
 
 function BookEditor({ book, categories }: { book?: ManagerBook; categories: Category[] }) {
   const fetcher = useFetcher<BookAction>()
+  const [category, setCategory] = useState(book?.category.id)
+  const [addingGenre, setAddingGenre] = useState(false)
   const [search] = useSearchParams()
   const edition = book?.book
   const variants = book?.variants.filter((variant) => !variant.is_default) ?? []
@@ -93,16 +96,21 @@ function BookEditor({ book, categories }: { book?: ManagerBook; categories: Cate
             defaultValue={book?.slug} placeholder="nazvanie-knigi" error={error('slug')} />
           <FormInput label="Артикул (SKU)" name="sku" required maxLength={32} readOnly={Boolean(book)}
             defaultValue={book?.sku} error={error('sku')} />
-          <div className="form-field">
+          <div className="form-field manager-genre">
             <label htmlFor="book-genre">Жанр</label>
-            <select id="book-genre" name="category" required defaultValue={book?.category.id ?? ''}
+            <select id="book-genre" name="category" required
+              value={categories.some(({ id }) => id === category) ? category : ''}
+              onChange={({ target }) => setCategory(Number(target.value))}
               aria-invalid={Boolean(error('category'))} aria-describedby={error('category') ? 'book-genre-error' : undefined}>
               <option value="">Выберите жанр</option>
               {categories.map((category) => <option key={category.id} value={category.id}>{category.name}</option>)}
             </select>
             {error('category') && <p className="error" id="book-genre-error">{error('category')}</p>}
+            <div className="actions">
+              <button type="button" className="secondary" onClick={() => setAddingGenre(true)}>Добавить жанр</button>
+            </div>
           </div>
-          <div className="form-field">
+          <div className="form-field manager-wide">
             <label htmlFor="book-description">Аннотация</label>
             <textarea id="book-description" name="description" rows={4} defaultValue={book?.description}
               aria-invalid={Boolean(error('description'))}
@@ -121,8 +129,11 @@ function BookEditor({ book, categories }: { book?: ManagerBook; categories: Cate
             defaultValue={edition?.year} error={error('year')} />
           <FormInput label="Число страниц" name="pages" type="number" min={1} required
             defaultValue={edition?.pages} error={error('pages')} />
-          <FormInput label="ISBN-13" name="isbn" maxLength={13} inputMode="numeric"
-            defaultValue={edition?.isbn} error={error('isbn')} />
+          <div className="form-field">
+            <FormInput label="ISBN-13" name="isbn" maxLength={40} aria-describedby="book-isbn-hint"
+              defaultValue={edition?.isbn} error={error('isbn')} />
+            <small id="book-isbn-hint" className="muted">13 цифр, можно с дефисами или пробелами.</small>
+          </div>
           <div className="form-field">
             <label htmlFor="book-binding">Переплёт</label>
             <select id="book-binding" name="binding" required defaultValue={edition?.binding ?? ''}
@@ -154,6 +165,7 @@ function BookEditor({ book, categories }: { book?: ManagerBook; categories: Cate
         {fetcher.data && <p className="error" role="alert">{fetcher.data.message}</p>}
         <button type="submit" disabled={pending}>{pending ? 'Сохраняем…' : 'Сохранить книгу'}</button>
       </fetcher.Form>
+      {addingGenre && <GenreDialog close={() => setAddingGenre(false)} select={setCategory} />}
       {book && hasVariants && (
         <section aria-label="Складские варианты">
           <h2>Складские варианты</h2>

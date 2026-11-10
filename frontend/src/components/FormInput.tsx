@@ -5,7 +5,7 @@ type FormInputProps = ComponentPropsWithRef<'input'> & {
   error?: string
 }
 
-export default function FormInput({ label, error, ...input }: FormInputProps) {
+export default function FormInput({ label, error, 'aria-describedby': hintId, ...input }: FormInputProps) {
   const id = useId()
   const errorId = `${id}-error`
   return (
@@ -15,7 +15,7 @@ export default function FormInput({ label, error, ...input }: FormInputProps) {
         {...input}
         id={id}
         aria-invalid={Boolean(error)}
-        aria-describedby={error ? errorId : undefined}
+        aria-describedby={[hintId, error ? errorId : undefined].filter(Boolean).join(' ') || undefined}
       />
       {error && <p className="error" id={errorId}>{error}</p>}
     </div>

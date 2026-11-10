@@ -1,3 +1,4 @@
+import re
 from decimal import Decimal
 
 from django.core.exceptions import ValidationError
@@ -6,12 +7,21 @@ from drf_spectacular.utils import extend_schema_field
 from PIL import Image
 from rest_framework import serializers
 
-from .models import BookEdition, Product, ProductVariant
+from .models import BOOKS_ROOT_SLUG, BookEdition, Category, Product, ProductVariant
 from .serializers import BookEditionSerializer, CategorySerializer, VariantSerializer
 
 BOOK_FIELDS = ("author", "publisher", "year", "language", "binding", "isbn", "pages")
 MAX_COVER_BYTES = 5 * 1024 * 1024
 MAX_COVER_PIXELS = 20_000_000
+
+
+class ManagerGenreWriteSerializer(serializers.Serializer):
+    name = serializers.CharField(max_length=100)
+
+    def validate_name(self, name):
+        if not any(char.isalnum() for char in name):
+            raise serializers.ValidationError("Введите название жанра.")
+        return name
 
 
 class ManagerBookSerializer(serializers.ModelSerializer):
@@ -48,7 +58,9 @@ class CoverField(serializers.FileField):
         try:
             with Image.open(upload, formats=["JPEG", "PNG"]) as image:
                 if image.width * image.height > MAX_COVER_PIXELS:
-                    raise serializers.ValidationError("Размер обложки превышает 20 млн пикселей.")
+                    raise serializers.ValidationError(
+                        "Обложка слишком большая. Уменьшите её ширину или высоту в редакторе."
+                    )
                 image.verify()
             upload.seek(0)
             with Image.open(upload, formats=["JPEG", "PNG"]) as image:
@@ -75,7 +87,11 @@ class ManagerBookWriteSerializer(serializers.ModelSerializer):
     year = serializers.IntegerField(min_value=1450, max_value=32767)
     language = serializers.CharField(max_length=80)
     binding = serializers.ChoiceField(choices=BookEdition.Binding.choices)
-    isbn = serializers.CharField(max_length=13, allow_blank=True, required=False)
+    isbn = serializers.CharField(max_length=40, allow_blank=True, required=False)
+    category = serializers.PrimaryKeyRelatedField(
+        queryset=Category.objects.exclude(slug=BOOKS_ROOT_SLUG),
+        error_messages={"does_not_exist": "Выберите жанр книги из списка."},
+    )
     pages = serializers.IntegerField(min_value=1, max_value=2147483647)
     price = serializers.DecimalField(max_digits=10, decimal_places=2, min_value=Decimal("0.01"))
     is_active = serializers.BooleanField(default=False)
@@ -124,6 +140,9 @@ class ManagerBookWriteSerializer(serializers.ModelSerializer):
         if errors:
             raise serializers.ValidationError(errors)
         return attrs
+
+    def validate_isbn(self, isbn):
+        return re.sub(r"[\s\-\u2010-\u2015]", "", isbn)
 
     def create(self, validated_data):
         return self.save_book(Product(), validated_data)

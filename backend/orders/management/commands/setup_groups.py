@@ -11,6 +11,7 @@ GROUPS = {
         "orders.add_promocode",
         "orders.change_promocode",
         "catalog.view_category",
+        "catalog.add_category",
         "catalog.view_product",
         "catalog.change_product",
         "catalog.add_product",

@@ -14,15 +14,18 @@ export default function ManagerCatalogPage() {
   return (
     <section className="details">
       <h1>Каталог сотрудника</h1>
-      <div className="manager-toolbar">
-        <Form className="actions" method="get" role="search" key={filters.q ?? ''}>
+      <div className="manager-catalog-controls">
+        <Form id="manager-catalog-search" className="manager-catalog-search"
+          method="get" role="search" key={filters.q ?? ''}>
           <label className="form-field">Поиск по каталогу
             <input name="q" type="search" defaultValue={filters.q} placeholder="Название, автор, SKU или ISBN" />
           </label>
-          <button type="submit">Найти</button>
-          {filters.q && <Link to="/manager/catalog">Сбросить</Link>}
         </Form>
-        <Link className="button" to="/manager/catalog/new">Добавить книгу</Link>
+        <div className="manager-catalog-buttons">
+          <button type="submit" form="manager-catalog-search">Найти</button>
+          <Link className="button" to="/manager/catalog/new">Добавить книгу</Link>
+        </div>
+        {filters.q && <Link className="manager-catalog-reset" to="/manager/catalog">Сбросить</Link>}
       </div>
       {books.isPending && <p role="status">Загрузка книг…</p>}
       {books.isError && (

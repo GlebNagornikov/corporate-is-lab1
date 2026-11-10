@@ -1,3 +1,4 @@
+from django.core.exceptions import ValidationError
 from django.db import IntegrityError, transaction
 from django.db.models import Q, Sum
 from django.shortcuts import get_object_or_404
@@ -19,10 +20,12 @@ from config.api_docs import MANAGER_ACCESS_ERRORS
 from .manager_serializers import (
     ManagerBookSerializer,
     ManagerBookWriteSerializer,
+    ManagerGenreWriteSerializer,
     ManagerVariantWriteSerializer,
 )
-from .models import Category, Product
+from .models import BOOKS_ROOT_SLUG, Category, Product
 from .serializers import CategorySerializer
+from .services import create_genre
 
 CATALOG_ERRORS = {
     400: OpenApiResponse(
@@ -42,11 +45,36 @@ BOOK_NOT_FOUND = OpenApiResponse(description="Издание не найдено
     ),
 )
 class ManagerCategoryViewSet(mixins.ListModelMixin, viewsets.GenericViewSet):
-    queryset = Category.objects.select_related("parent").order_by("name", "pk")
+    queryset = (
+        Category.objects.exclude(slug=BOOKS_ROOT_SLUG)
+        .select_related("parent")
+        .order_by("name", "pk")
+    )
     serializer_class = CategorySerializer
     permission_classes = [permissions.IsAuthenticated, IsShopManager]
-    manager_permissions = {"list": ("catalog.view_category",)}
+    manager_permissions = {
+        "list": ("catalog.view_category",),
+        "create": ("catalog.view_category", "catalog.add_category"),
+    }
     pagination_class = None
+
+    @extend_schema(
+        description="Создаёт жанр внутри раздела «Книги». Адрес формируется автоматически.",
+        request=ManagerGenreWriteSerializer,
+        responses={
+            201: CategorySerializer,
+            400: OpenApiResponse(description="Ошибка поля name."),
+            **MANAGER_ACCESS_ERRORS,
+        },
+    )
+    def create(self, request):
+        serializer = ManagerGenreWriteSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        try:
+            genre = create_genre(serializer.validated_data["name"])
+        except ValidationError as error:
+            raise serializers.ValidationError(error.message_dict) from error
+        return Response(self.get_serializer(genre).data, status=status.HTTP_201_CREATED)
 
 
 @extend_schema_view(

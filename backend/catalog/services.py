@@ -1,6 +1,7 @@
 import csv
 import json
 from decimal import Decimal, InvalidOperation
+from hashlib import blake2s
 
 from django.conf import settings
 from django.core.exceptions import ValidationError
@@ -9,9 +10,30 @@ from django.core.validators import validate_email
 from django.db import IntegrityError, transaction
 from django.db.models import Min, Sum
 
-from .models import Category, Product, ProductVariant, StockSubscription, WishlistItem
+from .models import (
+    BOOKS_ROOT_SLUG,
+    Category,
+    Product,
+    ProductVariant,
+    StockSubscription,
+    WishlistItem,
+)
 
 KEY = "comparison"
+
+
+@transaction.atomic
+def create_genre(name):
+    root, _ = Category.objects.select_for_update().get_or_create(
+        slug=BOOKS_ROOT_SLUG, defaults={"name": "Книги"}
+    )
+    if Category.objects.filter(name__iexact=name).exists():
+        raise ValidationError({"name": "Жанр с таким названием уже есть."})
+    slug = "genre-" + blake2s(name.casefold().encode(), digest_size=12).hexdigest()
+    try:
+        return Category.objects.create(name=name, slug=slug, parent=root)
+    except IntegrityError as error:
+        raise ValidationError({"name": "Жанр с таким названием уже есть."}) from error
 
 
 def choose_variant(product, variant=None):
