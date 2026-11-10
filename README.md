@@ -187,6 +187,10 @@ variant_sku/variant_name/variant_price/variant_stock и attributes (JSON).
 бесплатно от 5000 ₽ после скидки; самовывоз бесплатен. Гостевая корзина объединяется при входе.
 Телефон нормализуется к +7XXXXXXXXXX. Письма ставятся в очередь после commit.
 
+При оформлении действует лимит в 5 экземпляров на издание суммарно по всем вариантам.
+Сервер отдельно проверяет актуальный остаток. В обоих случаях при отказе API возвращает
+`400` с объяснением в `detail`, а корзина сохраняется.
+
 Статусы: **new → paid → confirmed → shipped → delivered**. Покупатель отменяет только new;
 менеджер также отменяет paid/confirmed с возвратом остатков. Webhook принимает HMAC-SHA256
 в X-Payment-Signature от точных байтов JSON. Каждая попытка записана в Payment.
@@ -200,6 +204,7 @@ variant_sku/variant_name/variant_price/variant_stock и attributes (JSON).
 | PATCH/DELETE /api/cart/items/<product_id>/?variant=<id> | Изменить/удалить конкретный вариант |
 | GET/POST /api/orders/; GET /api/orders/<id>/ | Свои заказы / оформление; address_book — ID своего адреса |
 | POST /api/orders/<id>/cancel/; /status/ | Отмена покупателем / смена статуса менеджером |
+| POST /api/orders/<id>/simulate-payment/ | Учебная оплата владельцем нового заказа |
 | GET/POST/DELETE /api/wishlist/ | Только своё избранное; DELETE принимает product |
 | DELETE /api/wishlist/<product_id>/ | Удалить своё избранное |
 | POST /payments/webhook/ | Подписанный результат оплаты; JWT не требуется |

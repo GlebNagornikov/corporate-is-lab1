@@ -1,15 +1,17 @@
+from datetime import timedelta
 from decimal import Decimal
 from io import StringIO
 
 from django.contrib.auth import get_user_model
 from django.contrib.auth.models import Group, Permission
 from django.core.management import call_command
+from django.utils import timezone
 from rest_framework.test import APITestCase
 
 from cart.models import Cart, CartItem
 from cart.services import add_to_cart
 from catalog.models import Category, Product, ProductVariant
-from orders.models import Order
+from orders.models import Order, Payment, PromoCode
 from orders.services import OrderError, change_status, place_order
 
 User = get_user_model()
@@ -212,6 +214,131 @@ class OrderApiTests(APITestCase):
         ids = [order["id"] for order in self.client.get("/api/orders/").data["results"]]
         self.assertEqual(ids, [own])
         self.assertEqual(self.client.get(f"/api/orders/{other}/").status_code, 404)
+
+    def test_checkout_rejects_six_copies_in_one_line(self):
+        Product.objects.filter(pk=self.book.pk).update(stock=8)
+        self.client.force_authenticate(self.buyer)
+        cart = self.client.post("/api/cart/items/", {"product": self.book.pk, "quantity": 6})
+        self.assertEqual(cart.status_code, 200, cart.data)
+        response = self.client.post("/api/orders/", CUSTOMER)
+        self.assertEqual(response.status_code, 400, response.data)
+        self.assertIn("не больше 5 экземпляров", response.data["detail"])
+        self.assertEqual(self.client.get("/api/cart/").data, cart.data)
+        self.book.refresh_from_db()
+        self.assertEqual(self.book.stock, 8)
+        self.assertFalse(Order.objects.exists())
+
+    def test_checkout_limit_combines_variants_and_accepts_five_at_server_prices(self):
+        first = ProductVariant.objects.create(
+            product=self.book, name="Вариант A", sku="BK-A", stock=4, price=1000
+        )
+        second = ProductVariant.objects.create(
+            product=self.book, name="Вариант B", sku="BK-B", stock=4, price=1200
+        )
+        now = timezone.now()
+        promo = PromoCode.objects.create(
+            code="TEST10",
+            discount_percent=10,
+            valid_from=now - timedelta(days=1),
+            valid_until=now + timedelta(days=1),
+            max_uses=1,
+        )
+        self.client.force_authenticate(self.buyer)
+        cart = self.client.post(
+            "/api/cart/merge/",
+            {
+                "items": [
+                    {"product": self.book.pk, "variant": variant.pk, "quantity": 3}
+                    for variant in (first, second)
+                ],
+            },
+            format="json",
+        )
+        self.assertEqual(cart.status_code, 200, cart.data)
+        payload = {**CUSTOMER, "promo_code": promo.code}
+        response = self.client.post("/api/orders/", payload)
+        self.assertEqual(response.status_code, 400, response.data)
+        self.assertIn("В корзине 6", response.data["detail"])
+        self.assertEqual(self.client.get("/api/cart/").data, cart.data)
+        self.assertFalse(Order.objects.exists())
+        for variant in (first, second):
+            variant.refresh_from_db()
+            self.assertEqual(variant.stock, 4)
+        self.book.refresh_from_db()
+        self.assertEqual(self.book.stock, 8)
+        promo.refresh_from_db()
+        self.assertEqual(promo.used_count, 0)
+
+        updated = self.client.patch(
+            f"/api/cart/items/{self.book.pk}/?variant={second.pk}", {"quantity": 2}
+        )
+        self.assertEqual(updated.status_code, 200, updated.data)
+        response = self.client.post(
+            "/api/orders/",
+            {**payload, "total": "0.01", "items": [{"price": "0.01", "quantity": 1}]},
+            format="json",
+        )
+        self.assertEqual(response.status_code, 201, response.data)
+        self.assertCountEqual(
+            [(item["variant"], item["quantity"], item["price"]) for item in response.data["items"]],
+            [(first.pk, 3, "1000.00"), (second.pk, 2, "1200.00")],
+        )
+        self.assertEqual(response.data["subtotal"], "5400.00")
+        self.assertEqual(response.data["discount"], "540.00")
+        self.assertEqual(response.data["total"], "4860.00")
+        self.assertEqual(self.client.get("/api/cart/").data["count"], 0)
+        promo.refresh_from_db()
+        self.assertEqual(promo.used_count, 1)
+        first.refresh_from_db()
+        second.refresh_from_db()
+        self.assertEqual((first.stock, second.stock), (1, 2))
+
+        cancelled = self.client.post(f"/api/orders/{response.data['id']}/cancel/")
+        self.assertEqual(cancelled.status_code, 200, cancelled.data)
+        self.assertEqual(cancelled.data["items"], response.data["items"])
+        first.refresh_from_db()
+        second.refresh_from_db()
+        self.book.refresh_from_db()
+        self.assertEqual((first.stock, second.stock, self.book.stock), (4, 4, 8))
+
+    def test_checkout_uses_fresh_stock_even_below_edition_limit(self):
+        self.client.force_authenticate(self.buyer)
+        self.client.post("/api/cart/items/", {"product": self.book.pk, "quantity": 2})
+        Product.objects.filter(pk=self.book.pk).update(stock=1)
+        response = self.client.post("/api/orders/", CUSTOMER)
+        self.assertEqual(response.status_code, 400, response.data)
+        self.assertIn("осталось только 1 шт.", response.data["detail"])
+        self.assertFalse(Order.objects.exists())
+        self.assertEqual(self.client.get("/api/cart/").data["count"], 2)
+        self.book.refresh_from_db()
+        self.assertEqual(self.book.stock, 1)
+
+    def test_checkout_checks_shared_stock_for_legacy_and_default_lines(self):
+        cart = Cart.objects.create(user=self.buyer)
+        add_to_cart(cart, self.book, quantity=2)
+        CartItem.objects.create(cart=cart, product=self.book, quantity=2)
+        Product.objects.filter(pk=self.book.pk).update(stock=3)
+        self.client.force_authenticate(self.buyer)
+        response = self.client.post("/api/orders/", CUSTOMER)
+        self.assertEqual(response.status_code, 400, response.data)
+        self.assertIn("осталось только 3 шт.", response.data["detail"])
+        self.assertFalse(Order.objects.exists())
+        self.assertEqual(cart.count, 4)
+
+    def test_customer_actions_require_the_owner_even_with_staff_read_permission(self):
+        order_id = self.buy(self.buyer)
+        url = f"/api/orders/{order_id}/"
+        for user in (self.other, self.manager):
+            with self.subTest(user=user):
+                self.client.force_authenticate(user)
+                self.assertEqual(self.client.post(f"{url}cancel/").status_code, 404)
+                for payload in ({}, {"outcome": "success"}):
+                    response = self.client.post(f"{url}simulate-payment/", payload)
+                    self.assertEqual(response.status_code, 404, response.data)
+        order = Order.objects.get(pk=order_id)
+        self.assertEqual(order.status, Order.Status.NEW)
+        self.assertEqual(order.history.count(), 1)
+        self.assertFalse(Payment.objects.exists())
 
     def test_only_manager_can_change_status(self):
         order_id = self.buy(self.buyer)

@@ -2,6 +2,7 @@ import { useQuery } from '@tanstack/react-query'
 import { Link } from 'react-router'
 import { formatPrice } from '../lib/format'
 import { usePageTitle } from '../lib/usePageTitle'
+import { editionLimitErrors, editionLimitRule } from './editionLimit'
 import { useCart } from './useCart'
 import { priceChangesQuery } from './priceChanges'
 
@@ -9,6 +10,7 @@ export default function CartPage() {
   usePageTitle('Корзина')
   const cart = useCart()
   const { data: changes } = useQuery(priceChangesQuery())
+  const limitErrors = editionLimitErrors(cart.items)
 
   return (
     <section>
@@ -70,10 +72,17 @@ export default function CartPage() {
             <h2>Ваш заказ</h2>
             <p className="price">Итого: {formatPrice(cart.total)}</p>
             {cart.isGuest && <p className="muted">Цены предварительные. После входа сервер пересчитает сумму.</p>}
-            <Link className="button" to="/checkout" onMouseEnter={() => void import('../orders/CheckoutPage')}
-              onFocus={() => void import('../orders/CheckoutPage')}>
-              Оформить заказ
-            </Link>
+            <p className="muted">{editionLimitRule}</p>
+            {limitErrors.length > 0 ? (
+              <ul className="error" aria-live="polite">
+                {limitErrors.map(({ id, message }) => <li key={id}>{message}</li>)}
+              </ul>
+            ) : (
+              <Link className="button" to="/checkout" onMouseEnter={() => void import('../orders/CheckoutPage')}
+                onFocus={() => void import('../orders/CheckoutPage')}>
+                Оформить заказ
+              </Link>
+            )}
           </aside>
         </div>
       ) : !cart.error && (

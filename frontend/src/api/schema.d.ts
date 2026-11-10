@@ -487,10 +487,7 @@ export interface paths {
          */
         get: operations["api_orders_list"];
         put?: never;
-        /**
-         * @description Свои заказы; view_order — все, change_order — смена статуса.
-         *     Лимиты: 60/600 в минуту (аноним/пользователь). Сессия требует CSRF.
-         */
+        /** @description Оформляет текущую корзину. Лимит — 5 экземпляров одного издания суммарно по всем его вариантам. Остатки и цены проверяются на сервере. */
         post: operations["api_orders_create"];
         delete?: never;
         options?: never;
@@ -1977,6 +1974,19 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Order"];
+                };
+            };
+            /** @description Ошибка оформления в detail или список ошибок по имени поля. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        detail: string;
+                    } | {
+                        [key: string]: string[];
+                    };
                 };
             };
         };

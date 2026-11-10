@@ -1,6 +1,7 @@
 import hashlib
 import hmac
 import logging
+from collections import Counter
 from decimal import Decimal
 
 from django.conf import settings
@@ -20,6 +21,7 @@ from .tasks import queue_order_email
 logger = logging.getLogger(__name__)
 COURIER_COST = Decimal("500")
 FREE_DELIVERY_FROM = Decimal("5000")
+MAX_COPIES_PER_EDITION = 5
 
 
 class OrderError(Exception):
@@ -79,12 +81,23 @@ def place_order(
         .filter(pk__in=[item.product_id for item in items])
         .order_by("pk")
     }
+    quantities = Counter()
+    for item in items:
+        quantities[item.product_id] += item.quantity
+    for product_id, quantity in quantities.items():
+        if quantity > MAX_COPIES_PER_EDITION:
+            raise OrderError(
+                f"«{products[product_id].name}»: в одном заказе можно купить не больше "
+                f"{MAX_COPIES_PER_EDITION} экземпляров издания с учётом всех вариантов. "
+                f"В корзине {quantity}."
+            )
     variants = {
         v.pk: v
         for v in ProductVariant.objects.select_for_update()
         .filter(pk__in=[i.variant_id for i in items if i.variant_id])
         .order_by("pk")
     }
+    reserved = Counter()
     for item in items:
         product = products[item.product_id]
         variant = variants.get(item.variant_id)
@@ -97,10 +110,13 @@ def place_order(
                 )
         if variant and (variant.product_id != product.pk or not variant.is_active):
             raise OrderError("Вариант товара недоступен.")
-        stock = variant.stock if variant and not variant.is_default else product.stock
         if not product.is_active:
             raise OrderError(f"Товар «{product.name}» снят с продажи.")
-        if stock < item.quantity:
+        # Старая строка без варианта и вариант по умолчанию используют один остаток.
+        stock_key = (product.pk, variant.pk if variant and not variant.is_default else None)
+        reserved[stock_key] += item.quantity
+        stock = item.available_stock
+        if stock < reserved[stock_key]:
             raise OrderError(f"Товара «{product.name}» осталось только {stock} шт.")
     promo = get_valid_promo(promo_code, lock=True) if promo_code.strip() else None
     subtotal = sum(item.unit_price * item.quantity for item in items)

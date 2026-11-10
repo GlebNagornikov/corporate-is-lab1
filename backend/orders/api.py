@@ -1,6 +1,6 @@
 from django.core.exceptions import ValidationError
 from django_filters.rest_framework import DjangoFilterBackend
-from drf_spectacular.utils import OpenApiExample, extend_schema
+from drf_spectacular.utils import OpenApiExample, OpenApiResponse, extend_schema
 from rest_framework import mixins, permissions, serializers, status, viewsets
 from rest_framework.decorators import action
 from rest_framework.response import Response
@@ -15,7 +15,14 @@ from .serializers import (
     SimulatedPaymentSerializer,
     StatusChangeSerializer,
 )
-from .services import OrderError, cancel_by_customer, change_status, place_order, simulate_payment
+from .services import (
+    MAX_COPIES_PER_EDITION,
+    OrderError,
+    cancel_by_customer,
+    change_status,
+    place_order,
+    simulate_payment,
+)
 
 
 class IsOrderManager(permissions.BasePermission):
@@ -41,11 +48,61 @@ class OrderViewSet(
         queryset = Order.objects.prefetch_related("items", "history__changed_by").select_related(
             "promo_code"
         )
-        if self.request.user.has_perm("orders.view_order"):
+        if self.action not in {"cancel", "pay"} and self.request.user.has_perm("orders.view_order"):
             return queryset
         return queryset.filter(user=self.request.user)
 
-    @extend_schema(request=CheckoutSerializer, responses={201: OrderSerializer})
+    @extend_schema(
+        description=(
+            f"Оформляет текущую корзину. Лимит — {MAX_COPIES_PER_EDITION} экземпляров "
+            "одного издания суммарно по всем его вариантам. Остатки и цены проверяются на сервере."
+        ),
+        request=CheckoutSerializer,
+        responses={
+            201: OrderSerializer,
+            400: OpenApiResponse(
+                response={
+                    "oneOf": [
+                        {
+                            "type": "object",
+                            "required": ["detail"],
+                            "properties": {"detail": {"type": "string"}},
+                        },
+                        {
+                            "type": "object",
+                            "additionalProperties": {"type": "array", "items": {"type": "string"}},
+                        },
+                    ],
+                },
+                description="Ошибка оформления в detail или список ошибок по имени поля.",
+                examples=[
+                    OpenApiExample(
+                        "Превышен лимит экземпляров",
+                        value={
+                            "detail": "«Чистый код»: в одном заказе можно купить не больше "
+                            f"{MAX_COPIES_PER_EDITION} экземпляров издания с учётом всех "
+                            "вариантов. В корзине 6."
+                        },
+                        status_codes=[400],
+                    ),
+                    OpenApiExample(
+                        "Остаток изменился",
+                        value={"detail": "Товара «Чистый код» осталось только 1 шт."},
+                        status_codes=[400],
+                    ),
+                    OpenApiExample(
+                        "Ошибка поля",
+                        value={
+                            "phone": [
+                                "Введите российский номер телефона, например +7 913 123-45-67."
+                            ]
+                        },
+                        status_codes=[400],
+                    ),
+                ],
+            ),
+        },
+    )
     def create(self, request):
         checkout = CheckoutSerializer(data=request.data)
         checkout.is_valid(raise_exception=True)
@@ -77,12 +134,11 @@ class OrderViewSet(
     )
     @action(detail=True, methods=["post"], url_path="simulate-payment")
     def pay(self, request, pk=None):
+        order = self.get_object()
         payment = SimulatedPaymentSerializer(data=request.data)
         payment.is_valid(raise_exception=True)
         try:
-            order = simulate_payment(
-                self.get_object(), request.user, payment.validated_data["outcome"]
-            )
+            order = simulate_payment(order, request.user, payment.validated_data["outcome"])
         except ValidationError as error:
             raise serializers.ValidationError({"detail": error.messages[0]}) from error
         except OrderError as error:
