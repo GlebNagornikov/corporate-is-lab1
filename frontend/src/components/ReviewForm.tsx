@@ -2,7 +2,7 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { useForm, useWatch } from 'react-hook-form'
 import { api, requireData } from '../api/client'
-import { productQuery } from '../api/queries'
+import { reviewEligibilityQuery } from '../api/queries'
 import { applyServerErrors } from '../lib/serverErrors'
 import { z } from '../lib/zod'
 
@@ -12,7 +12,7 @@ const schema = z.object({
   text: z.string().trim().min(1, 'Введите текст отзыва'),
 })
 
-export default function ReviewForm({ slug }: { slug: string }) {
+export default function ReviewForm({ slug, buyerId }: { slug: string; buyerId: number }) {
   const client = useQueryClient()
   const { register, control, handleSubmit, reset, setError, formState: { errors, isSubmitting } } =
     useForm<z.input<typeof schema>, unknown, z.output<typeof schema>>({
@@ -23,7 +23,7 @@ export default function ReviewForm({ slug }: { slug: string }) {
     mutationFn: async (body: z.output<typeof schema>) => requireData(await api.POST('/api/catalog/products/{slug}/reviews/', {
       params: { path: { slug } }, body,
     })),
-    onSuccess: () => client.invalidateQueries({ queryKey: productQuery(slug).queryKey }),
+    onSuccess: () => client.invalidateQueries({ queryKey: reviewEligibilityQuery(slug, buyerId).queryKey }),
   })
 
   async function submit(body: z.output<typeof schema>) {

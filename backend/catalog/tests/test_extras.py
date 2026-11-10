@@ -116,12 +116,20 @@ class RatingFilterTests(CatalogTestCase):
     def setUp(self):
         second = User.objects.create_user("second")
         third = User.objects.create_user("third")
-        Review.objects.create(product=self.laptop, author=self.user, rating=5, text="Good")
-        Review.objects.create(product=self.laptop, author=second, rating=3, text="OK")
         Review.objects.create(
-            product=self.laptop, author=third, rating=1, text="Hidden", is_published=False
+            product=self.laptop,
+            author=self.user,
+            rating=5,
+            text="Good",
+            status=Review.Status.APPROVED,
         )
-        Review.objects.create(product=self.book, author=self.user, rating=3, text="OK")
+        Review.objects.create(
+            product=self.laptop, author=second, rating=3, text="OK", status=Review.Status.APPROVED
+        )
+        Review.objects.create(product=self.laptop, author=third, rating=1, text="Hidden")
+        Review.objects.create(
+            product=self.book, author=self.user, rating=3, text="OK", status=Review.Status.APPROVED
+        )
 
     def test_storefront_filters_average_inclusively(self):
         response = self.client.get(reverse("catalog:product_list"), {"rating_min": "4"})

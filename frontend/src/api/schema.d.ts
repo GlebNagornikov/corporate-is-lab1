@@ -355,6 +355,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/catalog/products/{slug}/review-eligibility/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description Персональное право на отзыв и состояние собственного отзыва. */
+        get: operations["api_catalog_products_review_eligibility_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/catalog/products/{slug}/reviews/": {
         parameters: {
             query?: never;
@@ -362,16 +379,10 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /**
-         * @description Чтение публично; отзыв требует входа. Один отзыв на товар.
-         *     Лимиты: 60/600 в минуту (аноним/пользователь). Сессия требует CSRF.
-         */
+        /** @description Опубликованные отзывы об издании, от новых к старым, по 5 на страницу. */
         get: operations["api_catalog_products_reviews_list"];
         put?: never;
-        /**
-         * @description Чтение публично; отзыв требует входа. Один отзыв на товар.
-         *     Лимиты: 60/600 в минуту (аноним/пользователь). Сессия требует CSRF.
-         */
+        /** @description Принимает один отзыв от покупателя с доставленным заказом на издание. */
         post: operations["api_catalog_products_reviews_create"];
         delete?: never;
         options?: never;
@@ -625,6 +636,40 @@ export interface paths {
         put?: never;
         /** @description Меняет статус заказа по допустимым переходам. При отмене нужна причина. */
         post: operations["api_manager_orders_status_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/manager/reviews/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description Очередь отзывов на модерации, от старых к новым. */
+        get: operations["api_manager_reviews_list"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/manager/reviews/{id}/moderate/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Записывает решение по отзыву, который ещё ожидает модерации. */
+        post: operations["api_manager_reviews_moderate_create"];
         delete?: never;
         options?: never;
         head?: never;
@@ -891,6 +936,12 @@ export interface components {
             csrf_token: string;
         };
         /**
+         * @description * `approved` - approved
+         *     * `rejected` - rejected
+         * @enum {string}
+         */
+        DecisionEnum: "approved" | "rejected";
+        /**
          * @description * `pickup` - Самовывоз
          *     * `courier` - Курьер
          * @enum {string}
@@ -993,6 +1044,21 @@ export interface components {
         };
         ManagerGenreWriteRequest: {
             name: string;
+        };
+        ManagerReview: {
+            readonly id: number;
+            readonly author: string;
+            /** Оценка */
+            rating: number;
+            /** Отзыв */
+            text: string;
+            /**
+             * Дата
+             * Format: date-time
+             */
+            readonly created_at: string;
+            readonly product_name: string;
+            readonly product_slug: string;
         };
         Me: {
             readonly id: number;
@@ -1161,6 +1227,21 @@ export interface components {
             previous?: string | null;
             results: components["schemas"]["ManagerBook"][];
         };
+        PaginatedManagerReviewList: {
+            /** @example 123 */
+            count: number;
+            /**
+             * Format: uri
+             * @example http://api.example.org/accounts/?page=4
+             */
+            next?: string | null;
+            /**
+             * Format: uri
+             * @example http://api.example.org/accounts/?page=2
+             */
+            previous?: string | null;
+            results: components["schemas"]["ManagerReview"][];
+        };
         PaginatedOrderList: {
             /** @example 123 */
             count: number;
@@ -1201,6 +1282,21 @@ export interface components {
              * @example null
              */
             suggestion: string | null;
+        };
+        PaginatedReviewList: {
+            /** @example 123 */
+            count: number;
+            /**
+             * Format: uri
+             * @example http://api.example.org/accounts/?page=4
+             */
+            next?: string | null;
+            /**
+             * Format: uri
+             * @example http://api.example.org/accounts/?page=2
+             */
+            previous?: string | null;
+            results: components["schemas"]["Review"][];
         };
         PatchedDepartmentRequest: {
             name?: string;
@@ -1388,6 +1484,21 @@ export interface components {
              * Format: date-time
              */
             readonly created_at: string;
+        };
+        ReviewDecisionRequest: {
+            /**
+             * @description Одобрить (approved) или отклонить (rejected).
+             *
+             *     * `approved` - approved
+             *     * `rejected` - rejected
+             */
+            decision: components["schemas"]["DecisionEnum"];
+        };
+        ReviewEligibility: {
+            /** @description Можно ли текущему покупателю оставить отзыв. */
+            can_review: boolean;
+            /** @description Причина отказа или текущее состояние своего отзыва. */
+            message: string;
         };
         ReviewRequest: {
             /** Оценка */
@@ -1886,7 +1997,7 @@ export interface operations {
             };
         };
     };
-    api_catalog_products_reviews_list: {
+    api_catalog_products_review_eligibility_retrieve: {
         parameters: {
             query?: never;
             header?: never;
@@ -1902,7 +2013,45 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["Review"][];
+                    "application/json": components["schemas"]["ReviewEligibility"];
+                };
+            };
+            /** @description Требуется вход. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Издание не найдено. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    api_catalog_products_reviews_list: {
+        parameters: {
+            query?: {
+                /** @description A page number within the paginated result set. */
+                page?: number;
+            };
+            header?: never;
+            path: {
+                slug: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PaginatedReviewList"];
                 };
             };
         };
@@ -1931,6 +2080,20 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["Review"];
                 };
+            };
+            /** @description Неверные поля, нет доставленной покупки или дубль. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Требуется вход. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
         };
     };
@@ -2770,6 +2933,97 @@ export interface operations {
                 content?: never;
             };
             /** @description Заказ не найден. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    api_manager_reviews_list: {
+        parameters: {
+            query?: {
+                /** @description A page number within the paginated result set. */
+                page?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PaginatedManagerReviewList"];
+                };
+            };
+            /** @description Требуется Bearer-токен. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Недостаточно прав сотрудника. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    api_manager_reviews_moderate_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A unique integer value identifying this отзыв. */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReviewDecisionRequest"];
+                "application/x-www-form-urlencoded": components["schemas"]["ReviewDecisionRequest"];
+                "multipart/form-data": components["schemas"]["ReviewDecisionRequest"];
+            };
+        };
+        responses: {
+            /** @description No response body */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Неверное решение или отзыв уже обработан. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Требуется Bearer-токен. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Недостаточно прав сотрудника. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Отзыв не найден. */
             404: {
                 headers: {
                     [name: string]: unknown;

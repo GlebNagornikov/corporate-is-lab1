@@ -1,4 +1,4 @@
-import { queryOptions } from '@tanstack/react-query'
+import { infiniteQueryOptions, queryOptions } from '@tanstack/react-query'
 import type { ProductQuery } from '../lib/catalogParams'
 import { api, requireData } from './client'
 
@@ -31,6 +31,7 @@ export const editorialQuery = () => queryOptions({
 export const productQuery = (slug: string) =>
   queryOptions({
     queryKey: ['products', 'detail', slug],
+    refetchOnWindowFocus: 'always',
     queryFn: async ({ signal }) =>
       requireData(
         await api.GET('/api/catalog/products/{slug}/', {
@@ -41,11 +42,28 @@ export const productQuery = (slug: string) =>
   })
 
 export const reviewsQuery = (slug: string) =>
-  queryOptions({
+  infiniteQueryOptions({
     queryKey: ['products', 'detail', slug, 'reviews'],
-    queryFn: async ({ signal }) =>
+    staleTime: 0,
+    initialPageParam: 1,
+    queryFn: async ({ pageParam, signal }) =>
       requireData(
         await api.GET('/api/catalog/products/{slug}/reviews/', {
+          params: { path: { slug }, query: { page: pageParam } },
+          signal,
+        }),
+      ),
+    getNextPageParam: (lastPage, _, lastPageParam) => lastPage.next ? lastPageParam + 1 : undefined,
+  })
+
+export const reviewEligibilityQuery = (slug: string, buyerId: number | undefined) =>
+  queryOptions({
+    queryKey: ['review-eligibility', buyerId, slug],
+    enabled: buyerId !== undefined,
+    staleTime: 0,
+    queryFn: async ({ signal }) =>
+      requireData(
+        await api.GET('/api/catalog/products/{slug}/review-eligibility/', {
           params: { path: { slug } },
           signal,
         }),

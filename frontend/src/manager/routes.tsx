@@ -6,7 +6,7 @@ import RouteError from '../routes/RouteError'
 import { orderFilters } from './orderFilters'
 import {
   catalogFilters, managerBookQuery, managerBooksQuery, managerCategoriesQuery,
-  managerOrderQuery, managerOrdersQuery,
+  managerOrderQuery, managerOrdersQuery, managerReviewsQuery,
 } from './queries'
 
 export function routeId(value: string | undefined, message: string) {
@@ -85,8 +85,16 @@ export function managerRoutes(client: QueryClient): RouteObject {
           return null
         },
       })),
+      {
+        path: 'reviews',
+        lazy: async () => ({ Component: (await import('./ManagerReviewsPage')).default }),
+        loader: async ({ request }) => {
+          await requireManager(request, client)
+          void client.prefetchQuery(managerReviewsQuery())
+          return null
+        },
+      },
       ...[
-        ['reviews', 'Отзывы'],
         ['promos', 'Промокоды'],
         ['reports', 'Отчёты'],
       ].map(([path, title]): RouteObject => ({

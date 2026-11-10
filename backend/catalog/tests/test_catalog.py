@@ -92,9 +92,15 @@ class SearchAndFilterTests(CatalogTestCase):
 class ReviewTests(CatalogTestCase):
     def test_rating_counts_only_published_reviews(self):
         other = User.objects.create_user("other", password="pass12345")
-        Review.objects.create(product=self.laptop, author=self.user, rating=5, text="Отлично")
         Review.objects.create(
-            product=self.laptop, author=other, rating=1, text="Спам", is_published=False
+            product=self.laptop,
+            author=self.user,
+            rating=5,
+            text="Отлично",
+            status=Review.Status.APPROVED,
+        )
+        Review.objects.create(
+            product=self.laptop, author=other, rating=1, text="Спам", status=Review.Status.REJECTED
         )
         product = Product.objects.with_rating().get(pk=self.laptop.pk)
         self.assertEqual(product.rating, 5)
@@ -104,13 +110,6 @@ class ReviewTests(CatalogTestCase):
         url = reverse("catalog:review_create", args=[self.laptop.slug])
         response = self.client.post(url, {"rating": 5, "text": "Хорошо"})
         self.assertRedirects(response, f"{reverse('login')}?next={url}")
-
-    def test_one_review_per_author(self):
-        self.client.force_login(self.user)
-        url = reverse("catalog:review_create", args=[self.laptop.slug])
-        self.client.post(url, {"rating": 5, "text": "Первый"})
-        self.client.post(url, {"rating": 1, "text": "Второй"})
-        self.assertEqual(self.laptop.reviews.count(), 1)
 
 
 class ConstraintTests(CatalogTestCase):
@@ -130,13 +129,6 @@ class CatalogApiTests(CatalogTestCase):
         self.assertEqual(response.data["count"], 1)
         self.assertEqual(response.data["results"][0]["sku"], "BK-1")
         self.assertEqual(response.data["results"][0]["discount_percent"], 33)
-
-    def test_review_via_api_requires_auth(self):
-        url = f"/api/catalog/products/{self.laptop.slug}/reviews/"
-        self.assertEqual(self.api.post(url, {"rating": 4, "text": "ok"}).status_code, 401)
-        self.api.force_authenticate(self.user)
-        self.assertEqual(self.api.post(url, {"rating": 4, "text": "ok"}).status_code, 201)
-        self.assertEqual(self.api.post(url, {"rating": 4, "text": "ещё"}).status_code, 400)
 
     def test_category_total_includes_all_pages_and_only_visible_products(self):
         Product.objects.create(

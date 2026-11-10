@@ -205,7 +205,11 @@ variant_sku/variant_name/variant_price/variant_stock и attributes (JSON).
 |---|---|
 | POST /api/auth/token/; /api/auth/token/refresh/ | JWT access/refresh |
 | GET /api/catalog/categories/; /api/catalog/products/ | Каталог, фильтры и поиск; детали по slug |
-| GET/POST /api/catalog/products/<slug>/reviews/ | Отзывы; публикация требует входа |
+| GET /api/catalog/products/<slug>/reviews/?page=1 | Публичные одобренные отзывы по 5 на страницу |
+| POST /api/catalog/products/<slug>/reviews/ | Покупатель с доставленным заказом на книгу отправляет один отзыв на модерацию |
+| GET /api/catalog/products/<slug>/review-eligibility/ | Личное право на отзыв и состояние своего отзыва |
+| GET /api/manager/reviews/ | Очередь отзывов для сотрудника с правом просмотра |
+| POST /api/manager/reviews/<id>/moderate/ | Одобрение или отклонение отзыва сотрудником с правом изменения |
 | GET /api/cart/; POST /api/cart/items/ | Корзина; добавление product, variant, quantity |
 | PATCH/DELETE /api/cart/items/<product_id>/?variant=<id> | Изменить/удалить конкретный вариант |
 | GET/POST /api/orders/; GET /api/orders/<id>/ | Свои заказы / оформление; address_book — ID своего адреса |
@@ -393,6 +397,43 @@ ISBN-13 можно вводить с дефисами или пробелами.
 
 Для проверок с отдельной базой выполните `npm --prefix frontend run e2e -- manager-catalog.spec.ts orders.spec.ts`.
 Для API выполните `docker compose exec web python manage.py test catalog.tests.test_manager_api orders.tests.test_api --settings=config.settings.test`.
+
+### Приёмка М1 · Отзывы и рейтинг
+
+На учебной базе подготовьте каталог, доставленный заказ для `buyer_demo` и отзывы для модерации.
+Команда М1 печатает ссылку на заказ. При повторном запуске она сохраняет существующие заказы
+и решения по отзывам.
+
+```powershell
+docker compose up -d
+docker compose exec web python manage.py migrate
+docker compose exec web python manage.py seed_demo --password "DemoShop2026!"
+docker compose exec web python manage.py seed_review_demo
+```
+
+1. Гостем откройте [«Войну миров»](http://127.0.0.1:5173/products/war-of-worlds-1898).
+   На чистом наборе в списке пять одобренных отзывов. «Показать ещё» добавляет шестой.
+   После входа под новым покупателем без доставленной покупки карточка объясняет, когда станет
+   доступен отзыв.
+2. Войдите как [buyer_demo](http://127.0.0.1:5173/login?next=%2Forders) и откройте
+   доставленный заказ. Перейдите на карточку книги. Выберите оценку стрелками, перейдите
+   клавишей Tab к тексту и отправьте отзыв. Появится «Ваш отзыв ожидает модерации»,
+   публичные оценки и список останутся прежними.
+3. В другом профиле войдите как [manager_demo](http://127.0.0.1:5173/login?next=%2Fmanager%2Freviews).
+   В [очереди](http://127.0.0.1:5173/manager/reviews) одобрите отзыв покупателя и отклоните один
+   из отзывов «Демо М1». Обе строки сразу исчезнут. Обновите карточку в профиле покупателя.
+   Одобренный отзыв войдёт в список и среднюю оценку, отклонённый останется скрыт.
+4. В [Swagger](http://127.0.0.1:8000/api/docs/) получите токен покупателя через
+   `POST /api/auth/token/` и авторизуйтесь с этим access-токеном. Отправьте
+   `{"rating":5,"text":"Проверка"}` в `POST /api/catalog/products/{slug}/reviews/`
+   со значением `war-of-worlds-1898`. Без доставленной покупки или при повторе получите 400
+   с объяснением. `GET /api/manager/reviews/` с токеном покупателя вернёт 403, без токена — 401.
+   Выйдите и войдите другим покупателем. Карточка проверит право для нового аккаунта.
+
+Миграция `catalog.0011_review_status` переносит ранее опубликованные отзывы в одобренные,
+а ранее скрытые — в отклонённые. Рейтинг учитывает только одобренные отзывы.
+Для автоматической проверки используйте `npm --prefix frontend run e2e -- reviews.spec.ts`
+на тестовом стенде с каталогом и менеджером из `seed_demo`.
 
 ## Витрина и проверка КТ2
 

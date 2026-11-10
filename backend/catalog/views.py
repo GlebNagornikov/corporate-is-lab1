@@ -11,6 +11,7 @@ from django.views.generic import DetailView, ListView
 from .filters import ProductFilter
 from .forms import ReviewForm
 from .models import Category, Product, Review
+from .reviews import ReviewError, create_review, review_block_reason
 
 
 def redirect_after_action(request, fallback):
@@ -102,11 +103,10 @@ class ProductDetailView(DetailView):
         context["can_buy"] = context["sale_item"].stock > 0 and (
             self.variant is not None or not self.has_variants
         )
-        user = self.request.user
-        context["reviews"] = self.object.reviews.filter(is_published=True).select_related("author")
-        context["can_review"] = (
-            user.is_authenticated and not self.object.reviews.filter(author=user).exists()
-        )
+        context["reviews"] = self.object.reviews.filter(
+            status=Review.Status.APPROVED
+        ).select_related("author")
+        context["can_review"] = not review_block_reason(self.object, self.request.user)
         context["review_form"] = ReviewForm()
         return context
 
@@ -114,15 +114,14 @@ class ProductDetailView(DetailView):
 class ReviewCreateView(LoginRequiredMixin, View):
     def post(self, request, slug):
         product = get_object_or_404(Product.objects.active(), slug=slug)
-        if Review.objects.filter(product=product, author=request.user).exists():
-            messages.error(request, "Вы уже оставили отзыв на этот товар.")
-            return redirect(product)
         form = ReviewForm(request.POST)
         if form.is_valid():
-            form.instance.product = product
-            form.instance.author = request.user
-            form.save()
-            messages.success(request, "Спасибо за отзыв!")
+            try:
+                create_review(product=product, author=request.user, **form.cleaned_data)
+            except ReviewError as error:
+                messages.error(request, str(error))
+            else:
+                messages.success(request, "Ваш отзыв ожидает модерации.")
         else:
             messages.error(request, "Отзыв не сохранён: проверьте оценку и текст.")
         return redirect(product)

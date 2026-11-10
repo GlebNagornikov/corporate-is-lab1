@@ -14,7 +14,7 @@ export async function createBuyer(request: APIRequestContext): Promise<Credentia
   return { username, password }
 }
 
-async function submitLogin(page: Page, { username, password }: Credentials) {
+export async function submitLogin(page: Page, { username, password }: Credentials) {
   await page.getByLabel('Имя пользователя').fill(username)
   await page.getByLabel('Пароль', { exact: true }).fill(password)
   const [response] = await Promise.all([

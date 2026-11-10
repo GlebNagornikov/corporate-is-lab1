@@ -39,6 +39,11 @@ export const managerCategoriesQuery = () => queryOptions({
   queryFn: async ({ signal }) => requireData(await api.GET('/api/manager/categories/', { signal })),
 })
 
+export const managerReviewsQuery = () => queryOptions({
+  queryKey: ['manager', 'reviews'],
+  queryFn: async ({ signal }) => requireData(await api.GET('/api/manager/reviews/', { signal })),
+})
+
 export const managerOrdersQuery = (query: ReturnType<typeof orderFilters>) => queryOptions({
   queryKey: ['manager', 'orders', 'list', query],
   queryFn: async ({ signal }) => requireData(await api.GET('/api/manager/orders/', {

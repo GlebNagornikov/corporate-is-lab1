@@ -56,7 +56,7 @@ class ProductQuerySet(models.QuerySet):
         return self.filter(is_active=True)
 
     def with_rating(self):
-        published = Q(reviews__is_published=True)
+        published = Q(reviews__status=Review.Status.APPROVED)
         return self.annotate(
             rating=Avg("reviews__rating", filter=published),
             reviews_count=Count("reviews", filter=published),
@@ -278,6 +278,11 @@ class ProductImage(models.Model):
 
 
 class Review(models.Model):
+    class Status(models.TextChoices):
+        PENDING = "pending", "На модерации"
+        APPROVED = "approved", "Одобрен"
+        REJECTED = "rejected", "Отклонён"
+
     product = models.ForeignKey(
         Product, on_delete=models.CASCADE, related_name="reviews", verbose_name="Товар"
     )
@@ -291,11 +296,13 @@ class Review(models.Model):
         "Оценка", validators=[MinValueValidator(1), MaxValueValidator(5)]
     )
     text = models.TextField("Отзыв")
-    is_published = models.BooleanField("Опубликован", default=True)
+    status = models.CharField(
+        "Состояние", max_length=8, choices=Status.choices, default=Status.PENDING, db_index=True
+    )
     created_at = models.DateTimeField("Дата", auto_now_add=True)
 
     class Meta:
-        ordering = ["-created_at"]
+        ordering = ["-created_at", "-pk"]
         verbose_name = "отзыв"
         verbose_name_plural = "отзывы"
         constraints = [

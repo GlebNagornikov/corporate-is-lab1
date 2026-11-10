@@ -6,6 +6,7 @@ from rest_framework.routers import SimpleRouter
 from rest_framework_simplejwt.views import TokenRefreshView
 
 from catalog.manager_api import ManagerBookViewSet, ManagerCategoryViewSet
+from catalog.manager_review_api import ManagerReviewViewSet
 from config.api_docs import ShopSchemaView, ShopSwaggerView, ShopTokenView
 from config.health import healthz
 from orders.api import ManagerOrderViewSet
@@ -14,6 +15,7 @@ manager_router = SimpleRouter()
 manager_router.register("orders", ManagerOrderViewSet, basename="manager-order")
 manager_router.register("catalog", ManagerBookViewSet, basename="manager-book")
 manager_router.register("categories", ManagerCategoryViewSet, basename="manager-category")
+manager_router.register("reviews", ManagerReviewViewSet, basename="manager-review")
 
 urlpatterns = [
     path("api/schema/", ShopSchemaView.as_view(), name="api-schema"),

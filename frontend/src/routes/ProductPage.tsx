@@ -1,7 +1,7 @@
-import { useSuspenseQuery } from '@tanstack/react-query'
+import { useQuery, useSuspenseQuery } from '@tanstack/react-query'
 import { lazy, Suspense, useState } from 'react'
 import { useParams } from 'react-router'
-import { productQuery } from '../api/queries'
+import { productQuery, reviewEligibilityQuery } from '../api/queries'
 import { useSession } from '../auth/useSession'
 import AddToCartButton from '../components/AddToCartButton'
 import ProductBreadcrumbs from '../components/ProductBreadcrumbs'
@@ -33,6 +33,7 @@ export default function ProductPage() {
   const { slug } = useParams<'slug'>()
   const { data: product } = useSuspenseQuery(productQuery(slug!))
   const { data: me } = useSession()
+  const eligibility = useQuery(reviewEligibilityQuery(product.slug, me?.id))
   usePageTitle(product.name)
   const photos = [
     { image: product.image ?? '/no-image.svg', alt_text: `Обложка: ${product.name}` },
@@ -80,9 +81,14 @@ export default function ProductPage() {
       </div>
       <h2>Отзывы ({product.reviews_count})</h2>
       {product.rating !== null && <p className="muted">Средняя оценка: {product.rating} из 5</p>}
-      {me && (
+      {me && eligibility.isError && <p className="error" role="alert">Не удалось проверить право на отзыв.{' '}
+        <button type="button" className="secondary" onClick={() => void eligibility.refetch()}>Повторить</button>
+      </p>}
+      {me && eligibility.isSuccess && (
         <Suspense fallback={<p className="muted" role="status">Загрузка формы отзыва…</p>}>
-          <ReviewForm key={product.id} slug={product.slug} />
+          {eligibility.data.can_review
+            ? <ReviewForm key={`${me.id}:${product.id}`} slug={product.slug} buyerId={me.id} />
+            : <p className="muted" role="status">{eligibility.data.message}</p>}
         </Suspense>
       )}
       <Reviews slug={product.slug} />

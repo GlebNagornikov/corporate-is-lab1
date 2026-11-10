@@ -1,8 +1,9 @@
-from django.db import IntegrityError, transaction
 from django.db.models import Case, Exists, OuterRef, Value, When
 from django.urls import path
+from django.utils.decorators import method_decorator
+from django.views.decorators.cache import never_cache
 from django_filters.rest_framework import DjangoFilterBackend
-from drf_spectacular.utils import extend_schema, extend_schema_view
+from drf_spectacular.utils import OpenApiResponse, extend_schema, extend_schema_view
 from rest_framework import generics, permissions, serializers, status, viewsets
 from rest_framework.decorators import action
 from rest_framework.response import Response
@@ -10,11 +11,13 @@ from rest_framework.routers import DefaultRouter
 
 from .filters import ProductFilter
 from .models import Category, Product, Review
-from .pagination import ProductPagination
+from .pagination import ProductPagination, ReviewPagination
+from .reviews import ReviewError, create_review, review_block_reason
 from .serializers import (
     CategorySerializer,
     ProductDetailSerializer,
     ProductSerializer,
+    ReviewEligibilitySerializer,
     ReviewSerializer,
 )
 
@@ -93,30 +96,65 @@ class ProductViewSet(viewsets.ReadOnlyModelViewSet):
             return ProductDetailSerializer
         return super().get_serializer_class()
 
-    @extend_schema(methods=["GET"], responses=ReviewSerializer(many=True), filters=False)
-    @extend_schema(methods=["POST"], request=ReviewSerializer, responses={201: ReviewSerializer})
+    @extend_schema(
+        methods=["GET"],
+        description="Опубликованные отзывы об издании, от новых к старым, по 5 на страницу.",
+        responses=ReviewSerializer(many=True),
+    )
+    @extend_schema(
+        methods=["POST"],
+        description="Принимает один отзыв от покупателя с доставленным заказом на издание.",
+        request=ReviewSerializer,
+        responses={
+            201: ReviewSerializer,
+            400: OpenApiResponse(description="Неверные поля, нет доставленной покупки или дубль."),
+            401: OpenApiResponse(description="Требуется вход."),
+        },
+    )
     @action(
         detail=True,
         methods=["get", "post"],
         permission_classes=[permissions.IsAuthenticatedOrReadOnly],
-        pagination_class=None,
+        pagination_class=ReviewPagination,
+        filter_backends=[],
     )
     def reviews(self, request, slug=None):
         product = self.get_object()
         if request.method == "GET":
-            reviews = product.reviews.filter(is_published=True).select_related("author")
-            return Response(ReviewSerializer(reviews, many=True).data)
+            reviews = product.reviews.filter(status=Review.Status.APPROVED).select_related("author")
+            page = self.paginate_queryset(reviews)
+            return self.get_paginated_response(ReviewSerializer(page, many=True).data)
 
         serializer = ReviewSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         try:
-            with transaction.atomic():
-                serializer.save(product=product, author=request.user)
-        except IntegrityError as error:
-            if not Review.objects.filter(product=product, author=request.user).exists():
-                raise
-            raise serializers.ValidationError("Вы уже оставили отзыв на этот товар.") from error
-        return Response(serializer.data, status=status.HTTP_201_CREATED)
+            review = create_review(
+                product=product, author=request.user, **serializer.validated_data
+            )
+        except ReviewError as error:
+            raise serializers.ValidationError({"detail": str(error)}) from error
+        return Response(ReviewSerializer(review).data, status=status.HTTP_201_CREATED)
+
+    @extend_schema(
+        description="Персональное право на отзыв и состояние собственного отзыва.",
+        responses={
+            200: ReviewEligibilitySerializer,
+            401: OpenApiResponse(description="Требуется вход."),
+            404: OpenApiResponse(description="Издание не найдено."),
+        },
+    )
+    @action(
+        detail=True,
+        url_path="review-eligibility",
+        permission_classes=[permissions.IsAuthenticated],
+        filter_backends=[],
+        pagination_class=None,
+    )
+    @method_decorator(never_cache)
+    def review_eligibility(self, request, slug=None):
+        reason = review_block_reason(self.get_object(), request.user)
+        result = ReviewEligibilitySerializer({"can_review": not reason, "message": reason})
+        return Response(result.data)
 
 
 router = DefaultRouter()
