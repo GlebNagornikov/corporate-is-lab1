@@ -70,8 +70,11 @@ test('покупатель получает статусы из другого �
       await retryStarted
       await manager.getByRole('combobox', { name: 'Статус', exact: true }).selectOption('confirmed')
       await row.getByRole('button', { name: 'Передать в доставку' }).click()
+      const shipped = manager.waitForResponse((response) =>
+        response.url().endsWith(`/api/manager/orders/${id}/status/`),
+      )
       await dialog.getByRole('button', { name: 'Подтвердить действие' }).click()
-      await expect(row).toHaveCount(0)
+      expect((await shipped).status()).toBe(200)
       await expect(status).toHaveText('Подтверждён')
     } finally {
       resume()
