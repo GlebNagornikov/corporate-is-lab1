@@ -52,6 +52,18 @@ test('промокод переживает перезагрузку и вход
     await page.reload()
     await expect(page.getByText(/^Скидка /)).toBeVisible()
 
+    await remove.click()
+    await remove.click()
+    await expect(page.getByText('Корзина пуста.', { exact: false })).toBeVisible()
+    await expect(page.getByLabel('Промокод', { exact: true })).toHaveCount(0)
+    await page.goto(`/products/${book.slug}`)
+    await page.getByRole('button', { name: 'В корзину', exact: true }).click()
+    await page.getByRole('link', { name: /Корзина: 1 шт\./ }).click()
+    await expect(page.getByText('Код ' + code, { exact: false })).toHaveCount(0)
+    await add.click()
+    await apply()
+    await expect(page.getByText(/^Скидка /)).toBeVisible()
+
     await loginAs(page, buyer, '/cart')
     await page.reload()
     await expect(page.getByText(/^Скидка /)).toBeVisible()

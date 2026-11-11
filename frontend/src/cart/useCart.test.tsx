@@ -38,7 +38,8 @@ test('гостевая корзина обновляет подписчиков 
 
   act(() => result.current.setQuantity(product.id, 0))
   expect(result.current).toMatchObject({ items: [], count: 0, total: '0.00' })
-  expect(result.current.promo_code).toBe('BOOK10')
+  expect(result.current.promo_code).toBe('')
+  expect(JSON.parse(localStorage.getItem('shop-guest-cart') ?? '{}').promo_code).toBe('')
 })
 
 test.each([0, 2])('показывает количество %i сразу и откатывает ошибку сервера', async (quantity) => {
@@ -83,7 +84,7 @@ test.each([0, 2])('показывает количество %i сразу и о
     act(() => result.current.setQuantity(1, quantity))
     const total = quantity === 0 ? '0.00' : '25.00'
     await waitFor(() => expect(result.current).toMatchObject({
-      count: quantity, total, promo_code: 'BOOK10', promo_quote: null,
+      count: quantity, total, promo_code: quantity === 0 ? '' : 'BOOK10', promo_quote: null,
     }))
     if (quantity === 0) expect(result.current.items).toEqual([])
     else expect(result.current.items[0].total).toBe(total)

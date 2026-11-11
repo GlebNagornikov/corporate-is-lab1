@@ -39,7 +39,10 @@ test('гость выбирает вариант, меняет количест�
     name: 'Рубашка',
     variants: [{ id: 4, name: 'Размер M', sku: 'M', price: '25.50', stock: 2, is_default: false }],
   })
-  server.use(http.get('*/api/catalog/products/', () => HttpResponse.json(makePage([product]))))
+  server.use(
+    http.get('*/api/catalog/products/', () => HttpResponse.json(makePage([product]))),
+    http.get(`*/api/catalog/products/${product.slug}/`, () => HttpResponse.json(product)),
+  )
   const { router } = renderShop('/')
   const user = userEvent.setup()
 
@@ -47,7 +50,7 @@ test('гость выбирает вариант, меняет количест�
   expect(add).toBeDisabled()
   await user.selectOptions(screen.getByLabelText('Вариант товара'), '4')
   await user.click(add)
-  await user.click(screen.getByRole('link', { name: /Корзина: 1 шт./ }))
+  await user.click(await screen.findByRole('link', { name: /Корзина: 1 шт./ }))
   expect(await screen.findByRole('heading', { name: 'Корзина' })).toBeInTheDocument()
   expect(screen.getByText('Размер M')).toBeInTheDocument()
 

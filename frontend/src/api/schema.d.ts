@@ -749,6 +749,27 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/notifications/{id}/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Удалить своё уведомление
+         * @description JWT или сессия. Операция выполняется только над данными текущего покупателя.
+         *     Лимиты: 60/600 в минуту (аноним/пользователь). Сессия требует CSRF.
+         */
+        delete: operations["api_notifications_destroy"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/notifications/unread/": {
         parameters: {
             query?: never;
@@ -1030,7 +1051,7 @@ export interface components {
             count: number;
             /** Format: decimal */
             total: string;
-            promo_code: string;
+            readonly promo_code: string;
             readonly promo_quote: components["schemas"]["PromoQuote"] | null;
         };
         CartItem: {
@@ -3436,6 +3457,33 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["RestockNotification"][];
                 };
+            };
+        };
+    };
+    api_notifications_destroy: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No response body */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Уведомление не найдено. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
         };
     };

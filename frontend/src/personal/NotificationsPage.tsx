@@ -17,9 +17,12 @@ function Notifications({ userId }: { userId: number }) {
   const client = useQueryClient()
   const options = notificationsQuery(userId)
   const { data, isPending, isError, refetch } = useQuery(options)
-  const markRead = useMutation({
-    mutationFn: async (version: number) => {
-      const result = await api.POST('/api/notifications/unread/')
+  const change = useMutation({
+    mutationFn: async ({ version, id }: { version: number; id?: number }) => {
+      if (version !== tokens.version()) return
+      const result = id === undefined
+        ? await api.POST('/api/notifications/unread/')
+        : await api.DELETE('/api/notifications/{id}/', { params: { path: { id } } })
       if (!result.response.ok) throw toApiError(result.response, result.error)
       if (tokens.version() === version) {
         await Promise.all([
@@ -33,10 +36,13 @@ function Notifications({ userId }: { userId: number }) {
     <section className="personal-page">
       <h1>Уведомления</h1>
       {data?.some((item) => item.read_at === null) && (
-        <button className="secondary" type="button" disabled={markRead.isPending}
-          onClick={() => markRead.mutate(tokens.version())}>Прочитать всё</button>
+        <button className="secondary" type="button" disabled={change.isPending}
+          onClick={() => change.mutate({ version: tokens.version() })}>Прочитать всё</button>
       )}
-      {markRead.error && <p className="error" role="alert">Не удалось прочитать уведомления. {markRead.error.message}</p>}
+      {change.error && <p className="error" role="alert">
+        {change.variables?.id === undefined ? 'Не удалось прочитать уведомления.' : 'Не удалось удалить уведомление.'}
+        {' '}{change.error.message}
+      </p>}
       {isPending && <p role="status">Загружаем уведомления…</p>}
       {isError && <p className="error" role="alert">Не удалось загрузить уведомления.{' '}
         <button className="secondary" type="button" onClick={() => void refetch()}>Повторить</button>
@@ -54,6 +60,11 @@ function Notifications({ userId }: { userId: number }) {
             <div className="notification-meta">
               {item.read_at === null && <span className="badge">Новое</span>}
               <time className="muted" dateTime={item.notified_at}>{formatDate(item.notified_at)}</time>
+              <button className="secondary" type="button" disabled={change.isPending}
+                aria-label={`Удалить уведомление: ${item.product_name}`}
+                onClick={() => change.mutate({ version: tokens.version(), id: item.id })}>
+                {change.isPending && change.variables?.id === item.id ? 'Удаляем…' : 'Удалить'}
+              </button>
             </div>
           </li>
         ))}

@@ -4,6 +4,7 @@ from django.contrib.auth import get_user_model
 from django.contrib.auth.models import Group
 from django.core.management import call_command
 from django.db import transaction
+from django.utils import timezone
 from rest_framework.test import APITestCase
 
 from catalog.models import BookEdition, Category, Product, ProductVariant, RestockNotification
@@ -99,3 +100,19 @@ class RestockAPITests(APITestCase):
         self.assertEqual(self.client.patch(url, {"stock": 1}).status_code, 200)
         self.client.force_authenticate(self.buyer)
         self.assertEqual(self.client.get(UNREAD).data, {"unread_count": 2})
+
+    def test_deleting_notification_requires_owner_and_keeps_pending_subscription(self):
+        delivered = RestockNotification.objects.create(
+            user=self.buyer, product=self.product, notified_at=timezone.now()
+        )
+        pending = RestockNotification.objects.create(user=self.buyer, product=self.product)
+        url = f"{NOTIFICATIONS}{delivered.pk}/"
+        self.assertEqual(self.client.delete(url).status_code, 401)
+        self.client.force_authenticate(self.other)
+        self.assertEqual(self.client.delete(url).status_code, 404)
+        self.client.force_authenticate(self.buyer)
+        self.assertEqual(self.client.delete(f"{NOTIFICATIONS}{pending.pk}/").status_code, 404)
+        self.assertEqual(self.client.delete(url).status_code, 204)
+        self.assertEqual(self.client.get(UNREAD).data, {"unread_count": 0})
+        self.assertEqual(self.client.get(NOTIFICATIONS).data, [])
+        self.assertEqual(self.client.get(self.subscription_url).data, {"subscribed": True})

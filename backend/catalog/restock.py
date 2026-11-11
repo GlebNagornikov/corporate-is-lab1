@@ -112,6 +112,19 @@ class NotificationsAPI(APIView):
         )
 
 
+class NotificationDetailAPI(APIView):
+    @extend_schema(
+        request=None,
+        responses={204: None, 404: OpenApiResponse(description="Уведомление не найдено.")},
+        summary="Удалить своё уведомление",
+    )
+    def delete(self, request, pk):
+        deleted, _ = personal_notifications(request.user).filter(pk=pk).delete()
+        if not deleted:
+            raise NotFound("Уведомление не найдено.")
+        return Response(status=204)
+
+
 class UnreadNotificationsAPI(APIView):
     @extend_schema(responses=UnreadCountSerializer, summary="Число непрочитанных уведомлений")
     def get(self, request):
@@ -130,4 +143,5 @@ urlpatterns = [
     path("api/restock/<int:pk>/", RestockSubscriptionAPI.as_view()),
     path("api/notifications/", NotificationsAPI.as_view()),
     path("api/notifications/unread/", UnreadNotificationsAPI.as_view()),
+    path("api/notifications/<int:pk>/", NotificationDetailAPI.as_view()),
 ]

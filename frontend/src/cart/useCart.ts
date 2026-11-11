@@ -66,6 +66,11 @@ export function useCart(): CartState {
       return { previous, optimistic }
     },
     onError: (_error, change, context) => {
+      if (change.version === tokens.version() && change.type === 'add') {
+        void client.invalidateQueries({
+          predicate: ({ queryKey }) => queryKey[0] === 'products' && queryKey.length <= 3,
+        })
+      }
       if (change.version === tokens.version() && context &&
           client.getQueryData(queryKey) === context.optimistic) {
         client.setQueryData(queryKey, context.previous)

@@ -38,7 +38,7 @@ function read(): CartItem[] {
         items?: unknown; promo_code?: unknown
       } | null
       cache = Array.isArray(cart?.items) ? cart.items.flatMap(storedItem) : []
-      promoCode = typeof cart?.promo_code === 'string' ? cart.promo_code : ''
+      promoCode = cache.length && typeof cart?.promo_code === 'string' ? cart.promo_code : ''
     } catch {
       cache = []
     }
@@ -47,6 +47,7 @@ function read(): CartItem[] {
 }
 
 function write(items: CartItem[], code = promoCode) {
+  if (items.length === 0) code = ''
   localStorage.setItem(KEY, JSON.stringify({ items, promo_code: code }))
   cache = items
   promoCode = code
@@ -62,7 +63,7 @@ export function summarizeCart(items: CartItem[], code = '') {
     items,
     count: items.reduce((sum, item) => sum + item.quantity, 0),
     total: items.reduce((sum, item) => sum + Number(item.total), 0).toFixed(2),
-    promo_code: code,
+    promo_code: items.length ? code : '',
     promo_quote: null,
   }
 }

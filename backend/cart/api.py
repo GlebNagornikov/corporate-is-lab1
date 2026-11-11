@@ -43,12 +43,15 @@ class CartSerializer(serializers.Serializer):
     items = CartItemSerializer(many=True)
     count = serializers.IntegerField()
     total = serializers.DecimalField(max_digits=12, decimal_places=2)
-    promo_code = serializers.CharField(allow_blank=True)
+    promo_code = serializers.SerializerMethodField()
     promo_quote = serializers.SerializerMethodField(allow_null=True)
+
+    def get_promo_code(self, cart) -> str:
+        return cart.promo_code if cart.count else ""
 
     @extend_schema_field(PromoQuoteSerializer(allow_null=True))
     def get_promo_quote(self, cart):
-        if cart.promo_code:
+        if cart.promo_code and cart.count:
             return PromoQuoteSerializer(quote_promo(cart.promo_code, cart.total)).data
         return None
 

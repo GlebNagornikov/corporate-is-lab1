@@ -89,7 +89,6 @@ export default function CartPage() {
       ) : !cart.error && (
         <div className="details state-panel">
           <p>Корзина пуста. <Link to="/catalog">В каталог</Link></p>
-          {cart.promo_code && <CartPromo cart={cart} isGuest={cart.isGuest} />}
         </div>
       )}
     </section>

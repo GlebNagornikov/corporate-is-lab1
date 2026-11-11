@@ -480,6 +480,27 @@ class OrderApiTests(APITestCase):
         )
         self.assertEqual(self.client.patch(url, {"quantity": 1}).status_code, 400)
 
+    def test_add_rejects_sold_out_book_and_variant(self):
+        self.client.force_authenticate(self.buyer)
+        self.book.stock = 0
+        self.book.save(update_fields=["stock"])
+        for with_variant in (False, True):
+            with self.subTest(with_variant=with_variant):
+                payload = {"product": self.book.pk}
+                if with_variant:
+                    variant = ProductVariant.objects.create(
+                        product=self.book,
+                        name="Склад",
+                        sku="SOLD-OUT",
+                        price=self.book.price,
+                        stock=0,
+                    )
+                    payload["variant"] = variant.pk
+                response = self.client.post("/api/cart/items/", payload)
+                self.assertEqual(response.status_code, 400)
+                self.assertIn("Книги больше нет в наличии.", response.data)
+                self.assertEqual(self.client.get("/api/cart/").data["items"], [])
+
     def test_cart_is_private_and_zero_quantity_removes_item(self):
         self.client.force_authenticate(self.buyer)
         self.client.post("/api/cart/items/", {"product": self.book.pk})

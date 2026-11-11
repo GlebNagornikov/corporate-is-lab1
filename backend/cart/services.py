@@ -31,12 +31,19 @@ def _item_rows(cart, product, variant):
     return cart.items.filter(variants, product=product)
 
 
+def _clear_empty_promo(cart):
+    if cart.promo_code and not cart.items.exists():
+        cart.promo_code = ""
+        cart.save(update_fields=["promo_code", "updated_at"])
+
+
 def _set_quantity(cart, product, quantity, variant):
     rows = _item_rows(cart, product, variant)
     stock = product.stock if variant.is_default else variant.stock
     quantity = min(quantity, stock)
     if quantity <= 0:
         rows.delete()
+        _clear_empty_promo(cart)
         return 0
     CartItem.objects.update_or_create(
         cart=cart, product=product, variant=variant, defaults={"quantity": quantity}
@@ -63,10 +70,21 @@ def set_quantity(cart, product, quantity, variant=None):
 
 @transaction.atomic
 def add_to_cart(cart, product, quantity=1, variant=None):
-    if not product.is_active:
-        raise ValidationError("Товар снят с продажи.")
     cart = Cart.objects.select_for_update().get(pk=cart.pk)
-    return _add_quantity(cart, product, quantity, choose_variant(product, variant))
+    product = Product.objects.select_for_update().filter(pk=product.pk, is_active=True).first()
+    if product is None:
+        raise ValidationError("Товар снят с продажи.")
+    if variant is not None:
+        variant = ProductVariant.objects.filter(
+            pk=variant.pk, product=product, is_active=True
+        ).first()
+        if variant is None:
+            raise ValidationError("Этот вариант больше недоступен.")
+    variant = choose_variant(product, variant)
+    if (product.stock if variant.is_default else variant.stock) <= 0:
+        raise ValidationError("Книги больше нет в наличии.")
+    _clear_empty_promo(cart)
+    return _add_quantity(cart, product, quantity, variant)
 
 
 @transaction.atomic
@@ -76,6 +94,7 @@ def remove_from_cart(cart, product_id, variant_id=None):
     if variant_id is not None:
         rows = rows.filter(variant_id=variant_id)
     rows.delete()
+    _clear_empty_promo(cart)
 
 
 @transaction.atomic
@@ -83,6 +102,7 @@ def merge_guest_items(user, lines, promo_code=""):
     """Переносит доступные позиции гостевой корзины из SPA."""
     cart, _ = Cart.objects.get_or_create(user=user)
     cart = Cart.objects.select_for_update().get(pk=cart.pk)
+    _clear_empty_promo(cart)
     products = Product.objects.active().in_bulk({line["product"] for line in lines})
     variants = ProductVariant.objects.filter(is_active=True).in_bulk(
         {line["variant"] for line in lines if "variant" in line}
@@ -100,7 +120,7 @@ def merge_guest_items(user, lines, promo_code=""):
         stock = product.stock if variant.is_default else variant.stock
         if variant.is_active and stock > 0:
             _add_quantity(cart, product, line["quantity"], variant)
-    if not cart.promo_code and promo_code:
+    if not cart.promo_code and promo_code and cart.items.exists():
         cart.promo_code = promo_code
         cart.save(update_fields=["promo_code", "updated_at"])
     return cart
@@ -108,10 +128,12 @@ def merge_guest_items(user, lines, promo_code=""):
 
 @transaction.atomic
 def set_cart_promo(cart, code):
-    from orders.services import get_valid_promo
+    from orders.services import OrderError, get_valid_promo
 
     cart = Cart.objects.select_for_update().get(pk=cart.pk)
     if code:
+        if not cart.items.exists():
+            raise OrderError("Добавьте книгу в корзину, чтобы применить промокод.")
         get_valid_promo(code, subtotal=cart.total)
     cart.promo_code = code
     cart.save(update_fields=["promo_code", "updated_at"])
@@ -122,7 +144,7 @@ def set_cart_promo(cart, code):
 def merge_carts(source, target):
     """Переносит товары гостя пользователю и удаляет гостевую корзину."""
     skipped = []
-    for item in source.items.select_related("product", "variant"):
+    for item in source.items.select_related("product", "variant").order_by("product_id", "pk"):
         if (
             not item.product.is_active
             or item.available_stock <= 0

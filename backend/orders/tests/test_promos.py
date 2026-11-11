@@ -12,7 +12,7 @@ from django.utils import timezone
 from rest_framework.test import APIClient, APITestCase, APITransactionTestCase
 
 from cart.models import Cart
-from cart.services import add_to_cart
+from cart.services import add_to_cart, set_cart_promo
 from catalog.models import Category, Product
 from orders.models import Order, PromoCode
 
@@ -118,6 +118,30 @@ class PromoApiTests(APITestCase):
         self.assert_rejected_order("исчерпан", promo_code="BOOK10")
         self.assertEqual(self.promo.used_count, 1)
 
+    def test_removing_last_line_clears_promo_from_saved_cart(self):
+        self.client.force_authenticate(self.buyer)
+        self.assertEqual(self.select("BOOK10").status_code, 400)
+        empty = self.client.post(
+            "/api/cart/merge/", {"items": [], "promo_code": "BOOK10"}, format="json"
+        )
+        self.assertEqual(empty.status_code, 200, empty.data)
+        self.assertEqual(empty.data["promo_code"], "")
+        url = f"/api/cart/items/{self.book.pk}/"
+        for method in ("patch", "delete"):
+            with self.subTest(method=method):
+                self.add(2)
+                self.assertEqual(self.select("BOOK10").status_code, 200)
+                response = (
+                    self.client.patch(url, {"quantity": 0})
+                    if method == "patch"
+                    else self.client.delete(url)
+                )
+                self.assertEqual(response.status_code, 200)
+                self.assertEqual(response.data["items"], [])
+                self.assertEqual(response.data["promo_code"], "")
+                self.assertIsNone(response.data["promo_quote"])
+                self.assertEqual(Cart.objects.get(user=self.buyer).promo_code, "")
+
     def test_cart_merge_prefers_server_code_and_can_remove_it(self):
         self.client.force_authenticate(self.buyer)
         body = {
@@ -172,8 +196,9 @@ class ConcurrentPromoTests(APITransactionTestCase):
         for index in range(2):
             user = User.objects.create_user(f"buyer{index}")
             book = make_book(category, f"edition-{index}")
-            cart = Cart.objects.create(user=user, promo_code=promo.code)
+            cart = Cart.objects.create(user=user)
             add_to_cart(cart, book, 2)
+            set_cart_promo(cart, promo.code)
             carts.append((cart, book))
         ready = Barrier(2, timeout=10)
 
