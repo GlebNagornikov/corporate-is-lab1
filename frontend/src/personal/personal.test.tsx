@@ -99,11 +99,12 @@ test('счётчик обновляется каждые 30 секунд и пр
 })
 
 test('выход удаляет счётчик и избранное из кэша пользователя', async () => {
+  server.use(http.get('*/api/wishlist/', () => HttpResponse.json([entry])))
   const { client } = renderPersonal(<FavoriteButton entry={entry} />)
-  client.setQueryData(wishlistQuery(buyer.id).queryKey, [entry])
+  expect(await screen.findByRole('button', { name: 'Избранное: Книга', pressed: true })).toBeVisible()
   client.setQueryData(unreadQuery(buyer.id).queryKey, { unread_count: 2 })
   await act(async () => logout(client))
+  expect(await screen.findByRole('link', { name: 'В избранное: Книга' })).toBeVisible()
   expect(client.getQueryData(wishlistQuery(buyer.id).queryKey)).toBeUndefined()
   expect(client.getQueryData(unreadQuery(buyer.id).queryKey)).toBeUndefined()
-  expect(await screen.findByRole('link', { name: 'В избранное: Книга' })).toBeVisible()
 })
