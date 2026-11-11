@@ -196,13 +196,22 @@ def change_status(order, new_status, *, by, comment="", payment_verified=False):
             f"в «{Order.Status(new_status).label}»."
         )
     if new_status == Order.Status.CANCELLED:
-        for item in order.items.all():
+        items = list(order.items.all())
+        products = {
+            product.pk: product
+            for product in Product.objects.select_for_update()
+            .filter(pk__in=[item.product_id for item in items])
+            .order_by("pk")
+        }
+        for item in items:
             if item.variant_id:
                 ProductVariant.objects.filter(pk=item.variant_id).update(
                     stock=F("stock") + item.quantity
                 )
             if not item.variant or item.variant.is_default:
-                Product.objects.filter(pk=item.product_id).update(stock=F("stock") + item.quantity)
+                product = products[item.product_id]
+                product.stock += item.quantity
+                product.save(update_fields=["stock"])
             else:
                 refresh_inventory(item.product_id)
     old_status = order.status

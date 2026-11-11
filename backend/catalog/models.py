@@ -149,6 +149,10 @@ class Product(models.Model):
     def __str__(self):
         return self.name
 
+    @transaction.atomic
+    def save(self, *args, **kwargs):
+        super().save(*args, **kwargs)
+
     def get_absolute_url(self):
         return reverse("catalog:product_detail", args=[self.slug])
 
@@ -211,6 +215,26 @@ class StockSubscription(models.Model):
 
     def __str__(self):
         return f"{self.product}: {self.email}"
+
+
+class RestockNotification(models.Model):
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
+    product = models.ForeignKey(Product, on_delete=models.CASCADE)
+    notified_at = models.DateTimeField(null=True)
+    read_at = models.DateTimeField(null=True)
+
+    class Meta:
+        indexes = [models.Index(fields=["user", "notified_at"])]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["user", "product"],
+                condition=Q(notified_at__isnull=True),
+                name="unique_pending_personal_restock",
+            ),
+        ]
+
+    def __str__(self):
+        return f"{self.product_id}: {self.user_id}"
 
 
 class WishlistItem(models.Model):

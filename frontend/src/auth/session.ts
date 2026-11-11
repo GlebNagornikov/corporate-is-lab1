@@ -30,6 +30,7 @@ function resetUserData(cancelProfile: boolean, client = queryClient) {
   client.removeQueries({ queryKey: ['orders'] })
   client.removeQueries({ queryKey: ['manager'] })
   client.removeQueries({ queryKey: ['review-eligibility'] })
+  client.removeQueries({ queryKey: ['personal'] })
 }
 
 // При истечении токена запрос профиля сам завершится с null.

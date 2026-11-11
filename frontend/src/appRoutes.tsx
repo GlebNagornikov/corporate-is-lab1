@@ -8,6 +8,7 @@ import CartPage from './cart/CartPage'
 import { cartQuery } from './cart/queries'
 import { parseCatalogParams } from './lib/catalogParams'
 import { managerRoutes } from './manager/routes'
+import { notificationsQuery, wishlistQuery } from './personal/queries'
 import CatalogPage from './routes/CatalogPage'
 import NotFoundPage from './routes/NotFoundPage'
 import ProductPage from './routes/ProductPage'
@@ -71,6 +72,24 @@ export function createAppRoutes(queryClient: QueryClient): RouteObject[] {
         {
           Component: SessionOutlet,
           children: [
+            {
+              path: 'wishlist',
+              lazy: async () => ({ Component: (await import('./personal/WishlistPage')).default }),
+              loader: async ({ request }) => {
+                const me = await requireUser(request, queryClient)
+                void queryClient.prefetchQuery(wishlistQuery(me.id))
+                return null
+              },
+            },
+            {
+              path: 'notifications',
+              lazy: async () => ({ Component: (await import('./personal/NotificationsPage')).default }),
+              loader: async ({ request }) => {
+                const me = await requireUser(request, queryClient)
+                void queryClient.prefetchQuery(notificationsQuery(me.id))
+                return null
+              },
+            },
             {
               path: 'checkout',
               shouldRevalidate: ({ actionResult, defaultShouldRevalidate }) =>

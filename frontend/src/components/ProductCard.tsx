@@ -3,6 +3,8 @@ import { Link } from 'react-router'
 import type { Product } from '../api/client'
 import { productQuery } from '../api/queries'
 import { formatPrice } from '../lib/format'
+import FavoriteButton from '../personal/FavoriteButton'
+import { favoriteEntry } from '../personal/queries'
 import AddToCartButton from './AddToCartButton'
 
 export default function ProductCard({ product, eager = false }: { product: Product; eager?: boolean }) {
@@ -35,6 +37,7 @@ export default function ProductCard({ product, eager = false }: { product: Produ
         <p className="muted">★ {product.rating} ({product.reviews_count})</p>
       )}
       <AddToCartButton product={product} />
+      <FavoriteButton entry={favoriteEntry(product)} />
     </article>
   )
 }

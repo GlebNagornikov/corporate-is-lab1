@@ -9,12 +9,14 @@ from django.core.mail import send_mail
 from django.core.validators import validate_email
 from django.db import IntegrityError, transaction
 from django.db.models import Min, Sum
+from django.utils import timezone
 
 from .models import (
     BOOKS_ROOT_SLUG,
     Category,
     Product,
     ProductVariant,
+    RestockNotification,
     StockSubscription,
     WishlistItem,
 )
@@ -57,13 +59,14 @@ def choose_variant(product, variant=None):
     )[0]
 
 
+@transaction.atomic
 def refresh_inventory(product_id):
+    product = Product.objects.select_for_update().get(pk=product_id)
     variants = ProductVariant.objects.filter(
         product_id=product_id, is_default=False, is_active=True
     )
     if ProductVariant.objects.filter(product_id=product_id, is_default=False).exists():
         values = variants.aggregate(n=Sum("stock"), price=Min("price"))
-        product = Product.objects.get(pk=product_id)
         product.stock = values["n"] or 0
         product.price = values["price"] or product.price
         if product.old_price is not None and product.old_price <= product.price:
@@ -135,6 +138,23 @@ def subscribe(product, email):
         product=product, email=email, defaults={"completed": False}
     )
     return subscription
+
+
+@transaction.atomic
+def subscribe_personally(product_id, user):
+    product = Product.objects.select_for_update().filter(pk=product_id, is_active=True).first()
+    if product is None:
+        raise Product.DoesNotExist
+    if product.in_stock:
+        raise ValidationError("Подписка доступна только для отсутствующего товара.")
+    RestockNotification.objects.get_or_create(user=user, product=product, notified_at=None)
+
+
+def record_restock(product_id):
+    RestockNotification.objects.filter(product_id=product_id, notified_at=None).update(
+        notified_at=timezone.now()
+    )
+    queue_restock(product_id)
 
 
 def deliver_restock(product_id):

@@ -3,20 +3,27 @@ from django.dispatch import receiver
 
 from .caching import invalidate_catalog
 from .models import BookEdition, Category, Product, ProductImage, ProductVariant, Review
-from .restock import queue_restock
+from .services import record_restock
 
 
 @receiver(pre_save, sender=Product)
 def stock_before(sender, instance, **kwargs):
+    # Product.save keeps the stock check and notification in the same transaction.
+    update_fields = kwargs.get("update_fields")
     instance._previous_stock = (
-        Product.objects.filter(pk=instance.pk).values_list("stock", flat=True).first()
+        Product.objects.select_for_update()
+        .filter(pk=instance.pk)
+        .values_list("stock", flat=True)
+        .first()
+        if instance.pk and (update_fields is None or "stock" in update_fields)
+        else None
     )
 
 
 @receiver(post_save, sender=Product)
 def stock_after(sender, instance, **kwargs):
-    if getattr(instance, "_previous_stock", None) == 0 and instance.stock > 0:
-        queue_restock(instance.pk)
+    if getattr(instance, "_previous_stock", None) == 0 and instance.in_stock:
+        record_restock(instance.pk)
 
 
 @receiver(post_save, sender=ProductVariant)

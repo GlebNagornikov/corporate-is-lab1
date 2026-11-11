@@ -728,6 +728,53 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/notifications/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Мои уведомления
+         * @description JWT или сессия. Операция выполняется только над данными текущего покупателя.
+         *     Лимиты: 60/600 в минуту (аноним/пользователь). Сессия требует CSRF.
+         */
+        get: operations["api_notifications_list"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/notifications/unread/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Число непрочитанных уведомлений
+         * @description JWT или сессия. Операция выполняется только над данными текущего покупателя.
+         *     Лимиты: 60/600 в минуту (аноним/пользователь). Сессия требует CSRF.
+         */
+        get: operations["api_notifications_unread_retrieve"];
+        put?: never;
+        /**
+         * Прочитать все свои уведомления
+         * @description JWT или сессия. Операция выполняется только над данными текущего покупателя.
+         *     Лимиты: 60/600 в минуту (аноним/пользователь). Сессия требует CSRF.
+         */
+        post: operations["api_notifications_unread_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/orders/": {
         parameters: {
             query?: never;
@@ -834,6 +881,32 @@ export interface paths {
         put?: never;
         /** @description Проверяет код без списания использования. Гость передаёт предварительную сумму книг в subtotal. Для покупателя сумма читается из его корзины. Причина неприменимости возвращается в reason. */
         post: operations["api_promo_check_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/restock/{id}/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Проверить личную подписку
+         * @description JWT или сессия. Операция выполняется только над данными текущего покупателя.
+         *     Лимиты: 60/600 в минуту (аноним/пользователь). Сессия требует CSRF.
+         */
+        get: operations["api_restock_retrieve"];
+        put?: never;
+        /**
+         * Подписаться на поступление издания
+         * @description JWT или сессия. Операция выполняется только над данными текущего покупателя.
+         *     Лимиты: 60/600 в минуту (аноним/пользователь). Сессия требует CSRF.
+         */
+        post: operations["api_restock_create"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1043,11 +1116,11 @@ export interface components {
             hired_at: string;
             department: number;
         };
-        FavoriteInput: {
-            product: number;
-        };
         FavoriteInputRequest: {
             product: number;
+        };
+        FavoriteResult: {
+            product_id: number;
         };
         ManagerBook: {
             readonly id: number;
@@ -1621,6 +1694,19 @@ export interface components {
             email: string;
             password: string;
         };
+        RestockNotification: {
+            readonly id: number;
+            product_name: string;
+            product_slug: string;
+            product_is_active: boolean;
+            /** Format: date-time */
+            notified_at: string;
+            /** Format: date-time */
+            read_at: string | null;
+        };
+        RestockSubscription: {
+            subscribed: boolean;
+        };
         Review: {
             readonly id: number;
             readonly author: string;
@@ -1676,6 +1762,9 @@ export interface components {
         TokenRefreshRequest: {
             refresh: string;
         };
+        UnreadCount: {
+            unread_count: number;
+        };
         Variant: {
             readonly id: number;
             /** Вариант */
@@ -1696,6 +1785,7 @@ export interface components {
         WishlistEntry: {
             product_id: number;
             product__name: string;
+            product__slug: string;
             product__is_active: boolean;
         };
     };
@@ -3330,6 +3420,62 @@ export interface operations {
             };
         };
     };
+    api_notifications_list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RestockNotification"][];
+                };
+            };
+        };
+    };
+    api_notifications_unread_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UnreadCount"];
+                };
+            };
+        };
+    };
+    api_notifications_unread_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No response body */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
     api_orders_list: {
         parameters: {
             query?: {
@@ -3559,6 +3705,62 @@ export interface operations {
             };
         };
     };
+    api_restock_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RestockSubscription"];
+                };
+            };
+        };
+    };
+    api_restock_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RestockSubscription"];
+                };
+            };
+            /** @description Издание уже есть в наличии. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Издание не найдено в каталоге. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
     api_wishlist_list: {
         parameters: {
             query?: never;
@@ -3593,12 +3795,12 @@ export interface operations {
             };
         };
         responses: {
-            200: {
+            201: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["FavoriteInput"];
+                    "application/json": components["schemas"]["FavoriteResult"];
                 };
             };
         };

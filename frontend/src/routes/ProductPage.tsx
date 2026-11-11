@@ -6,9 +6,11 @@ import { useSession } from '../auth/useSession'
 import AddToCartButton from '../components/AddToCartButton'
 import ProductBreadcrumbs from '../components/ProductBreadcrumbs'
 import Reviews from '../components/Reviews'
-import StoreIcon from '../components/StoreIcon'
 import { formatPrice } from '../lib/format'
 import { usePageTitle } from '../lib/usePageTitle'
+import FavoriteButton from '../personal/FavoriteButton'
+import RestockButton from '../personal/RestockButton'
+import { favoriteEntry } from '../personal/queries'
 
 const ReviewForm = lazy(() => import('../components/ReviewForm'))
 
@@ -59,7 +61,10 @@ export default function ProductPage() {
             {product.in_stock ? `В наличии: ${product.stock} шт.` : 'Нет в наличии'}
           </p>
           <AddToCartButton key={product.id} product={product} />
-          <span className="planned" title="Избранное появится позже"><StoreIcon name="heart" />Избранное</span>
+          <div className="product-personal-actions">
+            {!product.in_stock && <RestockButton productId={product.id} />}
+            <FavoriteButton entry={favoriteEntry(product)} />
+          </div>
         </div>
       </div>
       <div className="product-notes">

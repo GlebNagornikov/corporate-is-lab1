@@ -9,6 +9,7 @@ import { useCartSnapshot } from '../cart/useCartSnapshot'
 import StoreIcon from '../components/StoreIcon'
 import { formatPrice } from '../lib/format'
 import { useTheme } from '../lib/useTheme'
+import NotificationsLink from '../personal/NotificationsLink'
 
 export default function RootLayout() {
   return <SessionProvider><CartProvider><Storefront /></CartProvider></SessionProvider>
@@ -42,7 +43,7 @@ function Storefront() {
         <Link to="/" className="brand">Книжная полка</Link>
         <nav className="nav" aria-label="Основное меню">
           <NavLink to="/catalog">Каталог</NavLink>
-          <span className="planned" title="Избранное появится позже"><StoreIcon name="heart" />Избранное</span>
+          <NavLink to="/wishlist" className="nav-icon"><StoreIcon name="heart" />Избранное</NavLink>
           <NavLink to="/cart" className="nav-icon">
             <StoreIcon name="bag" />Корзина{cart.count > 0 && `: ${cart.count} шт. на ${formatPrice(cart.total)}`}
           </NavLink>
@@ -51,7 +52,7 @@ function Storefront() {
               {me.is_manager
                 ? <NavLink to="/manager/orders">Заказы магазина</NavLink>
                 : <NavLink to="/orders" title={me.username}>Мои заказы</NavLink>}
-              <span className="planned" title="Уведомления появятся позже"><StoreIcon name="bell" />Уведомления</span>
+              <NotificationsLink key={me.id} userId={me.id} />
               <button type="button" className="secondary" disabled={signOut.isPending} onClick={() => signOut.mutate()}>
                 {signOut.isPending ? 'Выходим…' : 'Выйти'}
               </button>

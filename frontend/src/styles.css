@@ -92,9 +92,8 @@ p, dl { margin: 0 0 1rem; }
 .header > .nav { margin-left: auto; }
 .nav a { padding-block: .35rem; color: var(--text); font-weight: 700; text-decoration: none; }
 .nav a:hover, .nav [aria-current='page'] { text-decoration: underline; }
-.nav-icon, .planned { display: inline-flex; align-items: center; gap: .3rem; }
-.planned { color: var(--muted); font-size: .875rem; }
-.planned svg, .nav-icon svg { color: var(--accent); flex: none; }
+.nav-icon { display: inline-flex; align-items: center; gap: .3rem; }
+.nav-icon svg { color: var(--accent); flex: none; }
 .theme-picker { display: inline-flex; align-items: center; gap: .35rem; color: var(--muted); font-size: .78rem; }
 .theme-picker select { min-height: 2rem; padding: .22rem .4rem; font-size: .78rem; }
 .progress { position: absolute; z-index: 1; top: 100%; right: 0; padding: .25rem .6rem; background: var(--surface); color: var(--accent); font-size: .78rem; }
@@ -346,7 +345,32 @@ button.manager-delete { background: var(--danger-bg); border-color: var(--danger
 .product-purchase h1 { letter-spacing: -.03em; }
 .product-purchase .price { font-size: 1.85rem; }
 .product-purchase .cart-add button { width: min(100%, 21rem); }
-.product-purchase .planned { margin-top: .85rem; }
+.product-personal-actions { display: grid; gap: .55rem; margin-top: .8rem; }
+.favorite-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: .35rem;
+}
+.favorite-button svg { flex: none; }
+.favorite-button[aria-pressed="true"] svg { fill: currentColor; }
+.card > .favorite-control, .card > a.favorite-button { margin-top: .35rem; }
+.card .favorite-button { font-size: .83rem; padding-inline: .45rem; }
+.card > a.favorite-button { justify-content: flex-start; min-height: 2.5rem; }
+.favorite-control .error { margin-top: .3rem; }
+.personal-page { max-width: 48rem; }
+.personal-list { list-style: none; padding: 0; margin-block: 1rem; }
+.personal-list li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: .65rem 1rem;
+  border-bottom: 1px solid var(--line);
+  padding: .85rem 0;
+}
+.personal-list p { margin: 0 0 .2rem; }
+.notification-meta { display: flex; flex-wrap: wrap; align-items: center; gap: .5rem; }
 .product-notes { display: grid; grid-template-columns: minmax(0, 1fr) minmax(15rem, .65fr); gap: clamp(1rem, 4vw, 3rem); border-top: 1px solid var(--line); padding-block: 1.45rem; }
 .specs { display: grid; grid-template-columns: minmax(6.5rem, auto) 1fr; }
 .specs dt, .specs dd { margin: 0; padding: .45rem .5rem .45rem 0; border-top: 1px solid var(--line); }
@@ -392,7 +416,7 @@ button.manager-delete { background: var(--danger-bg); border-color: var(--danger
 @media (max-width: 25rem) {
   .header { gap: .55rem .4rem; }
   .header .nav { gap: .25rem .65rem; }
-  .nav a, .nav .planned { font-size: .78rem; }
+  .nav a { font-size: .78rem; }
   .brand { font-size: 1.28rem; }
   .theme-picker { gap: .2rem; }
   .theme-picker select { max-width: 6.45rem; }
