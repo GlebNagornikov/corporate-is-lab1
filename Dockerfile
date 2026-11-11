@@ -19,7 +19,7 @@ USER app
 WORKDIR /app/backend
 
 EXPOSE 8000
-CMD ["python", "manage.py", "runserver", "0.0.0.0:8000"]
+CMD ["gunicorn", "config.asgi:application", "-c", "/app/docker/gunicorn.conf.py", "--reload"]
 
 FROM base AS builder
 RUN python -m venv /opt/venv
@@ -38,4 +38,4 @@ USER app
 WORKDIR /app/backend
 EXPOSE 8000
 ENTRYPOINT ["/app/docker/entrypoint.sh"]
-CMD ["gunicorn", "config.wsgi:application", "-c", "/app/docker/gunicorn.conf.py"]
+CMD ["gunicorn", "config.asgi:application", "-c", "/app/docker/gunicorn.conf.py"]

@@ -891,6 +891,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/orders/{id}/events/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description Поток SSE доступен владельцу заказа по Bearer-токену. Событие order-changed при подключении и после изменения статуса предлагает заново прочитать карточку. */
+        get: operations["api_orders_events_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/orders/{id}/simulate-payment/": {
         parameters: {
             query?: never;
@@ -3799,6 +3816,49 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["Order"];
                 };
+            };
+        };
+    };
+    api_orders_events_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A unique integer value identifying this заказ. */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "text/event-stream": string;
+                };
+            };
+            /** @description Требуется действующий access-токен. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Заказ не найден. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Поток требует запуска Django под ASGI. */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
         };
     };

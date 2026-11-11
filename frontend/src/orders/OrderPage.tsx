@@ -7,6 +7,7 @@ import { formatDate, formatPrice } from '../lib/format'
 import { statusLabels } from '../lib/statuses'
 import { usePageTitle } from '../lib/usePageTitle'
 import { managerOrderQuery } from '../manager/queries'
+import { useOrderEvents } from './useOrderEvents'
 
 export default function OrderPage({ manager = false }: { manager?: boolean }) {
   const id = Number(useParams<'orderId'>().orderId)
@@ -17,6 +18,7 @@ export default function OrderPage({ manager = false }: { manager?: boolean }) {
   const client = useQueryClient()
   const query = manager ? managerOrderQuery(id) : orderQuery(id)
   const { data: order } = useSuspenseQuery(query)
+  useOrderEvents(id, !manager)
   function updateOrder(updated: Order, version: number) {
     if (version !== tokens.version()) return
     client.setQueryData(query.queryKey, updated)

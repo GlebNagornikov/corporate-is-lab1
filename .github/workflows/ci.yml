@@ -1,0 +1,81 @@
+name: CI
+
+on: [push]
+
+permissions:
+  contents: read
+
+jobs:
+  django:
+    name: Django
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: shop
+          POSTGRES_PASSWORD: ci-database
+          POSTGRES_DB: shop
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U shop -d shop"
+          --health-interval 5s --health-timeout 3s --health-retries 10
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s --health-timeout 3s --health-retries 10
+    defaults:
+      run:
+        working-directory: backend
+    env:
+      DJANGO_SETTINGS_MODULE: config.settings.test
+      SECRET_KEY: ci-only-django-key-for-tests-and-schema-validation
+      DATABASE_URL: postgres://shop:ci-database@localhost:5432/shop
+      ORDER_EVENTS_REDIS_URL: redis://localhost:6379/0
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+          cache: pip
+          cache-dependency-path: backend/requirements/*.txt
+      - name: Install dependencies
+        run: python -m pip install -r requirements/dev.txt
+      - name: Django system check
+        run: python manage.py check
+      - name: Check for missing migrations
+        run: python manage.py makemigrations --check --dry-run
+      - name: Django tests
+        run: python manage.py test
+      - name: Validate OpenAPI
+        run: python manage.py spectacular --validate --fail-on-warn --file "$RUNNER_TEMP/openapi.yaml"
+
+  frontend:
+    name: React
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - name: Install dependencies
+        run: npm ci
+      - name: Typecheck
+        run: npm run typecheck
+      - name: Lint
+        run: npm run lint
+      - name: Vitest
+        run: npm test
+      - name: Build
+        run: npm run build

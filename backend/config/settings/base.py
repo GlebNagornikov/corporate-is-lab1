@@ -91,6 +91,7 @@ TEMPLATES = [
 
 
 WSGI_APPLICATION = "config.wsgi.application"
+ASGI_APPLICATION = "config.asgi.application"
 
 
 # Database
@@ -99,7 +100,7 @@ WSGI_APPLICATION = "config.wsgi.application"
 DATABASES = {
     "default": env.db("DATABASE_URL"),
 }
-DATABASES["default"]["CONN_MAX_AGE"] = env.int("DB_CONN_MAX_AGE", default=60)
+DATABASES["default"]["CONN_MAX_AGE"] = env.int("DB_CONN_MAX_AGE", default=0)
 
 
 # Password validation
@@ -164,6 +165,7 @@ REST_FRAMEWORK = {
 SIMPLE_JWT = {
     "ACCESS_TOKEN_LIFETIME": timedelta(minutes=env.int("JWT_ACCESS_MINUTES", default=15)),
     "REFRESH_TOKEN_LIFETIME": timedelta(days=env.int("JWT_REFRESH_DAYS", default=7)),
+    "CHECK_REVOKE_TOKEN": True,
 }
 
 # Email
@@ -211,6 +213,7 @@ MEDIA_URL = "media/"
 MEDIA_ROOT = BASE_DIR / "media"
 SITE_URL = env("SITE_URL", default="https://localhost").rstrip("/")
 PAYMENT_WEBHOOK_SECRET = env("PAYMENT_WEBHOOK_SECRET", default=SECRET_KEY)
+ORDER_EVENTS_REDIS_URL = env("ORDER_EVENTS_REDIS_URL", default="redis://redis:6379/0")
 CACHES = {
     "default": {
         "BACKEND": "catalog.cache_backend.ResilientRedisCache",

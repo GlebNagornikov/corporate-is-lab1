@@ -15,6 +15,7 @@ from catalog.caching import invalidate_catalog
 from catalog.inventory import refresh_inventory
 from catalog.models import Product, ProductVariant
 
+from .events import publish_order_change
 from .models import Order, OrderItem, OrderStatusLog, Payment, PromoCode
 from .tasks import queue_order_email
 
@@ -222,6 +223,7 @@ def change_status(order, new_status, *, by, comment="", payment_verified=False):
     OrderStatusLog.objects.create(
         order=order, from_status=old_status, to_status=new_status, changed_by=by, comment=comment
     )
+    transaction.on_commit(lambda: publish_order_change(order.pk), robust=True)
     queue_order_email(order, "status")
     logger.info(
         "Заказ №%s: %s → %s (%s)",

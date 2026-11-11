@@ -1,15 +1,20 @@
 from django.core.exceptions import ValidationError
+from django.core.handlers.asgi import ASGIRequest
+from django.http import Http404, StreamingHttpResponse
+from django.shortcuts import get_object_or_404
 from django_filters.rest_framework import DjangoFilterBackend
 from drf_spectacular.utils import OpenApiExample, OpenApiResponse, extend_schema, extend_schema_view
 from rest_framework import mixins, permissions, serializers, status, viewsets
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.routers import SimpleRouter
+from rest_framework_simplejwt.authentication import JWTAuthentication
 
 from accounts.manager_permissions import IsShopManager
 from cart.services import get_cart
 from config.api_docs import MANAGER_ACCESS_ERRORS
 
+from .events import order_events
 from .models import Order
 from .serializers import (
     CheckoutSerializer,
@@ -95,6 +100,31 @@ class OrderViewSet(
         if self.action not in {"cancel", "pay"} and self.request.user.has_perm("orders.view_order"):
             return queryset
         return queryset.filter(user=self.request.user)
+
+    @extend_schema(
+        description=(
+            "Поток SSE доступен владельцу заказа по Bearer-токену. Событие order-changed "
+            "при подключении и после изменения статуса предлагает заново прочитать карточку."
+        ),
+        responses={
+            (200, "text/event-stream"): {"type": "string"},
+            401: OpenApiResponse(description="Требуется действующий access-токен."),
+            404: ORDER_NOT_FOUND,
+            503: OpenApiResponse(description="Поток требует запуска Django под ASGI."),
+        },
+    )
+    @action(detail=True, authentication_classes=[JWTAuthentication], url_path="events")
+    def events(self, request, pk=None):
+        if not pk or not pk.isdecimal():
+            raise Http404
+        order = get_object_or_404(Order.objects.only("pk"), pk=pk, user_id=request.user.pk)
+        if not isinstance(request._request, ASGIRequest):
+            return Response({"detail": "Поток доступен под ASGI."}, status=503)
+        return StreamingHttpResponse(
+            order_events(order.pk, request.user.pk, request.user.password, request.auth["exp"]),
+            content_type="text/event-stream",
+            headers={"Cache-Control": "no-store", "X-Accel-Buffering": "no"},
+        )
 
     @extend_schema(
         description=(

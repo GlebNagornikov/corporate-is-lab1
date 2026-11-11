@@ -508,6 +508,43 @@ JavaScript страницы отчёта весит 3,85 кБ (1,71 кБ gzip), 
 docker compose exec web python manage.py test orders.tests.test_reporting --settings=config.settings.test
 ```
 
+## Живые статусы заказов и CI
+
+`GET /api/orders/{id}/events/` открывает SSE-поток для владельца заказа с действующим
+Bearer-токеном. Без токена ответ 401, с чужим токеном 404, в том числе для сотрудника.
+После коммита смены статуса Django публикует событие в общем Redis. При первом подключении,
+переподключении и событии изменения React запрашивает актуальные карточку и историю через
+TanStack Query. Соединение закрывается при уходе со страницы, выходе или истечении access.
+При переподключении общий API-клиент обновляет истёкший access через существующую сессию.
+После первого развёртывания этой версии потребуется снова войти с токенами, выпущенными
+до включения проверки смены пароля.
+
+Оба Compose-стенда запускают Django под Gunicorn с ASGI-воркерами. Redis для событий
+настраивается через `ORDER_EVENTS_REDIS_URL`. На HTTPS nginx отключает буферизацию для
+потока. Для обычного локального `runserver` API потока вернёт 503.
+
+1. В одном профиле браузера оформите и оплатите заказ. Оставьте его карточку открытой.
+2. В другом профиле войдите сотрудником и подтвердите тот же заказ. В профиле покупателя
+   статус и история обновятся без перезагрузки. В Network остаётся открытым запрос
+   `/api/orders/{id}/events/` с типом `text/event-stream`.
+3. Временно отключите сеть в профиле покупателя и снова измените статус из профиля сотрудника.
+   После восстановления сети проверьте новый статус. При выходе запрос потока закрывается.
+
+После запуска dev или HTTPS и загрузки демоданных сценарий можно повторить в Playwright.
+
+```powershell
+docker compose exec web python manage.py test orders.tests.test_events --settings=config.settings.test
+npm --prefix frontend run e2e -- order-events.spec.ts
+$env:E2E_BASE_URL = 'https://localhost'
+npm --prefix frontend run e2e -- order-events.spec.ts
+Remove-Item Env:E2E_BASE_URL
+```
+
+GitHub Actions запускает CI при каждом push. Задача **Django** поднимает PostgreSQL 16 и
+Redis, проверяет настройки, миграции, тесты и OpenAPI. Задача **React** проверяет типы,
+линт, Vitest и сборку. Результаты обеих задач и журналы шагов доступны на вкладке
+[Actions](https://github.com/GlebNagornikov/corporate-is-lab1/actions/workflows/ci.yml).
+
 ## Витрина и проверка КТ2
 
 Главная открывается на `/`, каталог — на `/catalog`. Ссылки с фильтрами на `/` продолжают

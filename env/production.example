@@ -9,6 +9,7 @@ POSTGRES_USER=shop
 POSTGRES_PASSWORD=change-me
 
 GUNICORN_WORKERS=3
+DB_CONN_MAX_AGE=0
 LOG_LEVEL=INFO
 
 # Отдельный секрет HMAC платёжного webhook; заменить случайным значением
@@ -17,5 +18,6 @@ PAYMENT_WEBHOOK_SECRET=change-me-payment-secret
 REDIS_CACHE_URL=redis://redis:6379/1
 CELERY_BROKER_URL=redis://redis:6379/0
 REDIS_THROTTLE_URL=redis://redis:6379/2
+ORDER_EVENTS_REDIS_URL=redis://redis:6379/0
 
 SITE_URL=https://localhost
