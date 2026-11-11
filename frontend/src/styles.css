@@ -222,6 +222,7 @@ button:disabled { cursor: not-allowed; opacity: .65; }
   overflow-wrap: anywhere;
 }
 .narrow { max-width: 35rem; }
+.order-detail { max-width: 48rem; }
 .auth-form, .state-panel { max-width: 35rem; margin: clamp(0rem, 3vw, 2rem) auto 0; }
 .state-panel { text-align: center; }
 .load-error { border-color: var(--danger); background: var(--danger-bg); }
@@ -265,7 +266,6 @@ button:disabled { cursor: not-allowed; opacity: .65; }
 .manager-editor > .form { margin-top: 1rem; }
 .manager-import > .manager-toolbar { margin-bottom: 1.5rem; }
 .manager-import code { font: inherit; }
-.manager-order-detail { max-width: 42rem; }
 .form .manager-fields {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(min(100%, 16rem), 1fr));
@@ -313,13 +313,14 @@ button.manager-delete { background: var(--danger-bg); border-color: var(--danger
 }
 .table { width: 100%; border-collapse: collapse; text-align: left; }
 .table th, .table td { padding: .55rem .45rem; border-bottom: 1px solid var(--line); vertical-align: middle; overflow-wrap: anywhere; }
-.table th.order-quantity { white-space: nowrap; }
+.table th.order-quantity, .table .order-amount { white-space: nowrap; }
 .table th { font-size: .85rem; }
 .qty, .actions { display: flex; align-items: center; flex-wrap: wrap; gap: .35rem; }
 .qty { flex-wrap: nowrap; }
 .qty button, .actions button { min-height: 2rem; padding: .2rem .52rem; }
 .order-totals { display: grid; grid-template-columns: 1fr auto; gap: .38rem 1rem; }
 .order-totals dd { margin: 0; text-align: right; }
+.order-amounts dd { white-space: nowrap; }
 .order-payment { margin-bottom: .75rem; padding: .75rem; border: 1px solid var(--line); }
 .order-payment summary { color: var(--accent); font-weight: 700; cursor: pointer; }
 .price { color: var(--accent); font: 600 1.35rem/1.4 var(--display); }

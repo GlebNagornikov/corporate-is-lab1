@@ -43,7 +43,7 @@ export default function OrderPage({ manager = false }: { manager?: boolean }) {
   const isUpdating = pay.isPending || cancel.isPending
 
   return (
-    <section className={manager ? 'details manager-order-detail' : 'details narrow'}>
+    <section className="details order-detail">
       {justPlaced && <p className="success" role="status">Заказ оформлен. Спасибо!</p>}
       <h1>Заказ №{order.id}</h1>
       <p>{formatDate(order.created_at)} · <strong>{order.status_display}</strong></p>
@@ -62,7 +62,7 @@ export default function OrderPage({ manager = false }: { manager?: boolean }) {
             <tr>
               <th scope="col">Товар</th>
               <th scope="col" className="order-quantity">Количество</th>
-              <th scope="col">Сумма</th>
+              <th scope="col" className="order-amount">Сумма</th>
             </tr>
           </thead>
           <tbody>
@@ -73,13 +73,13 @@ export default function OrderPage({ manager = false }: { manager?: boolean }) {
                   {item.variant_name && <small className="line-variant muted">{item.variant_name}</small>}
                 </td>
                 <td>{item.quantity} шт.</td>
-                <td>{formatPrice(item.total)}</td>
+                <td className="order-amount">{formatPrice(item.total)}</td>
               </tr>
             ))}
           </tbody>
         </table>
       </div>
-      <dl className="order-totals">
+      <dl className="order-totals order-amounts">
         <dt>Товары</dt><dd>{formatPrice(order.subtotal)}</dd>
         {Number(order.discount) > 0 && (
           <>
