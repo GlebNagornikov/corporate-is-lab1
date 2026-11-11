@@ -46,6 +46,7 @@ export function useOrderEvents(id: number, enabled: boolean) {
       try {
         const { data, response } = await api.GET('/api/orders/{id}/events/', {
           params: { path: { id } },
+          headers: { Accept: 'text/event-stream' },
           parseAs: 'stream',
           signal,
         })

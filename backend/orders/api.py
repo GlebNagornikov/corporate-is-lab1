@@ -6,6 +6,8 @@ from django_filters.rest_framework import DjangoFilterBackend
 from drf_spectacular.utils import OpenApiExample, OpenApiResponse, extend_schema, extend_schema_view
 from rest_framework import mixins, permissions, serializers, status, viewsets
 from rest_framework.decorators import action
+from rest_framework.negotiation import DefaultContentNegotiation
+from rest_framework.renderers import JSONRenderer
 from rest_framework.response import Response
 from rest_framework.routers import SimpleRouter
 from rest_framework_simplejwt.authentication import JWTAuthentication
@@ -37,6 +39,12 @@ class IsOrderManager(IsShopManager):
 
 
 ORDER_NOT_FOUND = OpenApiResponse(description="Заказ не найден.")
+
+
+class OrderEventsNegotiation(DefaultContentNegotiation):
+    def select_renderer(self, request, renderers, format_suffix=None):
+        # Успешный ответ формируется как SSE, а ошибки DRF всегда возвращаются в JSON.
+        return renderers[0], renderers[0].media_type
 
 
 class OrderStatusMixin:
@@ -113,7 +121,13 @@ class OrderViewSet(
             503: OpenApiResponse(description="Поток требует запуска Django под ASGI."),
         },
     )
-    @action(detail=True, authentication_classes=[JWTAuthentication], url_path="events")
+    @action(
+        detail=True,
+        authentication_classes=[JWTAuthentication],
+        content_negotiation_class=OrderEventsNegotiation,
+        renderer_classes=[JSONRenderer],
+        url_path="events",
+    )
     def events(self, request, pk=None):
         if not pk or not pk.isdecimal():
             raise Http404

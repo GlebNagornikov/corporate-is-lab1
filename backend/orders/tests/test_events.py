@@ -31,7 +31,7 @@ class OrderEventsTests(TransactionTestCase):
 
     @patch("orders.events.HEARTBEAT_SECONDS", 0.1)
     async def test_stream_checks_bearer_and_owner_before_opening(self):
-        client = AsyncClient()
+        client = AsyncClient(headers={"Accept": "text/event-stream"})
         self.assertEqual((await client.get(self.url)).status_code, 401)
         other_auth = f"Bearer {AccessToken.for_user(self.other)}"
         response = await client.get(self.url, headers={"Authorization": other_auth})
