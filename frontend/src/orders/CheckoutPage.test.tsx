@@ -8,6 +8,7 @@ import { expect, test, vi } from 'vitest'
 import type { Cart, CartItem, Me } from '../api/client'
 import { createAppRoutes } from '../appRoutes'
 import { meQuery } from '../auth/session'
+import { summarizeCart } from '../cart/guestCart'
 import { cartQuery } from '../cart/queries'
 import { makeOrder } from '../test/fixtures'
 import { server } from '../test/server'
@@ -34,7 +35,7 @@ function renderStore(path: string) {
 }
 
 test('оформление показывает ошибки DRF, сохраняет поля и открывает созданный заказ после повтора', async () => {
-  const cart: Cart = { items: [{ ...book, quantity: 2, total: '1980.00' }], count: 2, total: '1980.00' }
+  const cart: Cart = summarizeCart([{ ...book, quantity: 2, total: '1980.00' }])
   let attempts = 0
   const checkout = vi.fn(async ({ request }: { request: Request }) => {
     attempts += 1
@@ -95,7 +96,7 @@ test('оформление показывает ошибки DRF, сохраня
   expect(await screen.findByText('Заказ оформлен. Спасибо!')).toBeInTheDocument()
   expect(screen.getByRole('cell', { name: 'Книга' })).toBeInTheDocument()
   expect(router.state.location.pathname).toBe('/orders/7')
-  expect(client.getQueryData(cartQuery().queryKey)).toEqual({ items: [], count: 0, total: '0.00' })
+  expect(client.getQueryData(cartQuery().queryKey)).toEqual(summarizeCart([]))
 })
 
 test('корзина и оформление суммируют варианты одного издания и разрешают заказ ровно пяти экземпляров', async () => {
@@ -103,12 +104,12 @@ test('корзина и оформление суммируют варианты
   const second = { ...first, variant_id: 2, variant_name: 'Вариант Б' }
   // Издание с тем же названием и другим ID учитывается отдельно.
   const other = { ...book, product_id: 2, slug: 'another-edition' }
-  let cart: Cart = { items: [first, second, other], count: 7, total: '6930.00' }
+  let cart: Cart = summarizeCart([first, second, other])
   const checkout = vi.fn(() => HttpResponse.json(makeOrder(), { status: 201 }))
   server.use(
     http.get('*/api/cart/', () => HttpResponse.json(cart)),
     http.patch('*/api/cart/items/1/', () => {
-      cart = { items: [first, { ...second, quantity: 2, total: '1980.00' }, other], count: 6, total: '5940.00' }
+      cart = summarizeCart([first, { ...second, quantity: 2, total: '1980.00' }, other])
       return HttpResponse.json(cart)
     }),
     http.post('*/api/orders/', checkout),

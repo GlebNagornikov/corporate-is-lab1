@@ -4,6 +4,7 @@ import type { CartItem, Product, Variant } from '../api/client'
 const KEY = 'shop-guest-cart'
 const listeners = new Set<() => void>()
 let cache: CartItem[] | undefined
+let promoCode = ''
 
 function storedItem(value: unknown): CartItem[] {
   if (!value || typeof value !== 'object') return []
@@ -33,7 +34,11 @@ function read(): CartItem[] {
   if (!cache) {
     try {
       const stored: unknown = JSON.parse(localStorage.getItem(KEY) ?? '[]')
-      cache = Array.isArray(stored) ? stored.flatMap(storedItem) : []
+      const cart = Array.isArray(stored) ? { items: stored } : stored as {
+        items?: unknown; promo_code?: unknown
+      } | null
+      cache = Array.isArray(cart?.items) ? cart.items.flatMap(storedItem) : []
+      promoCode = typeof cart?.promo_code === 'string' ? cart.promo_code : ''
     } catch {
       cache = []
     }
@@ -41,9 +46,10 @@ function read(): CartItem[] {
   return cache
 }
 
-function write(items: CartItem[]) {
-  localStorage.setItem(KEY, JSON.stringify(items))
+function write(items: CartItem[], code = promoCode) {
+  localStorage.setItem(KEY, JSON.stringify({ items, promo_code: code }))
   cache = items
+  promoCode = code
   listeners.forEach((listener) => listener())
 }
 
@@ -51,11 +57,13 @@ export function withQuantity(item: Omit<CartItem, 'quantity' | 'total'>, quantit
   return { ...item, quantity, total: (Number(item.price) * quantity).toFixed(2) }
 }
 
-export function summarizeCart(items: CartItem[]) {
+export function summarizeCart(items: CartItem[], code = '') {
   return {
     items,
     count: items.reduce((sum, item) => sum + item.quantity, 0),
     total: items.reduce((sum, item) => sum + Number(item.total), 0).toFixed(2),
+    promo_code: code,
+    promo_quote: null,
   }
 }
 
@@ -69,6 +77,13 @@ export function matchesLine(item: CartItem, productId: number, variantId: number
 
 export const guestCart = {
   items: read,
+  promoCode() {
+    read()
+    return promoCode
+  },
+  setPromoCode(code: string) {
+    write(read(), code)
+  },
   subscribe(listener: () => void) {
     listeners.add(listener)
     return () => { listeners.delete(listener) }
@@ -105,17 +120,19 @@ export const guestCart = {
         : item)
       .filter((item) => item.quantity > 0))
   },
-  removeTransferred(transferred: CartItem[]) {
+  removeTransferred(transferred: CartItem[], transferredCode: string) {
     write(read().map((item) => {
       const sent = transferred.find((line) => matchesLine(line, item.product_id, item.variant_id))
       return sent ? withQuantity(item, item.quantity - sent.quantity) : item
-    }).filter((item) => item.quantity > 0))
+    }).filter((item) => item.quantity > 0), transferredCode === promoCode ? '' : promoCode)
   },
   clear() {
-    write([])
+    write([], '')
   },
 }
 
 export function useGuestCart() {
-  return useSyncExternalStore(guestCart.subscribe, guestCart.items)
+  const items = useSyncExternalStore(guestCart.subscribe, guestCart.items)
+  const code = useSyncExternalStore(guestCart.subscribe, guestCart.promoCode)
+  return summarizeCart(items, code)
 }

@@ -3,6 +3,7 @@ import { api, ApiError, requireData } from '../api/client'
 import { orderQuery } from '../api/orders'
 import { requireUser } from '../auth/session'
 import { tokens } from '../auth/tokens'
+import { summarizeCart } from '../cart/guestCart'
 import { priceChangesQuery } from '../cart/priceChanges'
 import { cartQuery } from '../cart/queries'
 import { submitRouteForm } from '../lib/routeForm'
@@ -18,7 +19,7 @@ export async function checkoutAction(request: Request, client: QueryClient) {
     const cartKey = cartQuery().queryKey
     await client.cancelQueries({ queryKey: cartKey })
     if (version !== tokens.version()) throw new ApiError(401, 'Сессия изменилась. Войдите снова.')
-    client.setQueryData(cartKey, { items: [], count: 0, total: '0.00' })
+    client.setQueryData(cartKey, summarizeCart([]))
     client.removeQueries({ queryKey: priceChangesQuery().queryKey })
     client.setQueryData(orderQuery(order.id).queryKey, order)
     void client.invalidateQueries({ queryKey: ['orders', 'list'] })

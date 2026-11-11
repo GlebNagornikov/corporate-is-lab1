@@ -1,14 +1,28 @@
 from django.core.exceptions import ValidationError as DjangoValidationError
 from django.shortcuts import get_object_or_404
 from django.urls import path
-from drf_spectacular.utils import extend_schema
+from drf_spectacular.utils import extend_schema, extend_schema_field
 from rest_framework import serializers
 from rest_framework.generics import GenericAPIView
 from rest_framework.response import Response
 
 from catalog.models import Product, ProductVariant
+from orders.promo_api import (
+    PromoCodeField,
+    PromoQuoteSerializer,
+    PromoSelectionSerializer,
+    quote_promo,
+)
+from orders.services import OrderError
 
-from .services import add_to_cart, get_cart, merge_guest_items, remove_from_cart, set_quantity
+from .services import (
+    add_to_cart,
+    get_cart,
+    merge_guest_items,
+    remove_from_cart,
+    set_cart_promo,
+    set_quantity,
+)
 
 
 class CartItemSerializer(serializers.Serializer):
@@ -29,6 +43,14 @@ class CartSerializer(serializers.Serializer):
     items = CartItemSerializer(many=True)
     count = serializers.IntegerField()
     total = serializers.DecimalField(max_digits=12, decimal_places=2)
+    promo_code = serializers.CharField(allow_blank=True)
+    promo_quote = serializers.SerializerMethodField(allow_null=True)
+
+    @extend_schema_field(PromoQuoteSerializer(allow_null=True))
+    def get_promo_quote(self, cart):
+        if cart.promo_code:
+            return PromoQuoteSerializer(quote_promo(cart.promo_code, cart.total)).data
+        return None
 
 
 class AddItemSerializer(serializers.Serializer):
@@ -51,6 +73,7 @@ class MergeLineSerializer(serializers.Serializer):
 
 class MergeSerializer(serializers.Serializer):
     items = MergeLineSerializer(many=True)
+    promo_code = PromoCodeField(max_length=30, allow_blank=True, required=False)
 
 
 class VariantQuerySerializer(serializers.Serializer):
@@ -67,6 +90,24 @@ class CartView(GenericAPIView):
 
     def get(self, request):
         return cart_response(request, get_cart(request, create=True))
+
+
+class CartPromoView(GenericAPIView):
+    serializer_class = PromoSelectionSerializer
+
+    @extend_schema(
+        description="Применяет код к своей корзине или снимает его, если передана пустая строка.",
+        responses={200: CartSerializer},
+    )
+    def patch(self, request):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        cart = get_cart(request, create=True)
+        try:
+            cart = set_cart_promo(cart, serializer.validated_data["promo_code"])
+        except OrderError as error:
+            raise serializers.ValidationError({"promo_code": str(error)}) from error
+        return cart_response(request, cart)
 
 
 class CartItemsView(GenericAPIView):
@@ -133,12 +174,17 @@ class CartMergeView(GenericAPIView):
     def post(self, request):
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-        cart = merge_guest_items(request.user, serializer.validated_data["items"])
+        cart = merge_guest_items(
+            request.user,
+            serializer.validated_data["items"],
+            promo_code=serializer.validated_data.get("promo_code", ""),
+        )
         return cart_response(request, cart)
 
 
 urlpatterns = [
     path("cart/", CartView.as_view(), name="api-cart"),
+    path("cart/promo/", CartPromoView.as_view(), name="api-cart-promo"),
     path("cart/items/", CartItemsView.as_view(), name="api-cart-items"),
     path("cart/items/<int:product_id>/", CartItemDetailView.as_view(), name="api-cart-item"),
     path("cart/merge/", CartMergeView.as_view(), name="api-cart-merge"),

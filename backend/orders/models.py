@@ -15,6 +15,13 @@ class PromoCode(models.Model):
     )
     valid_from = models.DateTimeField("Действует с")
     valid_until = models.DateTimeField("Действует по")
+    minimum_subtotal = models.DecimalField(
+        "Минимальная сумма корзины",
+        max_digits=12,
+        decimal_places=2,
+        default=0,
+        validators=[MinValueValidator(0)],
+    )
     max_uses = models.PositiveIntegerField(
         "Лимит использований", null=True, blank=True, help_text="Пусто — без ограничений"
     )
@@ -32,13 +39,20 @@ class PromoCode(models.Model):
         self.code = self.code.strip().upper()
         super().save(*args, **kwargs)
 
-    def is_valid_now(self):
+    def rejection_reason(self, subtotal=None):
         now = timezone.now()
-        return (
-            self.is_active
-            and self.valid_from <= now <= self.valid_until
-            and (self.max_uses is None or self.used_count < self.max_uses)
-        )
+        if not self.is_active:
+            return "Промокод деактивирован."
+        if not self.valid_from <= now <= self.valid_until:
+            return "Промокод сейчас не действует."
+        if self.max_uses is not None and self.used_count >= self.max_uses:
+            return "Лимит использований промокода исчерпан."
+        if subtotal is not None and subtotal < self.minimum_subtotal:
+            return f"Промокод действует при сумме книг от {self.minimum_subtotal:.2f} ₽."
+        return None
+
+    def is_valid_now(self):
+        return self.rejection_reason() is None
 
 
 class Order(models.Model):

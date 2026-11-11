@@ -1,12 +1,13 @@
 import type { QueryClient } from '@tanstack/react-query'
 import { data, redirect, type RouteObject } from 'react-router'
 import { requireManager } from '../auth/session'
+import { readOrderPage } from '../api/orders'
 import NotFoundPage from '../routes/NotFoundPage'
 import RouteError from '../routes/RouteError'
 import { orderFilters } from './orderFilters'
 import {
   catalogFilters, managerBookQuery, managerBooksQuery, managerCategoriesQuery,
-  managerOrderQuery, managerOrdersQuery, managerReviewsQuery,
+  managerOrderQuery, managerOrdersQuery, managerPromosQuery, managerReviewsQuery,
 } from './queries'
 
 export function routeId(value: string | undefined, message: string) {
@@ -94,16 +95,22 @@ export function managerRoutes(client: QueryClient): RouteObject {
           return null
         },
       },
-      ...[
-        ['promos', 'Промокоды'],
-        ['reports', 'Отчёты'],
-      ].map(([path, title]): RouteObject => ({
-        path,
+      {
+        path: 'promos',
+        lazy: async () => ({ Component: (await import('./ManagerPromosPage')).default }),
+        loader: async ({ request }) => {
+          await requireManager(request, client)
+          void client.prefetchQuery(managerPromosQuery(readOrderPage(new URL(request.url).searchParams)))
+          return null
+        },
+      },
+      {
+        path: 'reports',
         lazy: async () => {
           const { ManagerPlaceholder } = await import('./ManagerLayout')
-          return { Component: () => <ManagerPlaceholder title={title} /> }
+          return { Component: () => <ManagerPlaceholder title="Отчёты" /> }
         },
-      })),
+      },
       { path: '*', Component: NotFoundPage },
     ],
   }

@@ -5,7 +5,7 @@ import { createMemoryRouter } from 'react-router'
 import { RouterProvider } from 'react-router/dom'
 import { afterEach, expect, test, vi } from 'vitest'
 import { createAppRoutes } from '../appRoutes'
-import { guestCart } from '../cart/guestCart'
+import { guestCart, summarizeCart } from '../cart/guestCart'
 import { cartQuery } from '../cart/queries'
 import { priceChangesQuery } from '../cart/priceChanges'
 import { queryClient } from '../queryClient'
@@ -18,7 +18,7 @@ const buyer = {
   id: 1, username: 'buyer', email: 'buyer@example.test',
   first_name: '', last_name: '', is_manager: false,
 }
-const emptyCart = { items: [], count: 0, total: '0.00' }
+const emptyCart = summarizeCart([])
 
 afterEach(() => {
   cleanup()

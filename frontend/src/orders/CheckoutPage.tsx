@@ -1,4 +1,5 @@
 import { zodResolver } from '@hookform/resolvers/zod'
+import { useEffect } from 'react'
 import { useForm, useWatch } from 'react-hook-form'
 import { Link, useNavigate } from 'react-router'
 import { useSession } from '../auth/useSession'
@@ -24,15 +25,20 @@ export default function CheckoutPage() {
       delivery_method: 'pickup',
       address: '',
       comment: '',
-      promo_code: '',
+      promo_code: cart.promo_code ?? '',
     },
   })
-  const { register, control, clearErrors, formState: { errors, isSubmitting } } = form
+  const { register, control, clearErrors, resetField, formState: { errors, isSubmitting, dirtyFields } } = form
+  useEffect(() => {
+    if (!dirtyFields.promo_code) resetField('promo_code', { defaultValue: cart.promo_code ?? '' })
+  }, [cart.promo_code, dirtyFields.promo_code, resetField])
   const { onSubmit, isPending } = useRouteForm(form, checkoutFields, (id) => {
     void navigate(`/orders/${id}`, { replace: true, state: { justPlaced: true } })
   })
   const busy = isSubmitting || isPending
   const delivery = useWatch({ control, name: 'delivery_method' })
+  const code = useWatch({ control, name: 'promo_code' })
+  const quote = code.trim().toUpperCase() === cart.promo_code ? cart.promo_quote : null
   const limitErrors = editionLimitErrors(cart.items)
   const exceedsLimit = limitErrors.length > 0
 
@@ -116,6 +122,10 @@ export default function CheckoutPage() {
             </li>
           ))}</ul>
           <p className="price">Книги · {formatPrice(cart.total)}</p>
+          {quote?.reason && <p className="error">{quote.reason}</p>}
+          {quote && !quote.reason && (
+            <p>Скидка {formatPrice(quote.discount)} · Книги со скидкой {formatPrice(quote.total)}</p>
+          )}
           <p className="muted">{delivery === 'pickup' ? 'Самовывоз бесплатный.' : 'Доставка и скидка рассчитываются при оформлении.'}</p>
           <Link to="/cart">Вернуться в корзину</Link>
         </aside>

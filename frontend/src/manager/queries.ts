@@ -58,3 +58,10 @@ export const managerOrderQuery = (id: number) => queryOptions({
     params: { path: { id } }, signal,
   })),
 })
+
+export const managerPromosQuery = (page: number) => queryOptions({
+  queryKey: ['manager', 'promos', page],
+  queryFn: async ({ signal }) => requireData(await api.GET('/api/manager/promos/', {
+    params: { query: { page } }, signal,
+  })),
+})

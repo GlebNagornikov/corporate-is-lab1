@@ -256,6 +256,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/cart/promo/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** @description Применяет код к своей корзине или снимает его, если передана пустая строка. */
+        patch: operations["api_cart_promo_partial_update"];
+        trace?: never;
+    };
     "/api/catalog/categories/": {
         parameters: {
             query?: never;
@@ -642,6 +659,41 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/manager/promos/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description Список промокодов и число использований. */
+        get: operations["api_manager_promos_list"];
+        put?: never;
+        /** @description Создаёт промокод с заданным периодом действия и условиями. */
+        post: operations["api_manager_promos_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/manager/promos/{id}/deactivate/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Деактивирует промокод и сохраняет историю его использований. */
+        post: operations["api_manager_promos_deactivate_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/manager/reviews/": {
         parameters: {
             query?: never;
@@ -771,6 +823,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/promo/check/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Проверяет код без списания использования. Гость передаёт предварительную сумму книг в subtotal. Для покупателя сумма читается из его корзины. Причина неприменимости возвращается в reason. */
+        post: operations["api_promo_check_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/wishlist/": {
         parameters: {
             query?: never;
@@ -888,6 +957,8 @@ export interface components {
             count: number;
             /** Format: decimal */
             total: string;
+            promo_code: string;
+            readonly promo_quote: components["schemas"]["PromoQuote"] | null;
         };
         CartItem: {
             variant_id: number | null;
@@ -1045,6 +1116,53 @@ export interface components {
         ManagerGenreWriteRequest: {
             name: string;
         };
+        ManagerPromo: {
+            readonly id: number;
+            code: string;
+            /** Скидка, % */
+            discount_percent: number;
+            /**
+             * Минимальная сумма корзины
+             * Format: decimal
+             */
+            minimum_subtotal?: string;
+            /**
+             * Действует с
+             * Format: date-time
+             */
+            valid_from: string;
+            /**
+             * Действует по
+             * Format: date-time
+             */
+            valid_until: string;
+            max_uses?: number | null;
+            /** Использован, раз */
+            readonly used_count: number;
+            /** Активен */
+            readonly is_active: boolean;
+        };
+        ManagerPromoRequest: {
+            code: string;
+            /** Скидка, % */
+            discount_percent: number;
+            /**
+             * Минимальная сумма корзины
+             * Format: decimal
+             */
+            minimum_subtotal?: string;
+            /**
+             * Действует с
+             * Format: date-time
+             */
+            valid_from: string;
+            /**
+             * Действует по
+             * Format: date-time
+             */
+            valid_until: string;
+            max_uses?: number | null;
+        };
         ManagerReview: {
             readonly id: number;
             readonly author: string;
@@ -1085,6 +1203,7 @@ export interface components {
         };
         MergeRequest: {
             items: components["schemas"]["MergeLineRequest"][];
+            promo_code?: string;
         };
         Order: {
             readonly id: number;
@@ -1227,6 +1346,21 @@ export interface components {
             previous?: string | null;
             results: components["schemas"]["ManagerBook"][];
         };
+        PaginatedManagerPromoList: {
+            /** @example 123 */
+            count: number;
+            /**
+             * Format: uri
+             * @example http://api.example.org/accounts/?page=4
+             */
+            next?: string | null;
+            /**
+             * Format: uri
+             * @example http://api.example.org/accounts/?page=2
+             */
+            previous?: string | null;
+            results: components["schemas"]["ManagerPromo"][];
+        };
         PaginatedManagerReviewList: {
             /** @example 123 */
             count: number;
@@ -1348,6 +1482,9 @@ export interface components {
             /** Активен */
             is_active?: boolean;
         };
+        PatchedPromoSelectionRequest: {
+            promo_code?: string;
+        };
         PatchedQuantityRequest: {
             quantity?: number;
         };
@@ -1445,6 +1582,18 @@ export interface components {
             image: string;
             /** Описание фото */
             alt_text?: string;
+        };
+        PromoCheckRequest: {
+            code: string;
+            /** Format: decimal */
+            subtotal?: string;
+        };
+        PromoQuote: {
+            /** Format: decimal */
+            discount: string;
+            /** Format: decimal */
+            total: string;
+            reason: string | null;
         };
         Register: {
             readonly id: number;
@@ -1848,6 +1997,31 @@ export interface operations {
                 "application/json": components["schemas"]["MergeRequest"];
                 "application/x-www-form-urlencoded": components["schemas"]["MergeRequest"];
                 "multipart/form-data": components["schemas"]["MergeRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Cart"];
+                };
+            };
+        };
+    };
+    api_cart_promo_partial_update: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["PatchedPromoSelectionRequest"];
+                "application/x-www-form-urlencoded": components["schemas"]["PatchedPromoSelectionRequest"];
+                "multipart/form-data": components["schemas"]["PatchedPromoSelectionRequest"];
             };
         };
         responses: {
@@ -2941,6 +3115,130 @@ export interface operations {
             };
         };
     };
+    api_manager_promos_list: {
+        parameters: {
+            query?: {
+                /** @description A page number within the paginated result set. */
+                page?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PaginatedManagerPromoList"];
+                };
+            };
+            /** @description Требуется Bearer-токен. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Недостаточно прав сотрудника. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    api_manager_promos_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ManagerPromoRequest"];
+                "application/x-www-form-urlencoded": components["schemas"]["ManagerPromoRequest"];
+                "multipart/form-data": components["schemas"]["ManagerPromoRequest"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ManagerPromo"];
+                };
+            };
+            /** @description Поля заполнены неверно или код уже существует. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Требуется Bearer-токен. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Недостаточно прав сотрудника. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    api_manager_promos_deactivate_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A unique integer value identifying this промокод. */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No response body */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Требуется Bearer-токен. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Недостаточно прав сотрудника. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Промокод не найден. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
     api_manager_reviews_list: {
         parameters: {
             query?: {
@@ -3222,6 +3520,38 @@ export interface operations {
             };
             /** @description Заказ не найден. */
             404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    api_promo_check_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PromoCheckRequest"];
+                "application/x-www-form-urlencoded": components["schemas"]["PromoCheckRequest"];
+                "multipart/form-data": components["schemas"]["PromoCheckRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PromoQuote"];
+                };
+            };
+            /** @description Неверные данные. */
+            400: {
                 headers: {
                     [name: string]: unknown;
                 };

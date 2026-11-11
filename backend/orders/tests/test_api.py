@@ -456,7 +456,10 @@ class OrderApiTests(APITestCase):
     def test_cart_get_update_delete_and_validation(self):
         self.client.force_authenticate(self.buyer)
         response = self.client.get("/api/cart/")
-        self.assertEqual(response.data, {"items": [], "count": 0, "total": "0.00"})
+        self.assertEqual(
+            response.data,
+            {"items": [], "count": 0, "total": "0.00", "promo_code": "", "promo_quote": None},
+        )
         self.client.post("/api/cart/items/", {"product": self.book.pk})
         url = f"/api/cart/items/{self.book.pk}/"
         response = self.client.patch(url, {"quantity": 3})

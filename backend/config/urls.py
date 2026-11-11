@@ -10,12 +10,14 @@ from catalog.manager_review_api import ManagerReviewViewSet
 from config.api_docs import ShopSchemaView, ShopSwaggerView, ShopTokenView
 from config.health import healthz
 from orders.api import ManagerOrderViewSet
+from orders.promo_api import ManagerPromoViewSet
 
 manager_router = SimpleRouter()
 manager_router.register("orders", ManagerOrderViewSet, basename="manager-order")
 manager_router.register("catalog", ManagerBookViewSet, basename="manager-book")
 manager_router.register("categories", ManagerCategoryViewSet, basename="manager-category")
 manager_router.register("reviews", ManagerReviewViewSet, basename="manager-review")
+manager_router.register("promos", ManagerPromoViewSet, basename="manager-promo")
 
 urlpatterns = [
     path("api/schema/", ShopSchemaView.as_view(), name="api-schema"),
@@ -34,6 +36,7 @@ urlpatterns = [
     path("api/auth/token/refresh/", TokenRefreshView.as_view(), name="token_refresh"),
     path("api/", include("accounts.api")),
     path("api/", include("cart.api")),
+    path("api/", include("orders.promo_api")),
     path("api/", include("orders.api")),
     path("accounts/", include("accounts.urls")),
     path("accounts/", include("django.contrib.auth.urls")),

@@ -4,6 +4,7 @@ import { formatPrice } from '../lib/format'
 import { usePageTitle } from '../lib/usePageTitle'
 import { editionLimitErrors, editionLimitRule } from './editionLimit'
 import { useCart } from './useCart'
+import CartPromo from './CartPromo'
 import { priceChangesQuery } from './priceChanges'
 
 export default function CartPage() {
@@ -70,7 +71,7 @@ export default function CartPage() {
           </div>
           <aside className="details order-summary" aria-label="Сводка корзины">
             <h2>Ваш заказ</h2>
-            <p className="price">Итого: {formatPrice(cart.total)}</p>
+            <CartPromo cart={cart} isGuest={cart.isGuest} />
             {cart.isGuest && <p className="muted">Цены предварительные. После входа сервер пересчитает сумму.</p>}
             <p className="muted">{editionLimitRule}</p>
             {limitErrors.length > 0 ? (
@@ -86,7 +87,10 @@ export default function CartPage() {
           </aside>
         </div>
       ) : !cart.error && (
-        <p className="details state-panel">Корзина пуста. <Link to="/catalog">В каталог</Link></p>
+        <div className="details state-panel">
+          <p>Корзина пуста. <Link to="/catalog">В каталог</Link></p>
+          {cart.promo_code && <CartPromo cart={cart} isGuest={cart.isGuest} />}
+        </div>
       )}
     </section>
   )

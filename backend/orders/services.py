@@ -28,12 +28,19 @@ class OrderError(Exception):
     """Операцию с заказом нельзя выполнить. Текст можно показать пользователю."""
 
 
-def get_valid_promo(code, *, lock=False):
+def get_valid_promo(code, *, subtotal=None, lock=False):
     queryset = PromoCode.objects.select_for_update() if lock else PromoCode.objects
     promo = queryset.filter(code=code.strip().upper()).first()
-    if promo is None or not promo.is_valid_now():
-        raise OrderError("Промокод не найден или больше не действует.")
+    if promo is None:
+        raise OrderError("Промокод не найден.")
+    reason = promo.rejection_reason(subtotal)
+    if reason:
+        raise OrderError(reason)
     return promo
+
+
+def promo_discount(promo, subtotal):
+    return (subtotal * promo.discount_percent / 100).quantize(Decimal("0.01"))
 
 
 def delivery_cost_for(method, amount):
@@ -53,7 +60,7 @@ def place_order(
     email,
     address="",
     comment="",
-    promo_code="",
+    promo_code=None,
     address_book=None,
 ):
     """Оформляет заказ: списывает остатки, применяет промокод, очищает корзину."""
@@ -118,11 +125,10 @@ def place_order(
         stock = item.available_stock
         if stock < reserved[stock_key]:
             raise OrderError(f"Товара «{product.name}» осталось только {stock} шт.")
-    promo = get_valid_promo(promo_code, lock=True) if promo_code.strip() else None
     subtotal = sum(item.unit_price * item.quantity for item in items)
-    discount = Decimal("0")
-    if promo:
-        discount = (subtotal * promo.discount_percent / 100).quantize(Decimal("0.01"))
+    code = cart.promo_code if promo_code is None else promo_code
+    promo = get_valid_promo(code, subtotal=subtotal, lock=True) if code.strip() else None
+    discount = promo_discount(promo, subtotal) if promo else Decimal("0")
     delivery_cost = delivery_cost_for(delivery_method, subtotal - discount)
     order = Order.objects.create(
         user=user,
@@ -165,6 +171,8 @@ def place_order(
         order=order, to_status=order.status, changed_by=user, comment="Заказ оформлен"
     )
     cart.items.all().delete()
+    cart.promo_code = ""
+    cart.save(update_fields=["promo_code", "updated_at"])
     invalidate_catalog()
     queue_order_email(order, "placed")
     logger.info(

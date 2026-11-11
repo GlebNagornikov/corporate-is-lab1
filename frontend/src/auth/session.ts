@@ -57,7 +57,8 @@ export async function login(username: string, password: string, client = queryCl
     const me = requireData(await api.GET('/api/auth/me/'))
     ensureSession(version)
     const items = guestCart.items()
-    if (items.length > 0) {
+    const promoCode = guestCart.promoCode()
+    if (items.length > 0 || promoCode) {
       // API принимает до 99 единиц в одной строке запроса.
       const lines = items.flatMap((item) => Array.from(
         { length: Math.ceil(item.quantity / 99) },
@@ -67,9 +68,11 @@ export async function login(username: string, password: string, client = queryCl
           quantity: Math.min(99, item.quantity - index * 99),
         }),
       ))
-      const cart = requireData(await api.POST('/api/cart/merge/', { body: { items: lines } }))
+      const cart = requireData(await api.POST('/api/cart/merge/', {
+        body: { items: lines, ...(promoCode ? { promo_code: promoCode } : {}) },
+      }))
       ensureSession(version)
-      guestCart.removeTransferred(items)
+      guestCart.removeTransferred(items, promoCode)
       client.setQueryData(cartQuery().queryKey, cart)
       client.setQueryData(priceChangesQuery().queryKey, findPriceChanges(items, cart.items))
     }
