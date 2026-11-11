@@ -1,13 +1,15 @@
 import type { QueryClient } from '@tanstack/react-query'
-import { data, redirect, type RouteObject } from 'react-router'
+import { data, redirect, replace, type RouteObject } from 'react-router'
 import { requireManager } from '../auth/session'
 import { readOrderPage } from '../api/orders'
 import NotFoundPage from '../routes/NotFoundPage'
 import RouteError from '../routes/RouteError'
 import { orderFilters } from './orderFilters'
+import { defaultReportPeriod, readReportPeriod, reportPeriodError } from './reportPeriod'
 import {
   catalogFilters, managerBookQuery, managerBooksQuery, managerCategoriesQuery,
   managerOrderQuery, managerOrdersQuery, managerPromosQuery, managerReviewsQuery,
+  managerReportQuery,
 } from './queries'
 
 export function routeId(value: string | undefined, message: string) {
@@ -106,9 +108,17 @@ export function managerRoutes(client: QueryClient): RouteObject {
       },
       {
         path: 'reports',
-        lazy: async () => {
-          const { ManagerPlaceholder } = await import('./ManagerLayout')
-          return { Component: () => <ManagerPlaceholder title="Отчёты" /> }
+        lazy: async () => ({ Component: (await import('./ManagerReportPage')).default }),
+        loader: async ({ request }) => {
+          await requireManager(request, client)
+          const url = new URL(request.url)
+          if (!url.searchParams.has('start') && !url.searchParams.has('end')) {
+            url.search = new URLSearchParams(defaultReportPeriod()).toString()
+            return replace(url.pathname + url.search)
+          }
+          const period = readReportPeriod(url.searchParams)
+          if (!reportPeriodError(period)) void client.prefetchQuery(managerReportQuery(period))
+          return null
         },
       },
       { path: '*', Component: NotFoundPage },

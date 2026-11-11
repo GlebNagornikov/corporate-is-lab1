@@ -32,6 +32,7 @@ urlpatterns = [
     path("api/", include("employees.urls")),
     path("api/catalog/", include("catalog.api")),
     path("api/manager/", include(manager_router.urls)),
+    path("api/manager/", include("orders.report_api")),
     path("api/auth/token/", ShopTokenView.as_view(), name="token_obtain_pair"),
     path("api/auth/token/refresh/", TokenRefreshView.as_view(), name="token_refresh"),
     path("api/", include("accounts.api")),

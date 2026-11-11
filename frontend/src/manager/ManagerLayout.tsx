@@ -56,7 +56,3 @@ export function ManagerLayout() {
     </>
   )
 }
-
-export function ManagerPlaceholder({ title }: { title: string }) {
-  return <div><h1>{title}</h1><p>Раздел запланирован и появится на следующем этапе.</p></div>
-}

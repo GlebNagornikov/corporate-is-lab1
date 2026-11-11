@@ -3,6 +3,7 @@ import { api, requireData } from '../api/client'
 import { readOrderPage } from '../api/orders'
 import type { components } from '../api/schema'
 import { orderFilters } from './orderFilters'
+import type { ReportPeriod } from './reportPeriod'
 
 export type ManagerBook = components['schemas']['ManagerBook']
 
@@ -63,5 +64,12 @@ export const managerPromosQuery = (page: number) => queryOptions({
   queryKey: ['manager', 'promos', page],
   queryFn: async ({ signal }) => requireData(await api.GET('/api/manager/promos/', {
     params: { query: { page } }, signal,
+  })),
+})
+
+export const managerReportQuery = (period: ReportPeriod) => queryOptions({
+  queryKey: ['manager', 'reports', 'sales', period],
+  queryFn: async ({ signal }) => requireData(await api.GET('/api/manager/reports/sales/', {
+    params: { query: period }, signal,
   })),
 })

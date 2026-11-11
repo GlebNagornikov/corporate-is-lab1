@@ -694,6 +694,40 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/manager/reports/sales/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description Агрегаты продаж по дате оформления в часовом поясе магазина. Выручка — итоговая сумма заказов без отменённых, диаграмма статусов включает все заказы. Книги ранжируются по числу экземпляров и стоимости позиций. */
+        get: operations["api_manager_reports_sales_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/manager/reports/sales/csv/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description Скачивает те же агрегаты в CSV с кодировкой UTF-8. */
+        get: operations["api_manager_reports_sales_csv_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/manager/reviews/": {
         parameters: {
             query?: never;
@@ -1715,6 +1749,39 @@ export interface components {
             email: string;
             password: string;
         };
+        ReportBook: {
+            product_id: number;
+            name: string;
+            quantity: number;
+            /** Format: decimal */
+            revenue: string;
+        };
+        ReportDay: {
+            /** Format: date */
+            day: string;
+            count: number;
+            /** Format: decimal */
+            revenue: string;
+        };
+        ReportDelivery: {
+            delivery_method: string;
+            label: string;
+            count: number;
+            /** Format: decimal */
+            revenue: string;
+        };
+        ReportStatus: {
+            status: string;
+            label: string;
+            count: number;
+        };
+        ReportSummary: {
+            count: number;
+            /** Format: decimal */
+            revenue: string;
+            /** Format: decimal */
+            average: string;
+        };
         RestockNotification: {
             readonly id: number;
             product_name: string;
@@ -1761,6 +1828,14 @@ export interface components {
             rating: number;
             /** Отзыв */
             text: string;
+        };
+        SalesReport: {
+            summary: components["schemas"]["ReportSummary"];
+            statuses: components["schemas"]["ReportStatus"][];
+            deliveries: components["schemas"]["ReportDelivery"][];
+            daily: components["schemas"]["ReportDay"][];
+            top_quantity: components["schemas"]["ReportBook"][];
+            top_revenue: components["schemas"]["ReportBook"][];
         };
         SimulatedPaymentRequest: {
             outcome: components["schemas"]["OutcomeEnum"];
@@ -3343,6 +3418,96 @@ export interface operations {
             };
             /** @description Промокод не найден. */
             404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    api_manager_reports_sales_retrieve: {
+        parameters: {
+            query: {
+                /** @description Последний день периода включительно. */
+                end: string;
+                /** @description Первый день периода включительно. */
+                start: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SalesReport"];
+                };
+            };
+            /** @description Укажите обе даты в формате ГГГГ-ММ-ДД по порядку. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Требуется Bearer-токен. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Недостаточно прав сотрудника. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    api_manager_reports_sales_csv_retrieve: {
+        parameters: {
+            query: {
+                /** @description Последний день периода включительно. */
+                end: string;
+                /** @description Первый день периода включительно. */
+                start: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "text/csv": string;
+                };
+            };
+            /** @description Укажите обе даты в формате ГГГГ-ММ-ДД по порядку. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Требуется Bearer-токен. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Недостаточно прав сотрудника. */
+            403: {
                 headers: {
                     [name: string]: unknown;
                 };

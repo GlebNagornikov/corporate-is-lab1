@@ -79,6 +79,7 @@ function OrderRow({ order, stale }: { order: Order; stale: boolean }) {
       client.removeQueries({ queryKey: orderQuery(order.id).queryKey })
       return Promise.all([
         client.invalidateQueries({ queryKey: ['manager', 'orders', 'list'] }),
+        client.invalidateQueries({ queryKey: ['manager', 'reports'] }),
         client.invalidateQueries({ queryKey: ['orders', 'list'] }),
       ])
     },
