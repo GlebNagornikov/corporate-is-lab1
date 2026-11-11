@@ -8,6 +8,7 @@ import FormInput from '../components/FormInput'
 import { formatPrice } from '../lib/format'
 import { usePageTitle } from '../lib/usePageTitle'
 import { managerPromosQuery } from './queries'
+import './promos.css'
 
 const dateTime = new Intl.DateTimeFormat('ru-RU', { dateStyle: 'short', timeStyle: 'short' })
 
@@ -58,7 +59,7 @@ export default function ManagerPromosPage() {
         })
       }}>
         <h2>Новый промокод</h2>
-        <div className="manager-fields">
+        <div className="manager-fields promo-fields">
           <FormInput label="Код" name="code" required maxLength={30} error={fields.code?.[0]} />
           <FormInput label="Скидка, %" name="discount_percent" type="number" min="1"
             max="90" required error={fields.discount_percent?.[0]} />
@@ -75,7 +76,7 @@ export default function ManagerPromosPage() {
         {create.isSuccess && <p role="status">Промокод создан.</p>}
         <button type="submit" disabled={create.isPending}>Создать промокод</button>
       </form>
-      <h2>Список промокодов</h2>
+      <h2 className="promo-list-title">Список промокодов</h2>
       {promos.isPending && <p role="status">Загрузка промокодов…</p>}
       {promos.error && <p className="error" role="alert">{promos.error.message}</p>}
       {deactivate.error && <p className="error" role="alert">{deactivate.error.message}</p>}
@@ -84,19 +85,29 @@ export default function ManagerPromosPage() {
       {promos.data && promos.data.results.length > 0 && (
         <>
           <div className="table-scroll">
-            <table>
+            <table className="table manager-table promo-table">
               <thead><tr>
-                <th>Код</th><th>Скидка</th><th>Минимум</th><th>Период</th>
-                <th>Использования</th><th>Состояние</th><th>Действие</th>
+                <th scope="col">Код</th><th scope="col">Скидка</th>
+                <th scope="col">Минимум</th><th scope="col">Период</th>
+                <th scope="col">Использования</th><th scope="col">Состояние</th>
+                <th scope="col">Действие</th>
               </tr></thead>
               <tbody>{promos.data.results.map((promo) => (
                 <tr key={promo.id}>
                   <th scope="row">{promo.code}</th>
-                  <td>{promo.discount_percent}%</td>
-                  <td>{formatPrice(promo.minimum_subtotal ?? '0')}</td>
-                  <td>{dateTime.format(new Date(promo.valid_from))} — {dateTime.format(new Date(promo.valid_until))}</td>
-                  <td>{promo.used_count}{promo.max_uses == null ? ' · без лимита' : ` / ${promo.max_uses}`}</td>
-                  <td>{promo.is_active ? 'Включён' : 'Деактивирован'}</td>
+                  <td data-label="Скидка">{promo.discount_percent}%</td>
+                  <td data-label="Минимум">{formatPrice(promo.minimum_subtotal ?? '0')}</td>
+                  <td data-label="Период">
+                    <div className="promo-period">
+                      <time dateTime={promo.valid_from}>{dateTime.format(new Date(promo.valid_from))}</time>
+                      {' —'}<br />
+                      <time dateTime={promo.valid_until}>{dateTime.format(new Date(promo.valid_until))}</time>
+                    </div>
+                  </td>
+                  <td data-label="Использования">
+                    {promo.used_count}{promo.max_uses == null ? ' · без лимита' : ` / ${promo.max_uses}`}
+                  </td>
+                  <td data-label="Состояние">{promo.is_active ? 'Включён' : 'Деактивирован'}</td>
                   <td>{promo.is_active && (
                     <button type="button" className="secondary" disabled={deactivate.isPending}
                       aria-label={`Деактивировать ${promo.code}`}

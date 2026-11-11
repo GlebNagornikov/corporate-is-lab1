@@ -1,0 +1,27 @@
+.cart-promo,
+.cart-promo-total {
+  display: grid;
+  gap: 1rem;
+}
+
+.cart-promo-selection {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: .5rem .75rem;
+}
+
+.cart-promo-selection span {
+  overflow-wrap: anywhere;
+}
+
+.cart-promo-total {
+  gap: .5rem;
+  padding-block-start: .75rem;
+  border-block-start: 1px solid var(--line);
+}
+
+.cart-promo > p,
+.cart-promo-total > p {
+  margin: 0;
+}

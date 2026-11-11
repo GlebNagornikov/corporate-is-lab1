@@ -1,0 +1,49 @@
+.form .promo-fields {
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, max(15rem, calc((100% - 2.5rem) / 3))), 1fr));
+  gap: 1rem 1.25rem;
+}
+
+.manager-fields.promo-fields input {
+  width: 100%;
+  min-width: 0;
+}
+
+.promo-list-title {
+  margin-block-start: 2rem;
+}
+
+.promo-table {
+  background: var(--surface);
+}
+
+.table.promo-table :is(th, td) {
+  padding: .8rem clamp(.6rem, 1.3vw, 1rem);
+  overflow-wrap: normal;
+}
+
+.promo-table thead {
+  background: var(--wash);
+}
+
+.promo-table tbody th {
+  font-size: inherit;
+  min-width: 9rem;
+}
+
+.promo-period time {
+  white-space: nowrap;
+}
+
+.table.promo-table th[scope='row'] {
+  overflow-wrap: anywhere;
+}
+
+.promo-table button {
+  white-space: nowrap;
+}
+
+@media (max-width: 42rem) {
+  .promo-table { background: transparent; }
+  .promo-table tbody tr { background: var(--surface); }
+  .promo-table tbody td:last-child:empty { display: none; }
+}

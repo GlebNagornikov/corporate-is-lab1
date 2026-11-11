@@ -5,6 +5,7 @@ import { tokens } from '../auth/tokens'
 import { formatPrice } from '../lib/format'
 import { guestCart } from './guestCart'
 import { cartQuery } from './queries'
+import './cartPromo.css'
 
 async function checkPromo(code: string, subtotal: string, signal?: AbortSignal) {
   return requireData(await api.POST('/api/promo/check/', { body: { code, subtotal }, signal }))
@@ -45,7 +46,7 @@ export default function CartPromo({ cart, isGuest }: { cart: Cart; isGuest: bool
   const busy = selection.isPending
 
   return (
-    <>
+    <div className="cart-promo">
       <form className="form" onSubmit={(event) => {
         event.preventDefault()
         if (draft.trim() && !busy) selection.mutate({ code: draft.trim().toUpperCase(), version })
@@ -55,20 +56,20 @@ export default function CartPromo({ cart, isGuest }: { cart: Cart; isGuest: bool
         <button type="submit" disabled={busy || !draft.trim() || !cart.count}>Применить</button>
       </form>
       {cart.promo_code && (
-        <p>
-          Код {cart.promo_code}{' '}
+        <div className="cart-promo-selection">
+          <span>Код <strong>{cart.promo_code}</strong></span>
           <button type="button" className="secondary" disabled={busy}
             onClick={() => selection.mutate({ code: '', version })}>Снять промокод</button>
-        </p>
+        </div>
       )}
       {error && <p className="error" role="alert">{error.message}</p>}
-      <div aria-live="polite">
+      <div className="cart-promo-total" aria-live="polite">
         {preview.error && isGuest && <p className="error">{preview.error.message}</p>}
         {quote?.reason && <p className="error">{quote.reason}</p>}
         {quote && !quote.reason && <p>Скидка {formatPrice(quote.discount)}</p>}
         {cart.promo_code && !quote && !preview.error && <p>Пересчитываем скидку…</p>}
         <p className="price">Итого: {formatPrice(quote?.total ?? cart.total)}</p>
       </div>
-    </>
+    </div>
   )
 }
