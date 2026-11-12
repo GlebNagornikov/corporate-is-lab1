@@ -17,6 +17,12 @@ CORS_ALLOWED_ORIGINS = env.list(
 )
 CORS_URLS_REGEX = r"^/api/(?!auth/session/)"
 
+# Локальный Playwright запускает разные профили с одного IP-адреса.
+REST_FRAMEWORK = {
+    **REST_FRAMEWORK,
+    "DEFAULT_THROTTLE_RATES": {"anon": "600/min", "user": "600/min", "token": "120/min"},
+}
+
 # В Docker запросы браузера приходят не с 127.0.0.1, а со шлюза docker-сети (x.x.x.1)
 _, _, _ips = socket.gethostbyname_ex(socket.gethostname())
 INTERNAL_IPS = ["127.0.0.1"] + [ip[: ip.rfind(".")] + ".1" for ip in _ips]

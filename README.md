@@ -88,6 +88,29 @@ npm run e2e
 Тесты создают отдельных покупателей и заказы в базе выбранного стенда.
 При падении Playwright сохраняет трассировку в `frontend/test-results/`.
 
+Для обычного dev-прогона удалите `E2E_BASE_URL` из окружения, если переменная осталась
+после проверки HTTPS. В dev действуют лимиты, рассчитанные на полный прогон с одного IP.
+Для полного прогона через HTTPS используйте отдельный Compose-проект с собственной БД,
+портом 8443 и лимитами для Playwright. Новый идентификатор проекта даёт чистую базу
+при каждом запуске. Штатный HTTPS-стенд может работать одновременно.
+
+```powershell
+$testProject = 'shop-e2e-' + (Get-Date -Format yyyyMMddHHmmss)
+$compose = @('-p', $testProject, '-f', 'docker-compose.prod.yml', '-f', 'docker-compose.e2e.yml', '--env-file', '.env.prod')
+try {
+    docker compose @compose up -d --build --wait
+    if ($LASTEXITCODE -ne 0) { throw 'HTTPS-стенд не запустился' }
+    docker compose @compose exec web python manage.py seed_demo --password 'DemoShop2026!'
+    if ($LASTEXITCODE -ne 0) { throw 'Не удалось загрузить демоданные' }
+    $env:E2E_BASE_URL = 'https://localhost:8443'
+    npm --prefix frontend run e2e
+    if ($LASTEXITCODE -ne 0) { throw 'Playwright завершился с ошибками' }
+} finally {
+    Remove-Item Env:E2E_BASE_URL -ErrorAction SilentlyContinue
+    docker compose @compose stop
+}
+```
+
 ## Прод-подобный стенд
 
 Собирайте этот стенд из текущей версии репозитория с каталогом книг. На новом компьютере

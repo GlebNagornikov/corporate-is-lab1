@@ -5,6 +5,11 @@ repos:
       - id: trailing-whitespace
       - id: end-of-file-fixer
       - id: check-yaml
+        exclude: ^docker-compose\.e2e\.yml$
+      - id: check-yaml
+        name: check YAML syntax (Compose override tags)
+        files: ^docker-compose\.e2e\.yml$
+        args: [--unsafe]
       - id: check-added-large-files
         exclude: ^docs/bookshop-design-concept\.png$
       - id: detect-private-key

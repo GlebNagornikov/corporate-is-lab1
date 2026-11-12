@@ -150,7 +150,11 @@ REST_FRAMEWORK = {
         "config.throttling.ShopAnonThrottle",
         "config.throttling.ShopUserThrottle",
     ],
-    "DEFAULT_THROTTLE_RATES": {"anon": "60/min", "user": "600/min", "token": "10/min"},
+    "DEFAULT_THROTTLE_RATES": {
+        "anon": env("API_ANON_THROTTLE_RATE", default="60/min"),
+        "user": "600/min",
+        "token": env("API_TOKEN_THROTTLE_RATE", default="10/min"),
+    },
     "NUM_PROXIES": 1,
     "DEFAULT_AUTHENTICATION_CLASSES": [
         "rest_framework_simplejwt.authentication.JWTAuthentication",
