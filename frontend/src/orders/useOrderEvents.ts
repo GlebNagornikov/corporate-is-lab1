@@ -28,12 +28,12 @@ async function readOrderEvents(stream: ReadableStream<Uint8Array>, onChange: () 
   }
 }
 
-export function useOrderEvents(id: number, enabled: boolean) {
+export function useOrderEvents(id: number) {
   const client = useQueryClient()
   const userId = useSession().data?.id
 
   useEffect(() => {
-    if (!enabled || !userId || !tokens.access()) return
+    if (!userId || !tokens.access()) return
     const version = tokens.version()
     const connection = new AbortController()
     const { signal } = connection
@@ -75,5 +75,5 @@ export function useOrderEvents(id: number, enabled: boolean) {
       connection.abort()
       clearTimeout(retry)
     }
-  }, [client, enabled, id, userId])
+  }, [client, id, userId])
 }

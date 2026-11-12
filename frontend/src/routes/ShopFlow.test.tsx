@@ -115,6 +115,20 @@ test('владелец открывает учебную оплату из за�
   expect(screen.queryByText('Оплатить', { selector: 'summary' })).not.toBeInTheDocument()
 })
 
+test('менеджер открывает карточку заказа из списка', async () => {
+  const order = makeOrder({ full_name: 'Анна Смирнова' })
+  server.use(
+    http.get('*/api/manager/orders/', () => HttpResponse.json({ results: [order], count: 1 })),
+    http.get('*/api/manager/orders/7/', () => HttpResponse.json(order)),
+  )
+  renderShop('/manager/orders', { ...buyer, is_manager: true })
+  const user = userEvent.setup()
+  await user.click(await screen.findByRole('link', { name: '№7' }))
+  expect(await screen.findByRole('heading', { name: 'Заказ №7' })).toBeInTheDocument()
+  expect(screen.getByText('Анна Смирнова')).toBeInTheDocument()
+  expect(screen.getByRole('heading', { name: 'История' })).toBeInTheDocument()
+})
+
 test('менеджер фильтрует заказы и выполняет доступный переход из API', async () => {
   let order = makeOrder({
     status: 'paid', status_display: 'Оплачен', can_cancel: false, can_pay: false,
