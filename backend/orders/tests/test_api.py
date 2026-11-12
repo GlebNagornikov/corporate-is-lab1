@@ -409,6 +409,26 @@ class OrderApiTests(APITestCase):
         self.assertEqual(self.client.post(url, {"status": "new"}).status_code, 400)
         self.assertEqual(self.client.post(url, {"status": "unknown"}).status_code, 400)
 
+    def test_manager_cannot_skip_to_delivered_or_publish_an_event(self):
+        order_id = self.buy(self.buyer)
+        self.client.force_authenticate(self.manager)
+        order = Order.objects.get(pk=order_id)
+        history = list(order.history.values())
+        stock = Product.objects.get(pk=self.book.pk).stock
+
+        with self.captureOnCommitCallbacks() as callbacks:
+            response = self.client.post(
+                f"/api/manager/orders/{order_id}/status/", {"status": Order.Status.DELIVERED}
+            )
+
+        self.assertEqual(response.status_code, 400, response.data)
+        self.assertTrue(response.data["detail"])
+        order.refresh_from_db()
+        self.assertEqual(order.status, Order.Status.NEW)
+        self.assertEqual(list(order.history.values()), history)
+        self.assertEqual(Product.objects.get(pk=self.book.pk).stock, stock)
+        self.assertEqual(callbacks, [])
+
     def test_manager_cancellation_requires_a_comment(self):
         order_id = self.buy(self.buyer)
         self.client.force_authenticate(self.manager)
@@ -556,14 +576,23 @@ class OrderApiTests(APITestCase):
             {
                 **CUSTOMER,
                 "status": "delivered",
+                "price": "0.01",
+                "subtotal": "0.01",
+                "discount": "999.99",
                 "total": "0.01",
+                "items": [{"product": self.book.pk, "price": "0.01", "quantity": 5}],
                 "user": self.other.pk,
             },
         )
         self.assertEqual(response.status_code, 201, response.data)
         self.assertEqual(response.data["status"], "new")
         self.assertEqual(response.data["total"], "1000.00")
-        self.assertEqual(Order.objects.get().user, self.buyer)
+        order = Order.objects.get()
+        self.assertEqual(order.user, self.buyer)
+        self.assertEqual(order.subtotal, Decimal("1000.00"))
+        self.assertEqual(order.discount, Decimal("0.00"))
+        self.assertEqual(order.items.get().price, Decimal("1000.00"))
+        self.assertEqual(order.items.get().quantity, 1)
 
     def test_courier_address_rule_is_enforced_in_service(self):
         cart = Cart.objects.create(user=self.buyer)

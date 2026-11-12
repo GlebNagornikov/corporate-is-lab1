@@ -1,8 +1,9 @@
 import { infiniteQueryOptions, queryOptions } from '@tanstack/react-query'
 import type { ProductQuery } from '../lib/catalogParams'
-import { api, requireData } from './client'
+import { api, ApiError, requireData } from './client'
 
 const STOCK_REFRESH_INTERVAL = 10_000
+const CATALOG_REQUEST_TIMEOUT = 8_000
 
 export const categoriesQuery = () =>
   queryOptions({
@@ -15,15 +16,22 @@ export const productsQuery = (query: ProductQuery) =>
   queryOptions({
     queryKey: ['products', 'list', query],
     refetchInterval: STOCK_REFRESH_INTERVAL,
-    queryFn: async ({ signal }) =>
-      requireData(
-        await api.GET('/api/catalog/products/', {
+    queryFn: async ({ signal }) => {
+      const timeout = AbortSignal.timeout(CATALOG_REQUEST_TIMEOUT)
+      try {
+        return requireData(await api.GET('/api/catalog/products/', {
           params: { query },
           // Django's OrderingFilter reads a comma-separated value.
           querySerializer: { array: { style: 'form', explode: false } },
-          signal,
-        }),
-      ),
+          signal: AbortSignal.any([signal, timeout]),
+        }))
+      } catch (error) {
+        if (!signal.aborted && timeout.aborted) {
+          throw new ApiError(504, 'Сервер магазина не ответил вовремя.')
+        }
+        throw error
+      }
+    },
   })
 
 export const editorialQuery = () => queryOptions({

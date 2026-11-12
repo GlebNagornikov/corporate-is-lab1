@@ -126,6 +126,19 @@ test('показывает ошибку сервера и загружает к�
   expect(screen.queryByRole('alert')).not.toBeInTheDocument()
 })
 
+test('показывает сообщение, если сервер каталога не ответил вовремя', async () => {
+  const timeout = vi.spyOn(AbortSignal, 'timeout').mockReturnValueOnce(
+    AbortSignal.abort(new DOMException('Timed out', 'TimeoutError')),
+  )
+  try {
+    renderRoute(<CatalogPage />, '/?q=код')
+    expect(await screen.findByRole('alert')).toHaveTextContent('Сервер магазина не ответил вовремя.')
+    expect(screen.getByRole('button', { name: 'Повторить' })).toBeEnabled()
+  } finally {
+    timeout.mockRestore()
+  }
+})
+
 test('предлагает исправить опечатку и ищет подсказку в той же категории', async () => {
   const user = userEvent.setup()
   server.use(

@@ -2,6 +2,7 @@
 
 import { randomUUID } from 'node:crypto'
 import { expect, test } from '@playwright/test'
+import { loginAs } from './helpers.ts'
 
 test('главная, темы и основные страницы работают на ширине 360 px', async ({ page }) => {
   await page.setViewportSize({ width: 360, height: 800 })
@@ -30,7 +31,7 @@ test('главная, темы и основные страницы работа
   await page.getByRole('link', { name: 'Открыть каталог' }).click()
   await checkLayout('Каталог')
   await page.getByRole('searchbox').fill('Война миров')
-  await page.getByRole('link', { name: /Война миров/ }).click()
+  await page.getByRole('link', { name: /^Война миров/ }).click()
   await checkLayout('Война миров')
   await page.getByRole('link', { name: 'Корзина', exact: true }).click()
   await checkLayout('Корзина')
@@ -42,7 +43,10 @@ test('главная, темы и основные страницы работа
   await checkLayout('Страница не найдена')
 })
 
-test('регистрация возвращает в кабинет, а двойное нажатие оформляет один заказ', async ({ page }) => {
+test('регистрация, поиск с фильтром, один заказ и смена статуса сотрудником', async ({
+  page, browser, baseURL,
+}) => {
+  test.setTimeout(60_000)
   const username = `book-${randomUUID().slice(0, 12)}`
   const password = `Book!${randomUUID()}`
   await page.goto('/orders?page=1')
@@ -62,12 +66,25 @@ test('регистрация возвращает в кабинет, а двой
 
   await page.getByRole('link', { name: 'Каталог', exact: true }).click()
   await page.getByRole('searchbox').fill('Война миров')
-  await page.getByRole('link', { name: /Война миров/ }).click()
+  await expect(page).toHaveURL(/[?&]q=/)
+  await page.getByRole('checkbox', { name: 'В наличии', exact: true }).click()
+  await expect(page).toHaveURL(/[?&]in_stock=true/)
+  const shared = await page.context().newPage()
+  await shared.goto(page.url())
+  await expect(shared.getByRole('searchbox')).toHaveValue('Война миров')
+  await expect(shared.getByRole('checkbox', { name: 'В наличии', exact: true })).toBeChecked()
+  await expect(shared.getByRole('link', { name: /^Война миров/ })).toBeVisible()
+  await shared.close()
+  await page.getByRole('link', { name: /^Война миров/ }).click()
+  await expect(page).toHaveURL('/products/war-of-worlds-1898')
+  await page.reload()
   await page.getByRole('button', { name: 'В корзину', exact: true }).click()
   await expect(page.getByRole('link', { name: /Корзина: 1 шт/ })).toBeVisible()
   await page.setViewportSize({ width: 360, height: 800 })
   await page.getByRole('link', { name: /Корзина: 1 шт/ }).click()
   await page.getByRole('link', { name: 'Оформить заказ' }).click()
+  await expect(page).toHaveURL('/checkout')
+  await page.reload()
   const submit = page.getByRole('button', { name: 'Подтвердить заказ' })
   await submit.click()
   await expect(page.getByText('Укажите имя получателя')).toBeVisible()
@@ -97,4 +114,41 @@ test('регистрация возвращает в кабинет, а двой
   }
   await expect(page.getByText('Заказ оформлен. Спасибо!')).toBeVisible()
   expect(writes).toBe(1)
+  await expect(page).toHaveURL(/\/orders\/\d+$/)
+  const orderPath = new URL(page.url()).pathname
+  const orderNumber = orderPath.split('/').at(-1)
+  await page.reload()
+  await expect(page.getByRole('cell', { name: /Война миров/ })).toBeVisible()
+  await page.locator('summary').filter({ hasText: 'Оплатить' }).click()
+  await page.getByRole('button', { name: 'Успех', exact: true }).click()
+  const status = page.locator('.order-detail strong')
+  await expect(status).toHaveText('Оплачен')
+  await page.getByRole('link', { name: 'Мои заказы', exact: true }).click()
+  await page.locator(`a[href="${orderPath}"]`).click()
+
+  const staff = await browser.newContext({ baseURL, ignoreHTTPSErrors: true })
+  try {
+    const manager = await staff.newPage()
+    await loginAs(manager, {
+      username: process.env.E2E_MANAGER_USERNAME ?? 'manager_demo',
+      password: process.env.E2E_MANAGER_PASSWORD ?? 'DemoShop2026!',
+    }, '/manager/orders?status=paid')
+    await manager.reload()
+    const row = manager.getByRole('row').filter({
+      has: manager.getByRole('link', { name: `№${orderNumber}`, exact: true }),
+    })
+    const confirm = row.getByRole('button', { name: 'Подтвердить', exact: true })
+    await confirm.focus()
+    await manager.keyboard.press('Enter')
+    const dialog = manager.getByRole('dialog')
+    await expect(dialog).toBeVisible()
+    await manager.keyboard.press('Escape')
+    await expect(dialog).toBeHidden()
+    await expect(confirm).toBeFocused()
+    await manager.keyboard.press('Enter')
+    await dialog.getByRole('button', { name: 'Подтвердить действие' }).click()
+    await expect(status).toHaveText('Подтверждён')
+  } finally {
+    await staff.close()
+  }
 })
