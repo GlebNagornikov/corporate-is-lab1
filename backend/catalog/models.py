@@ -42,13 +42,28 @@ class Category(models.Model):
     def get_absolute_url(self):
         return f"{reverse('catalog:product_list')}?category={self.slug}"
 
+    def clean(self):
+        super().clean()
+        seen = {self.pk}
+        parent_id = self.parent_id
+        while parent_id is not None:
+            if parent_id in seen:
+                raise ValidationError({"parent": "Жанры не могут образовывать цикл."})
+            seen.add(parent_id)
+            parent_id = (
+                Category.objects.filter(pk=parent_id).values_list("parent_id", flat=True).first()
+            )
+
     def get_descendant_ids(self):
         """id самой категории и всех её подкатегорий любой глубины."""
         ids = [self.pk]
+        seen = {self.pk}
         level = [self.pk]
         while level:
-            level = list(Category.objects.filter(parent_id__in=level).values_list("pk", flat=True))
+            children = Category.objects.filter(parent_id__in=level).values_list("pk", flat=True)
+            level = [pk for pk in children if pk not in seen]
             ids += level
+            seen.update(level)
         return ids
 
 

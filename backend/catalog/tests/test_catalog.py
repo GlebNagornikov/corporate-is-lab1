@@ -2,6 +2,7 @@ from decimal import Decimal
 from unittest.mock import patch
 
 from django.contrib.auth import get_user_model
+from django.core.exceptions import ValidationError
 from django.db import IntegrityError
 from django.test import TestCase
 from django.urls import reverse
@@ -113,6 +114,22 @@ class ReviewTests(CatalogTestCase):
 
 
 class ConstraintTests(CatalogTestCase):
+    def test_category_validation_rejects_itself_and_its_descendant_as_parent(self):
+        for parent in (self.electronics, self.laptops):
+            with self.subTest(parent=parent.slug):
+                self.electronics.parent = parent
+                with self.assertRaisesMessage(ValidationError, "Жанры не могут образовывать цикл."):
+                    self.electronics.full_clean()
+
+    def test_catalog_filter_terminates_for_existing_category_cycle(self):
+        Category.objects.filter(pk=self.electronics.pk).update(parent=self.laptops)
+        self.assertEqual(
+            self.electronics.get_descendant_ids(), [self.electronics.pk, self.laptops.pk]
+        )
+        response = self.client.get("/api/catalog/products/", {"category": self.electronics.slug})
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual([product["sku"] for product in response.json()["results"]], ["NB-1"])
+
     def test_old_price_must_be_greater_than_price(self):
         self.book.old_price = Decimal("500")
         with self.assertRaises(IntegrityError):
