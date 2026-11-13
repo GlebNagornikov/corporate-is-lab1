@@ -60,15 +60,11 @@ export async function login(username: string, password: string, client = queryCl
     const items = guestCart.items()
     const promoCode = guestCart.promoCode()
     if (items.length > 0 || promoCode) {
-      // API принимает до 99 единиц в одной строке запроса.
-      const lines = items.flatMap((item) => Array.from(
-        { length: Math.ceil(item.quantity / 99) },
-        (_, index) => ({
-          product: item.product_id,
-          variant: item.variant_id ?? undefined,
-          quantity: Math.min(99, item.quantity - index * 99),
-        }),
-      ))
+      const lines = items.map((item) => ({
+        product: item.product_id,
+        variant: item.variant_id ?? undefined,
+        quantity: item.quantity,
+      }))
       const cart = requireData(await api.POST('/api/cart/merge/', {
         body: { items: lines, ...(promoCode ? { promo_code: promoCode } : {}) },
       }))

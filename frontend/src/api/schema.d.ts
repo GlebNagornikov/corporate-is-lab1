@@ -1344,6 +1344,7 @@ export interface components {
         MergeLineRequest: {
             product: number;
             variant?: number;
+            /** @description Количество в гостевой позиции. Сервер ограничивает его актуальным остатком. */
             quantity: number;
         };
         MergeRequest: {

@@ -71,7 +71,11 @@ class QuantitySerializer(serializers.Serializer):
 class MergeLineSerializer(serializers.Serializer):
     product = serializers.IntegerField(min_value=1)
     variant = serializers.IntegerField(min_value=1, required=False)
-    quantity = serializers.IntegerField(min_value=1, max_value=99)
+    quantity = serializers.IntegerField(
+        min_value=1,
+        max_value=2147483647,
+        help_text="Количество в гостевой позиции. Сервер ограничивает его актуальным остатком.",
+    )
 
 
 class MergeSerializer(serializers.Serializer):

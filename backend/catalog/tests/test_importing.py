@@ -1,3 +1,4 @@
+import csv
 from io import StringIO
 
 from django.contrib.auth import get_user_model
@@ -46,6 +47,13 @@ class ImportTests(TestCase):
         user = get_user_model().objects.create_user("staff", is_staff=True)
         self.client.force_login(user)
         self.assertEqual(self.client.get("/admin/catalog/product/import-csv/").status_code, 403)
+
+    def test_csv_parser_error_is_reported_before_writing_any_products(self):
+        oversized_name = "x" * (csv.field_size_limit() + 1)
+        data = HEADER + f"OK,Good,good,books,10,5\nBAD,{oversized_name},bad,books,10,5\n"
+        with self.assertRaisesMessage(ValidationError, "Не удалось прочитать CSV"):
+            import_products(StringIO(data))
+        self.assertFalse(Product.objects.exists())
 
     def test_csv_does_not_overwrite_warehouse_stock_or_notify_for_unavailable_book(self):
         import_products(StringIO(HEADER + "BOOK,Book,book,books,10,0\n"))

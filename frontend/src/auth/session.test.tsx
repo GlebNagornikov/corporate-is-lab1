@@ -35,7 +35,7 @@ function mockLogin() {
   )
 }
 
-test('регистрация входит в аккаунт и переносит варианты, разбивая количество по лимиту API', async () => {
+test('регистрация входит в аккаунт и переносит каждый вариант одной строкой', async () => {
   mockLogin()
   const updated = {
     items: [{
@@ -49,8 +49,7 @@ test('регистрация входит в аккаунт и переноси�
   const merge = vi.fn(async ({ request }: { request: Request }) => {
     expect(request.headers.get('Authorization')).toBe('Bearer a')
     expect(await request.json()).toEqual({ items: [
-      { product: 7, variant: 3, quantity: 99 },
-      { product: 7, variant: 3, quantity: 2 },
+      { product: 7, variant: 3, quantity: 101 },
     ] })
     return HttpResponse.json(updated)
   })

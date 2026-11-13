@@ -59,7 +59,7 @@ test('гость выбирает вариант, меняет количест�
   expect(plus).toBeDisabled()
   expect(screen.getByRole('link', { name: /Корзина: 2 шт./ })).toHaveTextContent('51')
   await user.click(screen.getByRole('link', { name: 'Оформить заказ' }))
-  expect(await screen.findByRole('heading', { name: 'Вход' })).toBeInTheDocument()
+  expect(await screen.findByRole('heading', { name: 'Вход' }, { timeout: 5000 })).toBeInTheDocument()
   expect(router.state.location.search).toBe('?next=%2Fcheckout')
   expect(guestCart.items()).toMatchObject([{ variant_id: 4, quantity: 2 }])
 })

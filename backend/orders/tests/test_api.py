@@ -202,12 +202,7 @@ class OrderApiTests(APITestCase):
         Product.objects.filter(pk=self.book.pk).update(price=Decimal("99999999.99"), stock=200)
         response = self.client.post(
             "/api/cart/merge/",
-            {
-                "items": [
-                    {"product": self.book.pk, "quantity": 99},
-                    {"product": self.book.pk, "quantity": 5},
-                ]
-            },
+            {"items": [{"product": self.book.pk, "quantity": 2147483647}]},
             format="json",
         )
         self.assertEqual(response.status_code, 200, response.data)
@@ -220,7 +215,7 @@ class OrderApiTests(APITestCase):
             {
                 "items": [
                     {"product": self.book.pk, "quantity": 1},
-                    {"product": self.book.pk, "quantity": 100},
+                    {"product": self.book.pk, "quantity": 2147483648},
                 ]
             },
             format="json",

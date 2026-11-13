@@ -209,9 +209,14 @@ def queue_restock(product_id):
 def import_products(stream, *, dry_run=False):
     reader = csv.DictReader(stream)
     required = {"sku", "name", "slug", "category", "price", "stock"}
-    if not reader.fieldnames or not required.issubset(reader.fieldnames):
-        raise ValidationError("Обязательные столбцы: " + ", ".join(sorted(required)))
-    entries = list(reader)
+    try:
+        if not reader.fieldnames or not required.issubset(reader.fieldnames):
+            raise ValidationError("Обязательные столбцы: " + ", ".join(sorted(required)))
+        entries = list(reader)
+    except csv.Error as error:
+        raise ValidationError(
+            f"Не удалось прочитать CSV, строка {reader.reader.line_num}."
+        ) from error
     products = {
         product.sku: product
         for product in Product.objects.select_for_update()
