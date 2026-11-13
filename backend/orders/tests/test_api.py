@@ -423,6 +423,36 @@ class OrderApiTests(APITestCase):
         self.assertFalse(Order.objects.exists())
         self.assertEqual(cart.count, 4)
 
+    def test_legacy_and_default_lines_keep_the_standard_stock_in_sync(self):
+        cart = Cart.objects.create(user=self.buyer)
+        add_to_cart(cart, self.book, quantity=2)
+        CartItem.objects.create(cart=cart, product=self.book, quantity=1)
+        self.client.force_authenticate(self.buyer)
+
+        response = self.client.post("/api/orders/", CUSTOMER)
+        self.assertEqual(response.status_code, 201, response.data)
+        order_id = response.data["id"]
+        self.book.refresh_from_db()
+        self.assertEqual(self.book.stock, 2)
+        self.assertEqual(self.book.variants.get(is_default=True).stock, 2)
+
+        response = self.client.post(f"/api/orders/{order_id}/cancel/")
+        self.assertEqual(response.status_code, 200, response.data)
+        self.book.refresh_from_db()
+        self.assertEqual(self.book.stock, 5)
+        self.assertEqual(self.book.variants.get(is_default=True).stock, 5)
+
+    def test_cancel_resynchronizes_default_variant_after_stock_adjustment(self):
+        order_id = self.buy(self.buyer)
+        self.book.stock = 10
+        self.book.save(update_fields=["stock"])
+
+        response = self.client.post(f"/api/orders/{order_id}/cancel/")
+        self.assertEqual(response.status_code, 200, response.data)
+        self.book.refresh_from_db()
+        self.assertEqual(self.book.stock, 11)
+        self.assertEqual(self.book.variants.get(is_default=True).stock, 11)
+
     def test_customer_actions_require_the_owner_even_with_staff_read_permission(self):
         order_id = self.buy(self.buyer)
         url = f"/api/orders/{order_id}/"
