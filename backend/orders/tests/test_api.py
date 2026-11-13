@@ -8,6 +8,8 @@ from django.core.management import call_command
 from django.utils import timezone
 from rest_framework.test import APITestCase
 
+from accounts.addresses import AddressForm
+from accounts.services import save_address
 from cart.models import Cart, CartItem
 from cart.services import add_to_cart
 from catalog.models import Category, Product, ProductVariant
@@ -49,6 +51,68 @@ class OrderApiTests(APITestCase):
         response = self.client.post("/api/orders/", CUSTOMER)
         self.assertEqual(response.status_code, 201, response.data)
         return response.data["id"]
+
+    def test_checkout_preserves_longest_saved_address(self):
+        fields = {
+            "city": "А" * 80,
+            "street": "Б" * 100,
+            "house": "1" * 20,
+            "apartment": "2" * 20,
+            "comment": "В" * 100,
+        }
+        form = AddressForm({"label": "Дом", **fields})
+        self.assertTrue(form.is_valid(), form.errors)
+        address = save_address(self.buyer, form.cleaned_data)
+        expected = ", ".join(fields.values())
+        self.assertEqual(len(expected), 328)
+        self.client.force_authenticate(self.buyer)
+        add_to_cart(Cart.objects.create(user=self.buyer), self.book)
+        self.client.raise_request_exception = False
+
+        response = self.client.post(
+            "/api/orders/",
+            {**CUSTOMER, "delivery_method": "courier", "address_book": address.pk},
+        )
+
+        self.assertEqual(response.status_code, 201)
+        self.assertEqual(response.data["address"], expected)
+        self.assertEqual(Order.objects.get(pk=response.data["id"]).address, expected)
+
+    def test_checkout_accepts_only_own_saved_address(self):
+        fields = {"label": "Дом", "city": "Город", "street": "Улица", "house": "1"}
+        address = save_address(self.buyer, fields)
+        foreign_address = save_address(self.other, fields)
+        self.client.force_authenticate(self.buyer)
+        cart = Cart.objects.create(user=self.buyer)
+        add_to_cart(cart, self.book)
+        payload = {**CUSTOMER, "delivery_method": "courier"}
+
+        rejected = self.client.post("/api/orders/", {**payload, "address_book": foreign_address.pk})
+        self.assertEqual(rejected.status_code, 400, rejected.data)
+        self.assertEqual(rejected.data["detail"], "Это не ваш адрес.")
+        self.assertFalse(Order.objects.exists())
+        self.assertEqual(cart.items.get().quantity, 1)
+        self.book.refresh_from_db()
+        self.assertEqual(self.book.stock, 5)
+
+        accepted = self.client.post("/api/orders/", {**payload, "address_book": address.pk})
+        self.assertEqual(accepted.status_code, 201, accepted.data)
+        self.assertEqual(accepted.data["address"], "Город, Улица, 1")
+
+    def test_checkout_validates_manual_address_length(self):
+        self.client.force_authenticate(self.buyer)
+        add_to_cart(Cart.objects.create(user=self.buyer), self.book)
+        payload = {**CUSTOMER, "delivery_method": "courier"}
+        address = "𠮷" * 328
+
+        rejected = self.client.post("/api/orders/", {**payload, "address": address + "А"})
+        self.assertEqual(rejected.status_code, 400, rejected.data)
+        self.assertIn("address", rejected.data)
+        self.assertFalse(Order.objects.exists())
+
+        accepted = self.client.post("/api/orders/", {**payload, "address": address})
+        self.assertEqual(accepted.status_code, 201, accepted.data)
+        self.assertEqual(Order.objects.get(pk=accepted.data["id"]).address, address)
 
     def test_anonymous_gets_401(self):
         for url in (

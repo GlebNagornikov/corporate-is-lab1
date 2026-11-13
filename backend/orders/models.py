@@ -92,7 +92,8 @@ class Order(models.Model):
     delivery_method = models.CharField(
         "Доставка", max_length=20, choices=Delivery.choices, default=Delivery.PICKUP
     )
-    address = models.CharField("Адрес доставки", max_length=300, blank=True)
+    # A full address-book snapshot includes five fields and four ", " separators.
+    address = models.CharField("Адрес доставки", max_length=328, blank=True)
     comment = models.TextField("Комментарий", blank=True)
     promo_code = models.ForeignKey(
         PromoCode,
