@@ -197,6 +197,22 @@ class OrderApiTests(APITestCase):
         self.assertEqual(item["price"], "1500.00")
         self.assertIsNone(item["image"])
 
+    def test_merge_transfers_only_quantity_that_fits_order_limit(self):
+        self.client.force_authenticate(self.buyer)
+        Product.objects.filter(pk=self.book.pk).update(price=Decimal("99999999.99"), stock=200)
+        response = self.client.post(
+            "/api/cart/merge/",
+            {
+                "items": [
+                    {"product": self.book.pk, "quantity": 99},
+                    {"product": self.book.pk, "quantity": 5},
+                ]
+            },
+            format="json",
+        )
+        self.assertEqual(response.status_code, 200, response.data)
+        self.assertEqual(response.data["count"], 100)
+
     def test_invalid_merge_does_not_apply_valid_lines(self):
         self.client.force_authenticate(self.buyer)
         response = self.client.post(
@@ -629,6 +645,28 @@ class OrderApiTests(APITestCase):
         self.assertEqual(response.status_code, 200, response.data)
         self.book.refresh_from_db()
         self.assertEqual(self.book.stock, 5)
+
+    def test_hidden_return_variant_does_not_prevent_standard_checkout(self):
+        order_id = self.buy(self.buyer)
+        warehouse = ProductVariant.objects.create(
+            product=self.book, name="Warehouse", sku="WAREHOUSE", price=1200, stock=3
+        )
+        self.assertEqual(self.client.post(f"/api/orders/{order_id}/cancel/").status_code, 200)
+        warehouse.delete()
+        returned = self.book.variants.get(is_legacy_return=True)
+        returned.is_active = True
+        returned.save(update_fields=["is_active"])
+        returned.is_active = False
+        returned.save(update_fields=["is_active"])
+        self.book.refresh_from_db()
+        self.assertEqual(self.book.stock, 0)
+        self.book.stock = 2
+        self.book.save(update_fields=["stock"])
+        response = self.client.get(f"/api/catalog/products/{self.book.slug}/")
+        self.assertNotIn(returned.pk, [variant["id"] for variant in response.data["variants"]])
+        self.buy(self.buyer)
+        returned.refresh_from_db()
+        self.assertEqual(returned.stock, 1)
 
     def test_customer_can_cancel_only_new_order(self):
         order_id = self.buy(self.buyer)

@@ -5,7 +5,7 @@ from django.core.exceptions import ValidationError
 from django.test import TestCase
 
 from catalog.importing import import_products
-from catalog.models import Category, Product, ProductVariant
+from catalog.models import Category, Product, ProductVariant, RestockNotification
 
 HEADER = "sku,name,slug,category,price,stock\n"
 
@@ -46,3 +46,28 @@ class ImportTests(TestCase):
         user = get_user_model().objects.create_user("staff", is_staff=True)
         self.client.force_login(user)
         self.assertEqual(self.client.get("/admin/catalog/product/import-csv/").status_code, 403)
+
+    def test_csv_does_not_overwrite_warehouse_stock_or_notify_for_unavailable_book(self):
+        import_products(StringIO(HEADER + "BOOK,Book,book,books,10,0\n"))
+        product = Product.objects.get()
+        user = get_user_model().objects.create_user("subscriber")
+        RestockNotification.objects.create(user=user, product=product)
+        header = HEADER.rstrip() + ",variant_sku,variant_price,variant_stock\n"
+        import_products(StringIO(header + "BOOK,Book,book,books,10,5,V1,20,0\n"))
+        import_products(StringIO(HEADER + "BOOK,Renamed,book,books,10,5\n"))
+        product.refresh_from_db()
+        self.assertEqual((product.name, product.price, product.stock), ("Renamed", 20, 0))
+        self.assertIsNone(RestockNotification.objects.get().notified_at)
+
+    def test_csv_rejects_combined_warehouse_stock_overflow_in_both_modes(self):
+        header = HEADER.rstrip() + ",variant_sku\n"
+        import_products(StringIO(header + "BOOK,Book,book,books,10,2147483647,V1\n"))
+        for dry_run in (True, False):
+            with (
+                self.subTest(dry_run=dry_run),
+                self.assertRaisesMessage(ValidationError, "Слишком большой суммарный остаток."),
+            ):
+                import_products(
+                    StringIO(header + "BOOK,Book,book,books,10,1,V2\n"), dry_run=dry_run
+                )
+        self.assertEqual(ProductVariant.objects.count(), 1)

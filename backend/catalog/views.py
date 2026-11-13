@@ -56,7 +56,10 @@ class ProductDetailView(DetailView):
     def get(self, request, *args, **kwargs):
         self.object = self.get_object()
         variants = list(self.object.variants.all())
-        self.has_variants = any(not variant.is_default for variant in variants)
+        self.has_variants = any(
+            not variant.is_default and (not variant.is_legacy_return or variant.is_active)
+            for variant in variants
+        )
         self.available_variants = [
             variant for variant in variants if variant.is_active and not variant.is_default
         ]

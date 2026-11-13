@@ -8,22 +8,31 @@ from .services import record_restock
 
 
 @receiver(pre_save, sender=Product)
-def stock_before(sender, instance, **kwargs):
-    # Product.save keeps the stock check and notification in the same transaction.
-    update_fields = kwargs.get("update_fields")
-    instance._previous_stock = (
+def stock_before(sender, instance, update_fields, **kwargs):
+    instance._was_available = None
+    if not instance.pk or (
+        update_fields is not None and not {"stock", "is_active"} & update_fields
+    ):
+        return
+    previous = (
         Product.objects.select_for_update()
         .filter(pk=instance.pk)
-        .values_list("stock", flat=True)
+        .values_list("stock", "is_active")
         .first()
-        if instance.pk and (update_fields is None or "stock" in update_fields)
-        else None
     )
+    if previous is not None:
+        stock, active = previous
+        instance._was_available = stock > 0 and active
+        if update_fields is None or "stock" in update_fields:
+            stock = instance.stock
+        if update_fields is None or "is_active" in update_fields:
+            active = instance.is_active
+        instance._is_available = stock > 0 and active
 
 
 @receiver(post_save, sender=Product)
 def stock_after(sender, instance, **kwargs):
-    if getattr(instance, "_previous_stock", None) == 0 and instance.in_stock:
+    if getattr(instance, "_was_available", None) is False and instance._is_available:
         record_restock(instance.pk)
 
 
@@ -32,7 +41,10 @@ def variant_after(sender, instance, **kwargs):
     if not instance.is_default:
         from .inventory import refresh_inventory
 
-        refresh_inventory(instance.product_id)
+        refresh_inventory(
+            instance.product_id,
+            variant_deleted=getattr(instance, "_legacy_variant_deactivated", False),
+        )
 
 
 def _deleting_product(origin):
@@ -50,7 +62,9 @@ def refresh_after_variant_delete(sender, instance, origin, **kwargs):
     if not instance.is_default and not _deleting_product(origin):
         from .inventory import refresh_inventory
 
-        refresh_inventory(instance.product_id, variant_deleted=True)
+        refresh_inventory(
+            instance.product_id, variant_deleted=not instance.is_legacy_return or instance.is_active
+        )
 
 
 for model in (Product, BookEdition, Category, Review, ProductImage, ProductVariant):

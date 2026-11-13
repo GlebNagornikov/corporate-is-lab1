@@ -7,7 +7,14 @@ from drf_spectacular.utils import extend_schema_field
 from PIL import Image
 from rest_framework import serializers
 
-from .models import BOOKS_ROOT_SLUG, BookEdition, Category, Product, ProductVariant
+from .models import (
+    BOOKS_ROOT_SLUG,
+    VISIBLE_VARIANTS,
+    BookEdition,
+    Category,
+    Product,
+    ProductVariant,
+)
 from .serializers import BookEditionSerializer, CategorySerializer, VariantSerializer
 
 BOOK_FIELDS = ("author", "publisher", "year", "language", "binding", "isbn", "pages")
@@ -121,7 +128,7 @@ class ManagerBookWriteSerializer(serializers.ModelSerializer):
             for field in ("slug", "sku"):
                 if field in attrs and attrs[field] != getattr(product, field):
                     errors[field] = "Идентификатор уже созданной книги менять нельзя."
-            if product.variants.filter(is_default=False).exists():
+            if product.variants.filter(VISIBLE_VARIANTS, is_default=False).exists():
                 for field in ("price", "stock"):
                     if field in attrs and attrs[field] != getattr(product, field):
                         errors[field] = "Меняйте цену и остаток в складских вариантах книги."

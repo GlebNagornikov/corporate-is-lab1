@@ -15,6 +15,7 @@ from django.db.models import Avg, Count, F, Q
 from django.urls import reverse
 
 BOOKS_ROOT_SLUG = "books"
+VISIBLE_VARIANTS = ~Q(is_legacy_return=True, is_active=False)
 
 
 class Category(models.Model):
@@ -282,6 +283,13 @@ class ProductVariant(models.Model):
     @transaction.atomic
     def save(self, *args, **kwargs):
         Product.objects.select_for_update().get(pk=self.product_id)
+        update_fields = kwargs.get("update_fields")
+        self._legacy_variant_deactivated = (
+            self.is_legacy_return
+            and not self.is_active
+            and (update_fields is None or "is_active" in update_fields)
+            and ProductVariant.objects.filter(pk=self.pk, is_active=True).exists()
+        )
         return super().save(*args, **kwargs)
 
     def get_absolute_url(self):

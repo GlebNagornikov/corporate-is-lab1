@@ -41,7 +41,7 @@ def _clear_empty_promo(cart):
         cart.save(update_fields=["promo_code", "updated_at"])
 
 
-def _set_quantity(cart, product, quantity, variant):
+def _set_quantity(cart, product, quantity, variant, *, limit_to_order_amount=False):
     rows = _item_rows(cart, product, variant)
     stock = product.stock if variant.is_default else variant.stock
     quantity = min(quantity, stock)
@@ -57,7 +57,11 @@ def _set_quantity(cart, product, quantity, variant):
             for item in cart.items.exclude(pk__in=rows).select_related("product", "variant")
         )
         if other_total + price * quantity > MAX_ORDER_AMOUNT:
-            raise ValidationError(CART_AMOUNT_ERROR)
+            if not limit_to_order_amount:
+                raise ValidationError(CART_AMOUNT_ERROR)
+            quantity = int((MAX_ORDER_AMOUNT - other_total) // price)
+            if quantity <= previous_quantity:
+                return previous_quantity
     CartItem.objects.update_or_create(
         cart=cart, product=product, variant=variant, defaults={"quantity": quantity}
     )
@@ -67,9 +71,11 @@ def _set_quantity(cart, product, quantity, variant):
     return quantity
 
 
-def _add_quantity(cart, product, quantity, variant):
+def _add_quantity(cart, product, quantity, variant, *, limit_to_order_amount=False):
     current = _item_rows(cart, product, variant).aggregate(total=Sum("quantity"))["total"] or 0
-    return _set_quantity(cart, product, current + quantity, variant)
+    return _set_quantity(
+        cart, product, current + quantity, variant, limit_to_order_amount=limit_to_order_amount
+    )
 
 
 @transaction.atomic
@@ -151,7 +157,7 @@ def merge_guest_items(user, lines, promo_code=""):
             continue
         stock = product.stock if variant.is_default else variant.stock
         if variant.is_active and stock > 0:
-            _add_quantity(cart, product, line["quantity"], variant)
+            _add_quantity(cart, product, line["quantity"], variant, limit_to_order_amount=True)
     if not cart.promo_code and promo_code and cart.items.exists():
         cart.promo_code = promo_code
         cart.save(update_fields=["promo_code", "updated_at"])

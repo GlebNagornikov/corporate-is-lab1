@@ -14,7 +14,7 @@ from django.shortcuts import get_object_or_404
 
 from catalog.caching import invalidate_catalog
 from catalog.inventory import refresh_inventory
-from catalog.models import Product, ProductVariant
+from catalog.models import VISIBLE_VARIANTS, Product, ProductVariant
 
 from .events import publish_order_change
 from .models import Order, OrderItem, OrderStatusLog, Payment, PromoCode
@@ -108,9 +108,9 @@ def place_order(
         .order_by("pk")
     }
     products_with_variants = set(
-        ProductVariant.objects.filter(product_id__in=products, is_default=False).values_list(
-            "product_id", flat=True
-        )
+        ProductVariant.objects.filter(
+            VISIBLE_VARIANTS, product_id__in=products, is_default=False
+        ).values_list("product_id", flat=True)
     )
     reserved = Counter()
     for item in items:
@@ -221,9 +221,9 @@ def change_status(order, new_status, *, by, comment="", payment_verified=False):
             .order_by("pk")
         }
         products_with_variants = set(
-            ProductVariant.objects.filter(product_id__in=products, is_default=False).values_list(
-                "product_id", flat=True
-            )
+            ProductVariant.objects.filter(
+                VISIBLE_VARIANTS, product_id__in=products, is_default=False
+            ).values_list("product_id", flat=True)
         )
         for item in items:
             if item.product_id in products_with_variants and (

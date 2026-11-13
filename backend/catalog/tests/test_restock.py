@@ -3,7 +3,7 @@ from django.core.exceptions import ValidationError
 from django.test import TestCase
 
 from catalog.models import Category, Product, ProductVariant, StockSubscription
-from catalog.restock import subscribe
+from catalog.restock import deliver_restock, subscribe
 
 
 class RestockTests(TestCase):
@@ -45,6 +45,23 @@ class RestockTests(TestCase):
         ProductVariant.objects.filter(pk=second.pk).delete()
         self.product.refresh_from_db()
         self.assertEqual((self.product.stock, self.product.price), (0, 150))
+
+    def test_delayed_email_waits_until_book_is_available_again(self):
+        subscription = subscribe(self.product, "buyer@example.test")
+        deliver_restock(self.product.pk)
+        subscription.refresh_from_db()
+        self.assertFalse(subscription.completed)
+        self.assertEqual(len(mail.outbox), 0)
+
+        with self.captureOnCommitCallbacks(execute=True):
+            self.product.is_active = False
+            self.product.stock = 2
+            self.product.save()
+        self.assertEqual(len(mail.outbox), 0)
+        with self.captureOnCommitCallbacks(execute=True):
+            self.product.is_active = True
+            self.product.save(update_fields=["is_active"])
+        self.assertEqual(len(mail.outbox), 1)
 
     def test_invalid_email_and_in_stock_rejected(self):
         with self.assertRaises(ValidationError):

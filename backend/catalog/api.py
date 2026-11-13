@@ -1,4 +1,4 @@
-from django.db.models import Case, Exists, OuterRef, Value, When
+from django.db.models import Case, Exists, OuterRef, Prefetch, Value, When
 from django.urls import path
 from django.utils.decorators import method_decorator
 from django.views.decorators.cache import never_cache
@@ -10,7 +10,7 @@ from rest_framework.response import Response
 from rest_framework.routers import DefaultRouter
 
 from .filters import ProductFilter
-from .models import Category, Product, Review
+from .models import VISIBLE_VARIANTS, Category, Product, ProductVariant, Review
 from .pagination import ProductPagination, ReviewPagination
 from .reviews import ReviewError, create_review, review_block_reason
 from .serializers import (
@@ -35,7 +35,9 @@ def storefront_products():
         Product.objects.active()
         .select_related("category__parent", "book")
         .with_rating()
-        .prefetch_related("variants")
+        .prefetch_related(
+            Prefetch("variants", queryset=ProductVariant.objects.filter(VISIBLE_VARIANTS))
+        )
     )
 
 
