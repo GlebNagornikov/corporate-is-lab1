@@ -93,6 +93,8 @@ def place_order(
     }
     quantities = Counter()
     for item in items:
+        if item.product_id not in products:
+            raise OrderError(f"Товар «{item.product.name}» больше недоступен.")
         quantities[item.product_id] += item.quantity
     for product_id, quantity in quantities.items():
         if quantity > MAX_COPIES_PER_EDITION:

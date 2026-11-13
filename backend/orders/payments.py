@@ -1,6 +1,5 @@
 import hmac
 import json
-import uuid
 
 from django.contrib.auth.decorators import login_required
 from django.core.exceptions import ValidationError
@@ -37,21 +36,24 @@ def gateway(request, pk):
     return render(request, "orders/gateway.html", context)
 
 
+class PaymentWebhookInputSerializer(serializers.Serializer):
+    payment_id = serializers.UUIDField()
+    outcome = serializers.ChoiceField(choices=["success", "failed"])
+
+
 @csrf_exempt
 @require_POST
 def webhook(request):
     if not hmac.compare_digest(
-        signature(request.body), request.headers.get("X-Payment-Signature", "")
+        signature(request.body).encode(), request.headers.get("X-Payment-Signature", "").encode()
     ):
         return JsonResponse({"error": "Неверная подпись"}, status=403)
     try:
-        payload = json.loads(request.body)
-        payment_id = uuid.UUID(payload["payment_id"])
-        outcome = payload["outcome"]
-        if outcome not in {"success", "failed"}:
-            raise ValueError
-        payment = apply_payment(payment_id, outcome)
-    except (ValueError, TypeError, KeyError, ValidationError, OrderError) as error:
+        payload = PaymentWebhookInputSerializer(data=json.loads(request.body))
+        if not payload.is_valid():
+            return JsonResponse({"error": "Неверные данные платежа."}, status=400)
+        payment = apply_payment(**payload.validated_data)
+    except (ValueError, RecursionError, ValidationError, OrderError) as error:
         return JsonResponse({"error": str(error)}, status=400)
     return JsonResponse({"status": payment.status})
 
@@ -65,13 +67,7 @@ class PaymentWebhookAPI(APIView):
         parameters=[
             OpenApiParameter("X-Payment-Signature", str, OpenApiParameter.HEADER, required=True)
         ],
-        request=inline_serializer(
-            name="PaymentWebhookInput",
-            fields={
-                "payment_id": serializers.UUIDField(),
-                "outcome": serializers.ChoiceField(choices=["success", "failed"]),
-            },
-        ),
+        request=PaymentWebhookInputSerializer,
         responses=inline_serializer(
             name="PaymentWebhookResult", fields={"status": serializers.CharField()}
         ),

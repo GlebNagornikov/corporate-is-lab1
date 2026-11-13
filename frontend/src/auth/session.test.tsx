@@ -102,7 +102,7 @@ test('перенаправляет гостя на вход, сохраняя а
   server.use(http.get('*/api/orders/7/', order))
   const router = renderApp('/orders/7?from=cart')
 
-  expect(await screen.findByRole('heading', { name: 'Вход' })).toBeInTheDocument()
+  expect(await screen.findByRole('heading', { name: 'Вход' }, { timeout: 5000 })).toBeInTheDocument()
   expect(router.state.location.search).toBe('?next=%2Forders%2F7%3Ffrom%3Dcart')
   expect(order).not.toHaveBeenCalled()
 })

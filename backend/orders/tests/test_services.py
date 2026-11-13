@@ -73,6 +73,24 @@ class OrderServiceTests(TestCase):
         self.assertFalse(Order.objects.exists())
         self.assertEqual(self.cart.items.count(), 2)
 
+    def test_product_removed_after_cart_read_yields_checkout_error(self):
+        add_to_cart(self.cart, self.book)
+        select_for_update = Product.objects.select_for_update
+
+        def remove_product_before_lock(*args, **kwargs):
+            Product.objects.filter(pk=self.book.pk).delete()
+            return select_for_update(*args, **kwargs)
+
+        with (
+            patch.object(
+                Product.objects, "select_for_update", side_effect=remove_product_before_lock
+            ),
+            self.assertRaisesMessage(OrderError, "больше недоступен"),
+        ):
+            self.order()
+
+        self.assertFalse(Order.objects.exists())
+
     def test_promo_code_and_courier_delivery(self):
         now = timezone.now()
         promo = PromoCode.objects.create(
