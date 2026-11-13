@@ -25,11 +25,26 @@ class RestockTests(TestCase):
             self.product.stock = 5
             self.product.save()
         self.assertEqual(len(mail.outbox), 1)
+        self.assertIn("/products/book", mail.outbox[0].body)
         self.assertTrue(StockSubscription.objects.get().completed)
         with self.captureOnCommitCallbacks(execute=True):
             self.product.stock = 6
             self.product.save()
         self.assertEqual(len(mail.outbox), 1)
+
+    def test_variant_deletion_recalculates_price_and_stock_including_last_variant(self):
+        first = ProductVariant.objects.create(
+            product=self.product, name="A", sku="a", price=50, stock=4
+        )
+        second = ProductVariant.objects.create(
+            product=self.product, name="B", sku="b", price=150, stock=3
+        )
+        first.delete()
+        self.product.refresh_from_db()
+        self.assertEqual((self.product.stock, self.product.price), (3, 150))
+        ProductVariant.objects.filter(pk=second.pk).delete()
+        self.product.refresh_from_db()
+        self.assertEqual((self.product.stock, self.product.price), (0, 150))
 
     def test_invalid_email_and_in_stock_rejected(self):
         with self.assertRaises(ValidationError):

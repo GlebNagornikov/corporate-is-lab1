@@ -49,7 +49,13 @@ test('М3: избранное, отказ, пополнение из кабин�
     await page.route(`**/api/wishlist/${id}/`, (route) =>
       route.fulfill({ status: 503, json: { detail: 'Тестовый отказ' } }),
     )
-    await detailFavorite.click()
+    const [failedDelete] = await Promise.all([
+      page.waitForResponse((response) =>
+        response.url().endsWith(`/api/wishlist/${id}/`) && response.request().method() === 'DELETE',
+      ),
+      detailFavorite.click(),
+    ])
+    expect(failedDelete.status()).toBe(503)
     await expect(page.getByRole('alert').filter({ hasText: 'Тестовый отказ' })).toBeVisible()
     await expect(detailFavorite).toHaveAttribute('aria-pressed', 'true')
     await page.unroute(`**/api/wishlist/${id}/`)

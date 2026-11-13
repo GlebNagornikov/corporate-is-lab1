@@ -7,6 +7,7 @@ from rest_framework_simplejwt.views import TokenRefreshView
 
 from catalog.manager_api import ManagerBookViewSet, ManagerCategoryViewSet
 from catalog.manager_review_api import ManagerReviewViewSet
+from catalog.views import ProductListView
 from config.api_docs import ShopSchemaView, ShopSwaggerView, ShopTokenView
 from config.health import healthz
 from orders.api import ManagerOrderViewSet
@@ -20,6 +21,7 @@ manager_router.register("reviews", ManagerReviewViewSet, basename="manager-revie
 manager_router.register("promos", ManagerPromoViewSet, basename="manager-promo")
 
 urlpatterns = [
+    path("shop/", ProductListView.as_view(), name="legacy-shop"),
     path("api/schema/", ShopSchemaView.as_view(), name="api-schema"),
     path("api/docs/", ShopSwaggerView.as_view(), name="api-docs"),
     path("", include("orders.reporting")),

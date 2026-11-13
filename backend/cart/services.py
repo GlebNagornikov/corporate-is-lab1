@@ -1,3 +1,5 @@
+from decimal import Decimal
+
 from django.core.exceptions import ValidationError
 from django.db import transaction
 from django.db.models import Q, Sum
@@ -8,6 +10,8 @@ from catalog.models import Product, ProductVariant
 from .models import Cart, CartItem
 
 CART_SESSION_KEY = "cart_id"
+MAX_ORDER_AMOUNT = Decimal("9999999999.99")
+CART_AMOUNT_ERROR = "Сумма товаров превышает допустимый предел заказа."
 
 
 def get_cart(request, create=False):
@@ -45,6 +49,15 @@ def _set_quantity(cart, product, quantity, variant):
         rows.delete()
         _clear_empty_promo(cart)
         return 0
+    previous_quantity = rows.aggregate(total=Sum("quantity"))["total"] or 0
+    if quantity > previous_quantity:
+        price = product.price if variant.is_default else variant.price
+        other_total = sum(
+            item.total
+            for item in cart.items.exclude(pk__in=rows).select_related("product", "variant")
+        )
+        if other_total + price * quantity > MAX_ORDER_AMOUNT:
+            raise ValidationError(CART_AMOUNT_ERROR)
     CartItem.objects.update_or_create(
         cart=cart, product=product, variant=variant, defaults={"quantity": quantity}
     )
@@ -62,9 +75,23 @@ def _add_quantity(cart, product, quantity, variant):
 @transaction.atomic
 def set_quantity(cart, product, quantity, variant=None):
     """Ставит количество товара в корзине, но не больше остатка."""
-    if not product.is_active:
-        raise ValidationError("Товар снят с продажи.")
     cart = Cart.objects.select_for_update().get(pk=cart.pk)
+    if quantity == 0:
+        if variant is None:
+            cart.items.filter(
+                Q(variant__isnull=True) | Q(variant__is_default=True), product=product
+            ).delete()
+        else:
+            _item_rows(cart, product, variant).delete()
+        _clear_empty_promo(cart)
+        return 0
+    product = Product.objects.select_for_update().filter(pk=product.pk, is_active=True).first()
+    if product is None:
+        raise ValidationError("Товар снят с продажи.")
+    if variant is not None:
+        variant = product.variants.filter(pk=variant.pk, is_active=True).first()
+        if variant is None:
+            raise ValidationError("Этот вариант больше недоступен.")
     return _set_quantity(cart, product, quantity, choose_variant(product, variant))
 
 
@@ -103,7 +130,12 @@ def merge_guest_items(user, lines, promo_code=""):
     cart, _ = Cart.objects.get_or_create(user=user)
     cart = Cart.objects.select_for_update().get(pk=cart.pk)
     _clear_empty_promo(cart)
-    products = Product.objects.active().in_bulk({line["product"] for line in lines})
+    products = (
+        Product.objects.active()
+        .select_for_update()
+        .order_by("pk")
+        .in_bulk({line["product"] for line in lines})
+    )
     variants = ProductVariant.objects.filter(is_active=True).in_bulk(
         {line["variant"] for line in lines if "variant" in line}
     )
@@ -152,6 +184,9 @@ def merge_carts(source, target):
         ):
             skipped.append(item.product.name)
             continue
-        add_to_cart(target, item.product, item.quantity, variant=item.variant)
+        try:
+            add_to_cart(target, item.product, item.quantity, variant=item.variant)
+        except ValidationError:
+            skipped.append(item.product.name)
     source.delete()
     return skipped

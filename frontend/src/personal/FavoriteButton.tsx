@@ -23,10 +23,14 @@ function FavoriteToggle({ userId, entry }: { userId: number; entry: Favorite }) 
   const wishlist = useQuery(options)
   const productId = entry.product_id
   const mutationKey = ['wishlist-change', userId, productId]
-  const pending = useMutationState({
-    filters: { mutationKey, exact: true, status: 'pending' },
-    select: ({ state }) => (state.variables as { enabled: boolean; version: number }).enabled,
+  const latest = useMutationState({
+    filters: { mutationKey, exact: true },
+    select: ({ state }) => state,
   }).at(-1)
+  const current = (latest?.variables as { enabled: boolean; version: number } | undefined)
+  const sameSession = current?.version === tokens.version()
+  const pending = sameSession && latest?.status === 'pending' ? current?.enabled : undefined
+  const error = sameSession && latest?.error instanceof Error ? latest.error : null
   const mutation = useMutation({
     mutationKey,
     mutationFn: async ({ enabled, version }: { enabled: boolean; version: number }) => {
@@ -63,7 +67,7 @@ function FavoriteToggle({ userId, entry }: { userId: number; entry: Favorite }) 
       >
         <StoreIcon name="heart" />{favorite ? 'В избранном' : 'В избранное'}
       </button>
-      {mutation.isError && <p className="error" role="alert">Не удалось изменить избранное. {mutation.error.message}</p>}
+      {error && <p className="error" role="alert">Не удалось изменить избранное. {error.message}</p>}
       {wishlist.isError && !wishlist.data && (
         <button className="secondary" type="button" onClick={() => void wishlist.refetch()}>Повторить загрузку избранного</button>
       )}

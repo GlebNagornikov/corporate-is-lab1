@@ -36,13 +36,13 @@ class CartItemSerializer(serializers.Serializer):
     stock = serializers.IntegerField(source="available_stock")
     price = serializers.DecimalField(source="unit_price", max_digits=10, decimal_places=2)
     quantity = serializers.IntegerField()
-    total = serializers.DecimalField(max_digits=12, decimal_places=2)
+    total = serializers.DecimalField(max_digits=28, decimal_places=2)
 
 
 class CartSerializer(serializers.Serializer):
     items = CartItemSerializer(many=True)
     count = serializers.IntegerField()
-    total = serializers.DecimalField(max_digits=12, decimal_places=2)
+    total = serializers.DecimalField(max_digits=28, decimal_places=2)
     promo_code = serializers.SerializerMethodField()
     promo_quote = serializers.SerializerMethodField(allow_null=True)
 
@@ -177,11 +177,14 @@ class CartMergeView(GenericAPIView):
     def post(self, request):
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-        cart = merge_guest_items(
-            request.user,
-            serializer.validated_data["items"],
-            promo_code=serializer.validated_data.get("promo_code", ""),
-        )
+        try:
+            cart = merge_guest_items(
+                request.user,
+                serializer.validated_data["items"],
+                promo_code=serializer.validated_data.get("promo_code", ""),
+            )
+        except DjangoValidationError as error:
+            raise serializers.ValidationError(error.messages) from error
         return cart_response(request, cart)
 
 

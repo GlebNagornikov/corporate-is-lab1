@@ -260,12 +260,18 @@ class ProductVariant(models.Model):
     stock = models.PositiveIntegerField("Остаток", default=0)
     is_active = models.BooleanField("Активен", default=True)
     is_default = models.BooleanField(default=False, editable=False)
+    is_legacy_return = models.BooleanField(default=False, editable=False)
 
     class Meta:
         ordering = ["pk"]
         constraints = [
             models.UniqueConstraint(
                 fields=["product"], condition=Q(is_default=True), name="one_default_variant"
+            ),
+            models.UniqueConstraint(
+                fields=["product"],
+                condition=Q(is_legacy_return=True),
+                name="one_legacy_return_variant",
             ),
             models.CheckConstraint(condition=Q(price__gt=0), name="variant_price_positive"),
         ]

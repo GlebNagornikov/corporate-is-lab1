@@ -34,8 +34,8 @@ class PromoCheckSerializer(serializers.Serializer):
 
 
 class PromoQuoteSerializer(serializers.Serializer):
-    discount = serializers.DecimalField(max_digits=12, decimal_places=2)
-    total = serializers.DecimalField(max_digits=12, decimal_places=2)
+    discount = serializers.DecimalField(max_digits=28, decimal_places=2)
+    total = serializers.DecimalField(max_digits=28, decimal_places=2)
     reason = serializers.CharField(allow_null=True)
 
 

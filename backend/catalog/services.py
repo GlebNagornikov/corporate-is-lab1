@@ -60,12 +60,15 @@ def choose_variant(product, variant=None):
 
 
 @transaction.atomic
-def refresh_inventory(product_id):
+def refresh_inventory(product_id, *, variant_deleted=False):
     product = Product.objects.select_for_update().get(pk=product_id)
     variants = ProductVariant.objects.filter(
         product_id=product_id, is_default=False, is_active=True
     )
-    if ProductVariant.objects.filter(product_id=product_id, is_default=False).exists():
+    if (
+        variant_deleted
+        or ProductVariant.objects.filter(product_id=product_id, is_default=False).exists()
+    ):
         values = variants.aggregate(n=Sum("stock"), price=Min("price"))
         product.stock = values["n"] or 0
         product.price = values["price"] or product.price
@@ -170,7 +173,7 @@ def deliver_restock(product_id):
             product = subscription.product
             send_mail(
                 f"В наличии: {product.name}",
-                f"Товар снова в продаже: {settings.SITE_URL}{product.get_absolute_url()}",
+                f"Товар снова в продаже: {settings.SITE_URL.rstrip('/')}/products/{product.slug}",
                 None,
                 [subscription.email],
             )

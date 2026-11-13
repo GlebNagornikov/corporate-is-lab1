@@ -1,4 +1,5 @@
-from django.db.models.signals import post_delete, post_save, pre_save
+from django.db.models.query import QuerySet
+from django.db.models.signals import post_delete, post_save, pre_delete, pre_save
 from django.dispatch import receiver
 
 from .caching import invalidate_catalog
@@ -32,6 +33,24 @@ def variant_after(sender, instance, **kwargs):
         from .inventory import refresh_inventory
 
         refresh_inventory(instance.product_id)
+
+
+def _deleting_product(origin):
+    return isinstance(origin, Product) or (isinstance(origin, QuerySet) and origin.model is Product)
+
+
+@receiver(pre_delete, sender=ProductVariant)
+def lock_product_before_variant_delete(sender, instance, origin, **kwargs):
+    if not instance.is_default and not _deleting_product(origin):
+        Product.objects.select_for_update().get(pk=instance.product_id)
+
+
+@receiver(post_delete, sender=ProductVariant)
+def refresh_after_variant_delete(sender, instance, origin, **kwargs):
+    if not instance.is_default and not _deleting_product(origin):
+        from .inventory import refresh_inventory
+
+        refresh_inventory(instance.product_id, variant_deleted=True)
 
 
 for model in (Product, BookEdition, Category, Review, ProductImage, ProductVariant):

@@ -360,6 +360,41 @@ class OrderApiTests(APITestCase):
         self.book.refresh_from_db()
         self.assertEqual(self.book.stock, 1)
 
+    def test_checkout_rejects_stale_default_or_legacy_line_after_variant_creation(self):
+        self.client.force_authenticate(self.buyer)
+        cart = Cart.objects.create(user=self.buyer)
+        add_to_cart(cart, self.book)
+        line = cart.items.get()
+        variant = ProductVariant.objects.create(
+            product=self.book, name="Вариант", sku="BK-NEW", stock=4, price=1200
+        )
+        for variant_id in (line.variant_id, None):
+            with self.subTest(variant_id=variant_id):
+                CartItem.objects.filter(pk=line.pk).update(variant_id=variant_id)
+                response = self.client.post("/api/orders/", CUSTOMER)
+                self.assertEqual(response.status_code, 400, response.data)
+                self.assertIn("выберите вариант книги", str(response.data))
+                self.assertFalse(Order.objects.filter(user=self.buyer).exists())
+                self.assertTrue(cart.items.filter(pk=line.pk).exists())
+                variant.refresh_from_db()
+                self.book.refresh_from_db()
+                self.assertEqual((self.book.stock, variant.stock), (4, 4))
+
+    def test_cart_rejects_amount_overflow_before_writing_and_can_read_existing_cart(self):
+        self.client.force_authenticate(self.buyer)
+        Product.objects.filter(pk=self.book.pk).update(price=Decimal("99999999.99"), stock=102)
+        cart = Cart.objects.create(user=self.buyer)
+        response = self.client.post("/api/cart/items/", {"product": self.book.pk, "quantity": 101})
+        self.assertEqual(response.status_code, 400, response.data)
+        self.assertFalse(cart.items.exists())
+
+        line = CartItem.objects.create(cart=cart, product=self.book, quantity=102)
+        response = self.client.get("/api/cart/")
+        self.assertEqual(response.data["total"], "10199999998.98")
+        response = self.client.patch(f"/api/cart/items/{self.book.pk}/", {"quantity": 101})
+        self.assertEqual(response.status_code, 200, response.data)
+        self.assertFalse(CartItem.objects.filter(pk=line.pk).exists())
+
     def test_checkout_checks_shared_stock_for_legacy_and_default_lines(self):
         cart = Cart.objects.create(user=self.buyer)
         add_to_cart(cart, self.book, quantity=2)
@@ -529,6 +564,71 @@ class OrderApiTests(APITestCase):
         self.client.force_authenticate(self.buyer)
         response = self.client.patch(f"/api/cart/items/{self.book.pk}/", {"quantity": 0})
         self.assertEqual(response.data["count"], 0)
+
+    def test_zero_quantity_removes_unavailable_book_and_clears_promo(self):
+        self.client.force_authenticate(self.buyer)
+        cart = Cart.objects.create(user=self.buyer)
+        add_to_cart(cart, self.book, quantity=2)
+        cart.promo_code = "BOOK10"
+        cart.save(update_fields=["promo_code"])
+        variant_id = cart.items.get().variant_id
+        self.book.is_active = False
+        self.book.save(update_fields=["is_active"])
+
+        response = self.client.patch(
+            f"/api/cart/items/{self.book.pk}/?variant={variant_id}", {"quantity": 0}
+        )
+        self.assertEqual(response.status_code, 200, response.data)
+        self.assertEqual(response.data["items"], [])
+        self.assertEqual(response.data["promo_code"], "")
+
+    def test_zero_quantity_removes_only_selected_inactive_variant(self):
+        self.client.force_authenticate(self.buyer)
+        cart = Cart.objects.create(user=self.buyer)
+        first, second = [
+            ProductVariant.objects.create(
+                product=self.book, name=sku, sku=sku, price=self.book.price, stock=3
+            )
+            for sku in ("FIRST", "SECOND")
+        ]
+        add_to_cart(cart, self.book, quantity=2, variant=first)
+        add_to_cart(cart, self.book, variant=second)
+        first.is_active = False
+        first.save(update_fields=["is_active"])
+
+        url = f"/api/cart/items/{self.book.pk}/"
+        self.assertEqual(self.client.patch(url, {"quantity": 0}).status_code, 200)
+        self.assertEqual(cart.items.count(), 2)
+        response = self.client.patch(f"{url}?variant={first.pk}", {"quantity": 0})
+        self.assertEqual(response.status_code, 200, response.data)
+        self.assertEqual(cart.items.get().variant_id, second.pk)
+
+    def test_cancel_old_orders_after_first_warehouse_variant_is_added(self):
+        first_order_id = self.buy(self.buyer)
+        second_order_id = self.buy(self.buyer)
+        Order.objects.get(pk=second_order_id).items.update(variant=None)
+        warehouse = ProductVariant.objects.create(
+            product=self.book, name="Другой склад", sku="NEW-WAREHOUSE", price=1200, stock=3
+        )
+
+        for order_id in (first_order_id, second_order_id):
+            url = f"/api/orders/{order_id}/cancel/"
+            self.assertEqual(self.client.post(url).status_code, 200)
+            self.assertEqual(self.client.post(url).status_code, 400)
+
+        returned = self.book.variants.get(is_legacy_return=True)
+        self.assertEqual(returned.stock, 2)
+        self.assertFalse(returned.is_active)
+        warehouse.refresh_from_db()
+        self.book.refresh_from_db()
+        self.assertEqual((self.book.stock, warehouse.stock), (3, 3))
+
+        self.client.force_authenticate(self.manager)
+        url = f"/api/manager/catalog/{self.book.pk}/variants/{returned.pk}/"
+        response = self.client.patch(url, {"is_active": True})
+        self.assertEqual(response.status_code, 200, response.data)
+        self.book.refresh_from_db()
+        self.assertEqual(self.book.stock, 5)
 
     def test_customer_can_cancel_only_new_order(self):
         order_id = self.buy(self.buyer)

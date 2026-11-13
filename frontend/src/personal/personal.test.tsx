@@ -20,11 +20,11 @@ const entry = {
 function renderPersonal(children: React.ReactNode) {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
   client.setQueryData(meQuery().queryKey, buyer)
-  const view = render(
+  const view = render(children, { wrapper: ({ children }) => (
     <QueryClientProvider client={client}>
       <MemoryRouter><SessionProvider>{children}</SessionProvider></MemoryRouter>
-    </QueryClientProvider>,
-  )
+    </QueryClientProvider>
+  ) })
   return { client, ...view }
 }
 
@@ -65,7 +65,11 @@ test.each([true, false])('избранное синхронно в двух ме
     expect(grid).toBeEnabled()
     expect(detail).toHaveAttribute('aria-pressed', String(success))
   })
-  if (!success) expect(await screen.findByRole('alert')).toHaveTextContent('Сервис недоступен')
+  if (!success) {
+    const alerts = await screen.findAllByRole('alert')
+    expect(alerts).toHaveLength(2)
+    for (const alert of alerts) expect(alert).toHaveTextContent('Сервис недоступен')
+  }
 })
 
 test('счётчик обновляется каждые 30 секунд и при возврате на вкладку, после размонтирования запросов нет', async () => {
@@ -107,4 +111,19 @@ test('выход удаляет счётчик и избранное из кэш
   expect(await screen.findByRole('link', { name: 'В избранное: Книга' })).toBeVisible()
   expect(client.getQueryData(wishlistQuery(buyer.id).queryKey)).toBeUndefined()
   expect(client.getQueryData(unreadQuery(buyer.id).queryKey)).toBeUndefined()
+})
+
+test('ошибка удаления из избранного видна после повторного открытия карточки', async () => {
+  server.use(
+    http.get('*/api/wishlist/', () => HttpResponse.json([entry])),
+    http.delete('*/api/wishlist/1/', () =>
+      HttpResponse.json({ detail: 'Сервис недоступен' }, { status: 503 }),
+    ),
+  )
+  const { rerender } = renderPersonal(<FavoriteButton key="first" entry={entry} />)
+  fireEvent.click(await screen.findByRole('button', { name: 'Избранное: Книга', pressed: true }))
+  expect(await screen.findByRole('alert')).toHaveTextContent('Сервис недоступен')
+  rerender(<FavoriteButton key="second" entry={entry} />)
+  expect(await screen.findByRole('alert')).toHaveTextContent('Сервис недоступен')
+  expect(screen.getByRole('button', { name: 'Избранное: Книга', pressed: true })).toBeEnabled()
 })

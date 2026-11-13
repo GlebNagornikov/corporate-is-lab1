@@ -29,6 +29,9 @@ docker run --rm python:3.13-slim python -c "import secrets; print(secrets.token_
 не изменится. В пароль внутри URL допускаются буквы, цифры, `_` и `-`; остальные
 спецсимволы требуют URL-кодирования. Значения с `$` заключать в одинарные кавычки.
 
+Для запуска с копией уже наполненного магазина используйте [перенос снимка](#перенос-данных-на-другой-компьютер)
+до запуска миграций и `seed_demo`.
+
 ```powershell
 docker compose up -d --build
 docker compose exec web python manage.py migrate
@@ -317,6 +320,46 @@ docker compose -f docker-compose.prod.yml --env-file .env.prod cp db:/tmp/shop.d
 сертификаты сохраняются отдельно. Полный цикл восстановления проверен в части 5.
 
 Остановка: `docker compose down` или prod-команда с теми же -f/--env-file и down.
+
+### Перенос данных на другой компьютер
+
+Обычный запуск с `seed_demo` создаёт базовый каталог из 21 книги. Чтобы получить текущий
+каталог, отзывы, заказы и учётные записи с прежними паролями, перенесите снимок PostgreSQL
+вместе с обложками. Для каждого стенда используется свой снимок.
+
+На исходном компьютере при запущенном магазине выполните экспорт в новый каталог.
+На время экспорта приостановите изменения каталога и загрузку обложек.
+
+```powershell
+.\scripts\shop-snapshot.ps1 -Action Export -Profile Dev -Directory .\backups\shop-dev
+.\scripts\shop-snapshot.ps1 -Action Export -Profile Https -Directory .\backups\shop-https
+```
+
+На другом компьютере подготовьте ту же версию кода и окружение по инструкции для нужного
+стенда. Скопируйте соответствующий каталог с `database.dump` и `media.tar`. Восстанавливайте
+в свежую базу до обычного запуска Compose. Скрипт сам запустит PostgreSQL.
+
+Для dev выполните:
+
+```powershell
+docker compose build web
+.\scripts\shop-snapshot.ps1 -Action Restore -Profile Dev -Directory .\backups\shop-dev
+docker compose up -d --build
+docker compose exec web python manage.py migrate
+```
+
+Для HTTPS выполните:
+
+```powershell
+docker compose -f docker-compose.prod.yml --env-file .env.prod build web
+.\scripts\shop-snapshot.ps1 -Action Restore -Profile Https -Directory .\backups\shop-https
+docker compose -f docker-compose.prod.yml --env-file .env.prod up -d --build
+```
+
+После восстановления пользователи входят заново. Снимок содержит данные пользователей
+и хеши паролей, поэтому передавайте его приватно. Переменные окружения, сертификаты и
+активные сеансы создаются на новом компьютере отдельно.
+
 **Не добавлять -v: это удаляет тома с БД, Redis и изображениями.** Dev и prod используют
 разные проекты/тома. Изменение исходников не требует dev-пересборки; изменение зависимостей
 требует `up -d --build`. При запуске новых worker после изменения кода перезапустить worker.
