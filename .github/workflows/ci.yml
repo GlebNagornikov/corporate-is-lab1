@@ -79,3 +79,82 @@ jobs:
         run: npm test
       - name: Build
         run: npm run build
+
+  e2e:
+    name: Playwright (dev)
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - run: npm ci --prefix frontend
+      - run: npx --prefix frontend playwright install --with-deps chromium
+      - name: Start isolated dev stack and seed data
+        run: |
+          cp .env.example .env
+          install -d -m 0777 media
+          docker compose up -d --build --wait --wait-timeout 180
+          docker compose exec -T web python manage.py migrate --noinput
+          docker compose exec -T web python manage.py seed_demo --password 'DemoShop2026!'
+          curl --fail --silent --show-error --retry 20 --retry-all-errors --retry-delay 2 --max-time 5 --output /dev/null http://127.0.0.1:5173/api/catalog/products/
+      - run: npm --prefix frontend run e2e -- --grep-invert @https
+      - name: Compose logs
+        if: failure()
+        run: docker compose logs --no-color
+      - uses: actions/upload-artifact@v6
+        if: failure()
+        with:
+          name: playwright-dev-results
+          path: frontend/test-results/
+          if-no-files-found: ignore
+      - name: Stop dev stack
+        if: always()
+        run: docker compose down --volumes
+
+  e2e-https:
+    name: Playwright (HTTPS)
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      E2E_BASE_URL: https://localhost:8443
+      COMPOSE_FILE: docker-compose.prod.yml:docker-compose.e2e.yml
+      COMPOSE_PROJECT_NAME: shop-e2e
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - run: npm ci --prefix frontend
+      - run: npx --prefix frontend playwright install --with-deps chromium
+      - name: Start isolated HTTPS stack and seed data
+        run: |
+          sed -e "s|^CSRF_TRUSTED_ORIGINS=.*|CSRF_TRUSTED_ORIGINS=$E2E_BASE_URL|" \
+            -e "s|^SITE_URL=.*|SITE_URL=$E2E_BASE_URL|" env/production.example > .env.prod
+          mkdir -p nginx/certs
+          openssl req -x509 -nodes -newkey rsa:2048 -days 1 \
+            -keyout nginx/certs/localhost.key -out nginx/certs/localhost.crt \
+            -subj /CN=localhost -addext subjectAltName=DNS:localhost
+          docker compose --env-file .env.prod up -d --build --wait --wait-timeout 180
+          docker compose --env-file .env.prod exec -T web python manage.py seed_demo --password 'DemoShop2026!'
+      - run: npm --prefix frontend run e2e
+      - name: Restore a snapshot to a fresh database and media volume
+        shell: pwsh
+        run: ./scripts/check-shop-snapshot.ps1 -SourceProject shop-e2e
+      - name: Compose logs
+        if: failure()
+        run: docker compose --env-file .env.prod logs --no-color
+      - uses: actions/upload-artifact@v6
+        if: failure()
+        with:
+          name: playwright-https-results
+          path: frontend/test-results/
+          if-no-files-found: ignore
+      - name: Stop HTTPS stack
+        if: always()
+        run: docker compose --env-file .env.prod down --volumes

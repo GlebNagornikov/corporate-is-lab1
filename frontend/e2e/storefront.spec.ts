@@ -46,7 +46,6 @@ test('главная, темы и основные страницы работа
 test('регистрация, поиск с фильтром, один заказ и смена статуса сотрудником', async ({
   page, browser, baseURL,
 }) => {
-  test.setTimeout(60_000)
   const username = `book-${randomUUID().slice(0, 12)}`
   const password = `Book!${randomUUID()}`
   await page.goto('/orders?page=1')

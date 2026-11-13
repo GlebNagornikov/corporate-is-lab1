@@ -47,7 +47,6 @@ async function deliver(
 test('М1: право после доставки, очередь, рейтинг и смена аккаунта', async ({
   browser, page, request, baseURL,
 }) => {
-  test.setTimeout(60_000)
   const buyer = await createBuyer(request)
   const other = await createBuyer(request)
   const buyerHeaders = await authorize(request, buyer)

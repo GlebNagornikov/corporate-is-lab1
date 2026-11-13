@@ -10,8 +10,12 @@ const apiUrl = '/api/catalog/products/?category=books&ordering=price'
 const cards = '.catalog-results > .grid article h2 a'
 
 test('дозагружает страницы по одной, возвращает список и позицию, открывает прямую ссылку', async ({ page, context }) => {
-  const first: ProductPage = await (await page.request.get(apiUrl)).json()
-  const second: ProductPage = await (await page.request.get(`${apiUrl}&page=2`)).json()
+  const firstResponse = await page.request.get(apiUrl)
+  const secondResponse = await page.request.get(`${apiUrl}&page=2`)
+  await expect(firstResponse).toBeOK()
+  await expect(secondResponse).toBeOK()
+  const first: ProductPage = await firstResponse.json()
+  const second: ProductPage = await secondResponse.json()
   const firstLinks = first.results.map((book) => `/products/${book.slug}`)
   const secondLinks = second.results.map((book) => `/products/${book.slug}`)
   let requests = 0
@@ -40,6 +44,12 @@ test('дозагружает страницы по одной, возвраща�
       window.scrollTo(0, 0)
       window.scrollTo(0, document.documentElement.scrollHeight)
     })
+    const pageTwo = page.waitForResponse((response) => {
+      const url = new URL(response.url())
+      return url.pathname === '/api/catalog/products/' && url.searchParams.get('page') === '2'
+    })
+    release()
+    expect((await pageTwo).ok()).toBe(true)
   } finally {
     release()
   }
@@ -63,7 +73,10 @@ test('дозагружает страницы по одной, возвраща�
     .toBeLessThan(5)
 
   const shared = await context.newPage()
+  // Check the initial shared page even when its short grid fits in the viewport.
+  await shared.addInitScript(() => Reflect.deleteProperty(window, 'IntersectionObserver'))
   await shared.goto(secondUrl)
+  await expect(shared).toHaveURL(secondUrl)
   await expect(shared.locator(cards)).toHaveCount(secondLinks.length)
   expect(await shared.locator(cards).evaluateAll((elements) => elements.map((link) => link.getAttribute('href'))))
     .toEqual(secondLinks)
@@ -91,7 +104,14 @@ test('клавиатура загружает следующую страниц�
   await expect(page).toHaveURL(catalogUrl)
 
   await expect(page.getByRole('button', { name: 'Повторить загрузку' })).toBeFocused()
-  await page.keyboard.press('Enter')
+  const [retried] = await Promise.all([
+    page.waitForResponse((response) => {
+      const url = new URL(response.url())
+      return url.pathname === '/api/catalog/products/' && url.searchParams.get('page') === '2'
+    }),
+    page.keyboard.press('Enter'),
+  ])
+  expect(retried.ok()).toBe(true)
   await expect(page).toHaveURL(secondUrl)
   await expect.poll(() => page.locator(cards).count()).toBeGreaterThan(before)
   expect(requests).toBe(2)

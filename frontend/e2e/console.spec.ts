@@ -17,7 +17,7 @@ test('страницы магазина не вызывают ошибок JavaS
   expect(errors).toEqual([])
 })
 
-test('nginx обслуживает страницы сравнения и адресной книги Django', async ({ page, request, baseURL }) => {
+test('nginx обслуживает страницы сравнения и адресной книги Django', { tag: '@https' }, async ({ page, request, baseURL }) => {
   test.skip(!baseURL?.startsWith('https:'), 'Проверка маршрутизации HTTPS-стенда')
   await page.goto('/product/war-of-worlds-1898/')
   await expect(page.getByRole('heading', { name: /Война миров/ })).toBeVisible()
