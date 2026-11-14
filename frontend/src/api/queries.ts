@@ -58,6 +58,7 @@ export const reviewsQuery = (slug: string) =>
   infiniteQueryOptions({
     queryKey: ['products', 'detail', slug, 'reviews'],
     staleTime: 0,
+    refetchInterval: STOCK_REFRESH_INTERVAL,
     initialPageParam: 1,
     queryFn: async ({ pageParam, signal }) =>
       requireData(
@@ -74,6 +75,7 @@ export const reviewEligibilityQuery = (slug: string, buyerId: number | undefined
     queryKey: ['review-eligibility', buyerId, slug],
     enabled: buyerId !== undefined,
     staleTime: 0,
+    refetchInterval: STOCK_REFRESH_INTERVAL,
     queryFn: async ({ signal }) =>
       requireData(
         await api.GET('/api/catalog/products/{slug}/review-eligibility/', {

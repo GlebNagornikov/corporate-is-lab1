@@ -2,7 +2,7 @@
 
 import { randomUUID } from 'node:crypto'
 import { expect, test } from '@playwright/test'
-import { loginAs } from './helpers.ts'
+import { loginAs, payWithDemoCard } from './helpers.ts'
 
 test('главная, темы и основные страницы работают на ширине 360 px', async ({ page }) => {
   await page.setViewportSize({ width: 360, height: 800 })
@@ -118,8 +118,7 @@ test('регистрация, поиск с фильтром, один зака�
   const orderNumber = orderPath.split('/').at(-1)
   await page.reload()
   await expect(page.getByRole('cell', { name: /Война миров/ })).toBeVisible()
-  await page.locator('summary').filter({ hasText: 'Оплатить' }).click()
-  await page.getByRole('button', { name: 'Успех', exact: true }).click()
+  await payWithDemoCard(page)
   const status = page.locator('.order-detail strong')
   await expect(status).toHaveText('Оплачен')
   await page.getByRole('link', { name: 'Мои заказы', exact: true }).click()

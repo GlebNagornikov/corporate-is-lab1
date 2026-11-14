@@ -7,6 +7,8 @@ import { formatDate, formatPrice } from '../lib/format'
 import { statusLabels } from '../lib/statuses'
 import { usePageTitle } from '../lib/usePageTitle'
 import { managerOrderQuery } from '../manager/queries'
+import OrderStatusActions from '../manager/OrderStatusActions'
+import PaymentCardForm from './PaymentCardForm'
 import { useOrderEvents } from './useOrderEvents'
 
 function BuyerOrderEvents({ id }: { id: number }) {
@@ -53,7 +55,9 @@ export default function OrderPage({ manager = false }: { manager?: boolean }) {
       {!manager && <BuyerOrderEvents id={id} />}
       {justPlaced && <p className="success" role="status">Заказ оформлен. Спасибо!</p>}
       <h1>Заказ №{order.id}</h1>
-      <p>{formatDate(order.created_at)} · <strong>{order.status_display}</strong></p>
+      <p id="order-status" tabIndex={manager ? -1 : undefined}>
+        {formatDate(order.created_at)} · <strong>{order.status_display}</strong>
+      </p>
       {manager && (
         <dl className="order-totals order-contact">
           <dt>Получатель</dt><dd>{order.full_name}</dd>
@@ -97,20 +101,15 @@ export default function OrderPage({ manager = false }: { manager?: boolean }) {
         <dt>Доставка</dt><dd>{formatPrice(order.delivery_cost)}</dd>
         <dt className="price">Итого</dt><dd className="price">{formatPrice(order.total)}</dd>
       </dl>
+      {manager && order.allowed_transitions.length > 0 && <section className="order-status-actions">
+        <h2>Действия с заказом</h2>
+        <OrderStatusActions key={id} order={order} focusFallback="order-status" />
+      </section>}
       {!manager && order.can_pay && (
         <details className="order-payment">
           <summary>Оплатить</summary>
-          <p>Учебный платёжный шлюз. Реальные деньги не списываются.</p>
-          <div className="actions">
-            <button type="button" disabled={isUpdating}
-              onClick={() => pay.mutate({ outcome: 'success', version: tokens.version() })}>
-              Успех
-            </button>
-            <button type="button" className="secondary" disabled={isUpdating}
-              onClick={() => pay.mutate({ outcome: 'failed', version: tokens.version() })}>
-              Отказ
-            </button>
-          </div>
+          <PaymentCardForm key={id} total={order.total} disabled={isUpdating}
+            submit={(outcome) => pay.mutate({ outcome, version: tokens.version() })} />
           {pay.isSuccess && pay.variables.outcome === 'failed' && (
             <p role="status">Учебный платёж отклонён. Можно повторить оплату.</p>
           )}

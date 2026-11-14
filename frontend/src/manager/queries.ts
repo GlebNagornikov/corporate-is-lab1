@@ -6,6 +6,7 @@ import { orderFilters } from './orderFilters'
 import type { ReportPeriod } from './reportPeriod'
 
 export type ManagerBook = components['schemas']['ManagerBook']
+const MANAGER_REFRESH_INTERVAL = 10_000
 
 export async function refreshCatalog(client: QueryClient) {
   await Promise.all([
@@ -42,11 +43,13 @@ export const managerCategoriesQuery = () => queryOptions({
 
 export const managerReviewsQuery = () => queryOptions({
   queryKey: ['manager', 'reviews'],
+  refetchInterval: MANAGER_REFRESH_INTERVAL,
   queryFn: async ({ signal }) => requireData(await api.GET('/api/manager/reviews/', { signal })),
 })
 
 export const managerOrdersQuery = (query: ReturnType<typeof orderFilters>) => queryOptions({
   queryKey: ['manager', 'orders', 'list', query],
+  refetchInterval: MANAGER_REFRESH_INTERVAL,
   queryFn: async ({ signal }) => requireData(await api.GET('/api/manager/orders/', {
     params: { query }, signal,
   })),

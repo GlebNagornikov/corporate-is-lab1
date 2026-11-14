@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test'
-import { checkoutAsGuest, createBuyer, loginAs } from './helpers.ts'
+import { checkoutAsGuest, createBuyer, loginAs, payWithDemoCard } from './helpers.ts'
 
 let consoleErrors: string[]
 test.beforeEach(({ page }) => {
@@ -26,8 +26,7 @@ test('гость собирает корзину, входит и оформля
 test('менеджер подтверждает заказ после учебной оплаты', async ({ page, request }) => {
   const buyer = await createBuyer(request)
   const id = await checkoutAsGuest(page, buyer)
-  await page.locator('summary').filter({ hasText: 'Оплатить' }).click()
-  await page.getByRole('button', { name: 'Успех', exact: true }).click()
+  await payWithDemoCard(page)
   await expect(page.locator('strong').getByText('Оплачен', { exact: true })).toBeVisible()
 
   await page.getByRole('button', { name: 'Выйти' }).click()
@@ -71,6 +70,9 @@ test('менеджер подтверждает заказ после учебн
   await page.setViewportSize({ width: 360, height: 780 })
   await expect(quantity).toHaveCSS('white-space', 'nowrap')
   expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(360)
+  await page.getByRole('button', { name: 'Передать в доставку' }).click()
+  await dialog.getByRole('button', { name: 'Подтвердить действие' }).click()
+  await expect(page.locator('#order-status strong')).toHaveText('Передан в доставку')
 })
 
 test('покупатель не попадает в раздел менеджера', async ({ page, request }) => {

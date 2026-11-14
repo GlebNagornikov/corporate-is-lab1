@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test'
-import { checkoutAsGuest, createBuyer, loginAs } from './helpers.ts'
+import { checkoutAsGuest, createBuyer, loginAs, payWithDemoCard } from './helpers.ts'
 
 test('покупатель получает статусы из другого профиля и восстанавливает поток', async ({
   browser, page, request, baseURL,
@@ -38,9 +38,6 @@ test('покупатель получает статусы из другого �
     expect((await request.get(path, { headers: { Authorization: `Bearer ${access}` } })).status()).toBe(404)
 
     const status = page.locator('.order-detail strong')
-    await page.locator('summary').filter({ hasText: 'Оплатить' }).click()
-    await page.getByRole('button', { name: 'Успех', exact: true }).click()
-    await expect(status).toHaveText('Оплачен')
     const manager = await managerProfile.newPage()
     await loginAs(manager, {
       username: process.env.E2E_MANAGER_USERNAME ?? 'manager_demo',
@@ -49,6 +46,10 @@ test('покупатель получает статусы из другого �
     const row = manager.getByRole('row').filter({
       has: manager.getByRole('link', { name: `№${id}`, exact: true }),
     })
+    await expect(row).toHaveCount(0)
+    await payWithDemoCard(page)
+    await expect(status).toHaveText('Оплачен')
+    await expect(row).toBeVisible({ timeout: 20_000 })
     const dialog = manager.getByRole('dialog')
     await row.getByRole('button', { name: 'Подтвердить', exact: true }).click()
     await dialog.getByRole('button', { name: 'Подтвердить действие' }).click()

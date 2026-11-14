@@ -334,6 +334,21 @@ button.manager-delete { background: var(--danger-bg); border-color: var(--danger
 .order-amounts dd { white-space: nowrap; }
 .order-payment { margin-bottom: .75rem; padding: .75rem; border: 1px solid var(--line); }
 .order-payment summary { color: var(--accent); font-weight: 700; cursor: pointer; }
+.order-status-actions { margin-block: 1.25rem; }
+.payment-card-form { margin-block: 1rem .75rem; }
+.payment-instructions p, .payment-instructions ul { margin-block: 0 .5rem; }
+.payment-instructions ul { padding-inline-start: 1.25rem; }
+.payment-card {
+  display: grid;
+  gap: .75rem;
+  width: min(100%, 24rem);
+  padding: 1rem;
+  background: var(--wash);
+  border: 1px solid var(--control);
+  border-radius: 1rem;
+}
+.payment-card-fields { display: grid; grid-template-columns: minmax(0, 3fr) minmax(0, 2fr); gap: .75rem; }
+.payment-card .error { margin: .25rem 0 0; font-size: .875rem; }
 .price { color: var(--accent); font: 600 1.35rem/1.4 var(--display); }
 .old-price, .badge { margin-left: .45rem; font: 400 .78rem/1.5 var(--body); }
 .badge { padding: .13rem .38rem; border: 1px solid var(--control); border-radius: .3rem; }
