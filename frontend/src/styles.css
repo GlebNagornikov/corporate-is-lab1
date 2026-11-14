@@ -332,6 +332,7 @@ button.manager-delete { background: var(--danger-bg); border-color: var(--danger
 .order-totals dd { margin: 0; text-align: right; }
 .order-contact { grid-template-columns: max-content minmax(0, 1fr); }
 .order-contact dd { text-align: left; }
+.order-amounts { margin-block-start: 1rem; }
 .order-amounts dd { white-space: nowrap; }
 .order-payment { margin-bottom: .75rem; padding: .75rem; border: 1px solid var(--line); }
 .order-payment summary { color: var(--accent); font-weight: 700; cursor: pointer; }
