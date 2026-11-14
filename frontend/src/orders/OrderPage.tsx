@@ -55,7 +55,7 @@ export default function OrderPage({ manager = false }: { manager?: boolean }) {
       <h1>Заказ №{order.id}</h1>
       <p>{formatDate(order.created_at)} · <strong>{order.status_display}</strong></p>
       {manager && (
-        <dl className="order-totals">
+        <dl className="order-totals order-contact">
           <dt>Получатель</dt><dd>{order.full_name}</dd>
           <dt>Телефон</dt><dd>{order.phone}</dd>
           <dt>Почта</dt><dd>{order.email}</dd>
@@ -64,7 +64,7 @@ export default function OrderPage({ manager = false }: { manager?: boolean }) {
         </dl>
       )}
       <div className="table-scroll">
-        <table className="table">
+        <table className="table order-table">
           <thead>
             <tr>
               <th scope="col">Товар</th>
@@ -79,8 +79,8 @@ export default function OrderPage({ manager = false }: { manager?: boolean }) {
                   {item.product_name}
                   {item.variant_name && <small className="line-variant muted">{item.variant_name}</small>}
                 </td>
-                <td>{item.quantity} шт.</td>
-                <td className="order-amount">{formatPrice(item.total)}</td>
+                <td data-label="Количество">{item.quantity} шт.</td>
+                <td className="order-amount" data-label="Сумма">{formatPrice(item.total)}</td>
               </tr>
             ))}
           </tbody>

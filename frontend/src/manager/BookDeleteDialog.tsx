@@ -29,9 +29,15 @@ export default function BookDeleteDialog({ book, close }: { book: ManagerBook; c
   })
   useEffect(() => {
     const element = dialog.current!
+    const trigger = document.activeElement
     element.showModal()
     cancel.current?.focus()
-    return () => element.close()
+    return () => {
+      element.close()
+      requestAnimationFrame(() => {
+        if (!element.isConnected && trigger instanceof HTMLElement && trigger.isConnected) trigger.focus()
+      })
+    }
   }, [])
   return (
     <dialog className="status-dialog" ref={dialog} aria-labelledby="delete-book-title"

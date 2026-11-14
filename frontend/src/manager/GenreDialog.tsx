@@ -26,8 +26,14 @@ export default function GenreDialog({ close, select }: {
   })
   useEffect(() => {
     const dialog = ref.current!
+    const trigger = document.activeElement
     dialog.showModal()
-    return () => dialog.close()
+    return () => {
+      dialog.close()
+      requestAnimationFrame(() => {
+        if (!dialog.isConnected && trigger instanceof HTMLElement && trigger.isConnected) trigger.focus()
+      })
+    }
   }, [])
 
   const fieldError = create.error instanceof ApiError ? create.error.fields.name?.join(' ') : undefined

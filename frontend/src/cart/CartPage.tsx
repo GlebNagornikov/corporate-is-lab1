@@ -31,9 +31,10 @@ export default function CartPage() {
       ) : cart.items.length > 0 ? (
         <div className="order-layout">
           <div className="details table-scroll">
-            <table className="table">
+            <table className="table cart-table">
               <thead>
-                <tr><th scope="col">Товар</th><th scope="col">Количество</th><th scope="col">Сумма</th></tr>
+                <tr><th scope="col">Товар</th><th scope="col" className="order-quantity">Количество</th>
+                  <th scope="col" className="order-amount">Сумма</th></tr>
               </thead>
               <tbody>
                 {cart.items.map((item) => {
@@ -48,27 +49,29 @@ export default function CartPage() {
                           </div>
                         </div>
                       </td>
-                      <td>
-                        <div className="qty">
-                          <button type="button" aria-label={`Убрать одну штуку: ${label}`}
-                            onClick={() => cart.setQuantity(item.product_id, item.quantity - 1, item.variant_id)}>
-                            −
-                          </button>
-                          <span>{item.quantity}</span>
-                          <button type="button" aria-label={`Добавить одну штуку: ${label}`}
-                            disabled={item.quantity >= item.stock}
-                            onClick={() => cart.setQuantity(item.product_id, item.quantity + 1, item.variant_id)}>
-                            +
-                          </button>
+                      <td data-label="Количество">
+                        <div className="actions">
+                          <div className="qty">
+                            <button type="button" aria-label={`Убрать одну штуку: ${label}`}
+                              onClick={() => cart.setQuantity(item.product_id, item.quantity - 1, item.variant_id)}>
+                              −
+                            </button>
+                            <span>{item.quantity}</span>
+                            <button type="button" aria-label={`Добавить одну штуку: ${label}`}
+                              disabled={item.quantity >= item.stock}
+                              onClick={() => cart.setQuantity(item.product_id, item.quantity + 1, item.variant_id)}>
+                              +
+                            </button>
+                          </div>
+                          {item.quantity > 1 && (
+                            <button type="button" aria-label={`Удалить из корзины: ${label}`}
+                              onClick={() => cart.setQuantity(item.product_id, 0, item.variant_id)}>
+                              Удалить
+                            </button>
+                          )}
                         </div>
-                        {item.quantity > 1 && (
-                          <button type="button" aria-label={`Удалить из корзины: ${label}`}
-                            onClick={() => cart.setQuantity(item.product_id, 0, item.variant_id)}>
-                            Удалить
-                          </button>
-                        )}
                       </td>
-                      <td>{formatPrice(item.total)}</td>
+                      <td className="order-amount" data-label="Сумма">{formatPrice(item.total)}</td>
                     </tr>
                   )
                 })}
