@@ -317,8 +317,6 @@ button.manager-delete { background: var(--danger-bg); border-color: var(--danger
 .table .order-amount { text-align: right; font-variant-numeric: tabular-nums; }
 .manager-table thead th { overflow-wrap: normal; }
 .table .manager-order-status, .table .manager-order-actions { overflow-wrap: normal; }
-.cart-table .actions { row-gap: .4rem; }
-.cart-table .actions > button { white-space: nowrap; }
 @media (max-width: 42rem) {
   :is(.cart-table, .order-table) tbody tr > * { padding-inline: .65rem; }
   .cart-table .actions { padding-top: .3rem; }
