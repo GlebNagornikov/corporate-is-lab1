@@ -316,12 +316,13 @@ button.manager-delete { background: var(--danger-bg); border-color: var(--danger
 .table th.order-quantity, .table .order-amount { white-space: nowrap; }
 .table .order-amount { text-align: right; font-variant-numeric: tabular-nums; }
 .manager-table thead th { overflow-wrap: normal; }
+.table .manager-order-status, .table .manager-order-actions { overflow-wrap: normal; }
 .cart-table .actions { row-gap: .4rem; }
 .cart-table .actions > button { white-space: nowrap; }
 @media (max-width: 42rem) {
   :is(.cart-table, .order-table) tbody tr > * { padding-inline: .65rem; }
   .cart-table .actions { padding-top: .3rem; }
-  :is(.cart-table, .order-table) .order-amount { text-align: left; }
+  :is(.cart-table, .order-table, .manager-table) .order-amount { text-align: left; }
 }
 .table th { font-size: .85rem; }
 .qty, .actions { display: flex; align-items: center; flex-wrap: wrap; gap: .35rem; }
