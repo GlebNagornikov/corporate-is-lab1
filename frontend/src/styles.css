@@ -59,11 +59,11 @@ p, dl { margin: 0 0 1rem; }
   z-index: 2;
   inset: 1rem auto auto 1rem;
   padding: .65rem 1rem;
-  transform: translateY(-200%);
+  clip-path: inset(50%);
   color: var(--on-accent);
   background: var(--accent);
 }
-.skip-link:focus { transform: none; }
+.skip-link:focus { clip-path: none; }
 
 .header {
   position: relative;
@@ -240,7 +240,7 @@ button:disabled { cursor: not-allowed; opacity: .65; }
 .order-summary { background: var(--wash); }
 .order-summary .button { display: block; }
 .summary-lines li, .cart-line { display: flex; align-items: center; gap: .65rem; }
-.summary-lines li { justify-content: space-between; padding-block: .4rem; border-bottom: 1px solid var(--line); }
+.summary-lines li { align-items: baseline; justify-content: space-between; padding-block: .4rem; border-bottom: 1px solid var(--line); }
 .summary-lines li span:last-child { flex: none; }
 .summary-lines { margin-bottom: 1rem; }
 .cart-line img { flex: none; object-fit: contain; background: var(--wash); }
@@ -287,8 +287,9 @@ button.manager-delete { background: var(--danger-bg); border-color: var(--danger
 @media (max-width: 42rem) {
   .manager-catalog-buttons { grid-template-columns: repeat(2, minmax(0, 1fr)); max-width: 100%; }
   .manager-catalog-buttons > :last-child { grid-column: 1 / -1; }
-  .manager-table, .manager-table tbody { display: block; }
-  .manager-table thead {
+  :is(.manager-table, .cart-table, .order-table),
+  :is(.manager-table, .cart-table, .order-table) tbody { display: block; }
+  :is(.manager-table, .cart-table, .order-table) thead {
     position: absolute;
     width: 1px;
     height: 1px;
@@ -296,15 +297,15 @@ button.manager-delete { background: var(--danger-bg); border-color: var(--danger
     clip-path: inset(50%);
     white-space: nowrap;
   }
-  .manager-table tbody tr {
+  :is(.manager-table, .cart-table, .order-table) tbody tr {
     display: grid;
     margin-block: .75rem;
     border: 1px solid var(--line);
     border-radius: .5rem;
   }
-  .manager-table tbody tr > * { white-space: normal; overflow-wrap: anywhere; }
-  .manager-table tbody tr > :last-child { border-block-end: 0; }
-  .manager-table [data-label]::before {
+  :is(.manager-table, .cart-table, .order-table) tbody tr > * { white-space: normal; overflow-wrap: anywhere; }
+  :is(.manager-table, .cart-table, .order-table) tbody tr > :last-child { border-block-end: 0; }
+  :is(.manager-table, .cart-table, .order-table) [data-label]::before {
     content: attr(data-label) " · ";
     color: var(--muted);
     font-weight: 700;
@@ -313,12 +314,24 @@ button.manager-delete { background: var(--danger-bg); border-color: var(--danger
 .table { width: 100%; border-collapse: collapse; text-align: left; }
 .table th, .table td { padding: .55rem .45rem; border-bottom: 1px solid var(--line); vertical-align: middle; overflow-wrap: anywhere; }
 .table th.order-quantity, .table .order-amount { white-space: nowrap; }
+.table .order-amount { text-align: right; font-variant-numeric: tabular-nums; }
+.manager-table thead th { overflow-wrap: normal; }
+.table .manager-order-status, .table .manager-order-actions { overflow-wrap: normal; }
+.cart-table .actions { row-gap: .4rem; }
+.cart-table .actions > button { white-space: nowrap; }
+@media (max-width: 42rem) {
+  :is(.cart-table, .order-table) tbody tr > * { padding-inline: .65rem; }
+  .cart-table .actions { padding-top: .3rem; }
+  :is(.cart-table, .order-table, .manager-table) .order-amount { text-align: left; }
+}
 .table th { font-size: .85rem; }
 .qty, .actions { display: flex; align-items: center; flex-wrap: wrap; gap: .35rem; }
 .qty { flex-wrap: nowrap; }
 .qty button, .actions button { min-height: 2rem; padding: .2rem .52rem; }
 .order-totals { display: grid; grid-template-columns: 1fr auto; gap: .38rem 1rem; }
 .order-totals dd { margin: 0; text-align: right; }
+.order-contact { grid-template-columns: max-content minmax(0, 1fr); }
+.order-contact dd { text-align: left; }
 .order-amounts dd { white-space: nowrap; }
 .order-payment { margin-bottom: .75rem; padding: .75rem; border: 1px solid var(--line); }
 .order-payment summary { color: var(--accent); font-weight: 700; cursor: pointer; }
@@ -328,7 +341,7 @@ button.manager-delete { background: var(--danger-bg); border-color: var(--danger
 .line-variant { display: block; }
 .success, .price-change { padding: .65rem .9rem; border-left: 3px solid var(--success); background: var(--success-bg); color: var(--success); }
 .price-change { border-color: var(--accent); color: var(--text); background: var(--wash); }
-.status-dialog { width: min(28rem, 100% - 2rem); padding: 1rem; border: 1px solid var(--control); border-radius: .35rem; color: var(--text); background: var(--surface); }
+.status-dialog { width: min(28rem, 100% - 2rem); padding: 1rem; border: 1px solid var(--control); border-radius: .35rem; color: var(--text); background: var(--surface); overflow-wrap: anywhere; }
 .status-dialog::backdrop { background: rgb(0 0 0 / 55%); }
 
 .product-intro { display: grid; grid-template-columns: minmax(14rem, .85fr) minmax(0, 1fr); gap: clamp(1.25rem, 5vw, 4.5rem); margin: 1.25rem 0 2.25rem; align-items: start; }
@@ -342,6 +355,7 @@ button.manager-delete { background: var(--danger-bg); border-color: var(--danger
   background: var(--wash);
 }
 .product-purchase { padding-top: .6rem; }
+.product-purchase, .product-notes, .breadcrumbs, .reviews, .personal-list { overflow-wrap: anywhere; }
 .product-purchase h1 { letter-spacing: -.03em; }
 .product-purchase .price { font-size: 1.85rem; }
 .product-purchase .cart-add button { width: min(100%, 21rem); }
@@ -400,7 +414,7 @@ button.manager-delete { background: var(--danger-bg); border-color: var(--danger
   .theme-picker { margin-left: auto; }
 }
 @media (max-width: 44rem) {
-  .hero, .catalog-layout, .order-layout, .product-intro, .product-notes { grid-template-columns: 1fr; }
+  .hero, .catalog-layout, .order-layout, .product-intro, .product-notes { grid-template-columns: minmax(0, 1fr); }
   .hero h1 { max-width: 14ch; }
   .hero img { aspect-ratio: 16 / 10; }
   .genre-panel { padding: .6rem 0; }

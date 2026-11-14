@@ -4,13 +4,16 @@ import { usePageTitle } from '../lib/usePageTitle'
 
 export default function RouteError() {
   const error = useRouteError()
-  const { slug } = useParams<'slug'>()
+  const { slug, orderId, bookId } = useParams<'slug' | 'orderId' | 'bookId'>()
   let title = 'Что-то пошло не так'
   let message = 'Попробуйте обновить страницу.'
 
   if (error instanceof ApiError && error.status === 404) {
     title = 'Не найдено'
-    message = slug ? 'Такого товара нет или он снят с продажи.' : error.message
+    if (slug) message = 'Такого товара нет или он снят с продажи.'
+    else if (orderId) message = 'Заказ не найден.'
+    else if (bookId) message = 'Книга не найдена.'
+    else message = error.message
   } else if (error instanceof ApiError) {
     if (error.status === 403) title = 'Нет доступа'
     message = error.message

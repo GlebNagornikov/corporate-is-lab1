@@ -44,7 +44,7 @@ export default function ManagerCatalogPage() {
           <div className="table-scroll" aria-busy={books.isPlaceholderData}>
             <table className={books.isPlaceholderData ? 'table manager-table stale' : 'table manager-table'}>
               <thead>
-                <tr><th scope="col">Книга</th><th scope="col">Жанр</th><th scope="col">Цена</th>
+                <tr><th scope="col">Книга</th><th scope="col">Жанр</th><th scope="col" className="order-amount">Цена</th>
                   <th scope="col">Остаток</th><th scope="col">Видимость</th></tr>
               </thead>
               <tbody>{books.data.results.map((book) => (
@@ -54,7 +54,7 @@ export default function ManagerCatalogPage() {
                     <small className="line-variant muted">{[book.book?.author, book.sku].filter(Boolean).join(' · ')}</small>
                   </th>
                   <td data-label="Жанр">{book.category.name}</td>
-                  <td data-label="Цена">{formatPrice(book.price)}</td>
+                  <td className="order-amount" data-label="Цена">{formatPrice(book.price)}</td>
                   <td data-label="Остаток">{book.stock} шт.</td>
                   <td data-label="Видимость">{book.is_active ? 'На витрине' : 'Скрыта'}</td>
                 </tr>

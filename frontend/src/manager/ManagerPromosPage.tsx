@@ -76,7 +76,7 @@ export default function ManagerPromosPage() {
         {create.isSuccess && <p role="status">Промокод создан.</p>}
         <button type="submit" disabled={create.isPending}>Создать промокод</button>
       </form>
-      <h2 className="promo-list-title">Список промокодов</h2>
+      <h2 className="promo-list-title" id="promo-list-title">Список промокодов</h2>
       {promos.isPending && <p role="status">Загрузка промокодов…</p>}
       {promos.error && <p className="error" role="alert">{promos.error.message}</p>}
       {deactivate.error && <p className="error" role="alert">{deactivate.error.message}</p>}
@@ -84,7 +84,9 @@ export default function ManagerPromosPage() {
       {promos.data && promos.data.results.length === 0 && <p>Промокодов пока нет.</p>}
       {promos.data && promos.data.results.length > 0 && (
         <>
-          <div className="table-scroll">
+          <p className="muted promo-scroll-hint" id="promo-scroll-hint">Прокрутите таблицу вправо, чтобы увидеть все столбцы и действия.</p>
+          <div className="table-scroll" role="region" aria-labelledby="promo-list-title"
+            aria-describedby="promo-scroll-hint" tabIndex={0}>
             <table className="table manager-table promo-table">
               <thead><tr>
                 <th scope="col">Код</th><th scope="col">Скидка</th>

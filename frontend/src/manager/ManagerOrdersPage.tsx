@@ -90,9 +90,9 @@ function OrderRow({ order, stale }: { order: Order; stale: boolean }) {
       <th scope="row"><Link to={`/manager/orders/${order.id}`}>№{order.id}</Link></th>
       <td data-label="Дата">{formatDate(order.created_at)}</td>
       <td data-label="Получатель">{order.full_name}</td>
-      <td data-label="Сумма">{formatPrice(order.total)}</td>
-      <td data-label="Статус">{order.status_display}</td>
-      <td>
+      <td className="order-amount" data-label="Сумма">{formatPrice(order.total)}</td>
+      <td className="manager-order-status" data-label="Статус">{order.status_display}</td>
+      <td className="manager-order-actions">
         <div className="actions">
           {[...order.allowed_transitions].sort((a, b) => Number(a === 'cancelled') - Number(b === 'cancelled')).map((status) => (
             <button type="button" key={status} disabled={stale || change.isPending}
@@ -147,7 +147,7 @@ export default function ManagerOrdersPage() {
             <thead>
               <tr>
                 <th scope="col">Заказ</th><th scope="col">Дата</th><th scope="col">Получатель</th>
-                <th scope="col">Сумма</th><th scope="col">Статус</th><th scope="col">Действия</th>
+                <th scope="col" className="order-amount">Сумма</th><th scope="col">Статус</th><th scope="col">Действия</th>
               </tr>
             </thead>
             <tbody>

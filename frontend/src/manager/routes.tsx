@@ -4,6 +4,7 @@ import { requireManager } from '../auth/session'
 import { readOrderPage } from '../api/orders'
 import NotFoundPage from '../routes/NotFoundPage'
 import RouteError from '../routes/RouteError'
+import RootError from '../routes/RootError'
 import { orderFilters } from './orderFilters'
 import { defaultReportPeriod, readReportPeriod, reportPeriodError } from './reportPeriod'
 import {
@@ -22,7 +23,7 @@ export function managerRoutes(client: QueryClient): RouteObject {
   return {
     path: '/manager',
     lazy: async () => ({ Component: (await import('./ManagerLayout')).ManagerLayout }),
-    ErrorBoundary: RouteError,
+    ErrorBoundary: RootError,
     HydrateFallback: () => <p className="shell layout" role="status">Загрузка кабинета…</p>,
     loader: async ({ request }) => {
       await requireManager(request, client)
