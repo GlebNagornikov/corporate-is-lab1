@@ -187,6 +187,25 @@ class PromoApiTests(APITestCase):
         self.assertEqual(self.select("BOOK10").status_code, 400)
         self.assert_rejected_order("деактивирован", promo_code="BOOK10")
 
+    def test_manager_list_reflects_automatic_deactivation(self):
+        now = timezone.now()
+        expired = PromoCode.objects.create(
+            **{**promo_fields("EXPIRED"), "valid_until": now - timedelta(hours=1)}
+        )
+        exhausted = PromoCode.objects.create(**promo_fields("EXHAUSTED"), used_count=1)
+        upcoming = PromoCode.objects.create(
+            **{**promo_fields("UPCOMING"), "valid_from": now + timedelta(hours=1)}
+        )
+
+        self.client.force_authenticate(self.manager)
+        response = self.client.get(MANAGER_PROMOS)
+        self.assertEqual(response.status_code, 200, response.data)
+        states = {promo["id"]: promo["is_active"] for promo in response.data["results"]}
+        self.assertFalse(states[expired.pk])
+        self.assertFalse(states[exhausted.pk])
+        self.assertTrue(states[upcoming.pk])
+        self.assertTrue(states[self.promo.pk])
+
 
 class ConcurrentPromoTests(APITransactionTestCase):
     def test_only_one_order_can_redeem_the_last_use(self):

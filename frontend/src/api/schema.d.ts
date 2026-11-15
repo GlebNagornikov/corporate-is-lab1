@@ -1284,7 +1284,7 @@ export interface components {
             max_uses?: number | null;
             /** Использован, раз */
             readonly used_count: number;
-            /** Активен */
+            /** @description Выключен вручную, истёк или исчерпал лимит — false. До начала срока — true, если включён. */
             readonly is_active: boolean;
         };
         ManagerPromoRequest: {

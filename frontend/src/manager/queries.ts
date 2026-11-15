@@ -65,6 +65,7 @@ export const managerOrderQuery = (id: number) => queryOptions({
 
 export const managerPromosQuery = (page: number) => queryOptions({
   queryKey: ['manager', 'promos', page],
+  refetchInterval: MANAGER_REFRESH_INTERVAL,
   queryFn: async ({ signal }) => requireData(await api.GET('/api/manager/promos/', {
     params: { query: { page } }, signal,
   })),

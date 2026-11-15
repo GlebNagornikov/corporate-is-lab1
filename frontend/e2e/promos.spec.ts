@@ -81,8 +81,9 @@ test('промокод переживает перезагрузку и вход
     await page.getByRole('button', { name: 'Подтвердить заказ' }).click()
     await expect(page.getByText('Заказ оформлен. Спасибо!')).toBeVisible()
     await expect(page.locator('dt').filter({ hasText: 'Скидка (' + code })).toBeVisible()
-    await staff.reload()
-    await expect(row.getByRole('cell', { name: '1 / 1' })).toBeVisible()
+    await expect(row.getByRole('cell', { name: '1 / 1' })).toBeVisible({ timeout: 15_000 })
+    await expect(row.getByRole('cell', { name: 'Деактивирован' })).toBeVisible()
+    await expect(row.getByRole('button', { name: 'Деактивировать ' + code })).toHaveCount(0)
 
     await page.getByRole('button', { name: 'Отменить заказ' }).click()
     await expect(page.locator('strong').getByText('Отменён', { exact: true })).toBeVisible()
@@ -93,10 +94,6 @@ test('промокод переживает перезагрузку и вход
     await apply()
     await expect(page.getByRole('alert')).toContainText('исчерпан')
 
-    await row.getByRole('button', { name: 'Деактивировать ' + code }).click()
-    await expect(row.getByRole('cell', { name: 'Деактивирован' })).toBeVisible()
-    await apply()
-    await expect(page.getByRole('alert')).toContainText('деактивирован')
     await expect(row.getByRole('cell', { name: '1 / 1' })).toBeVisible()
   } finally {
     await managerProfile.close()

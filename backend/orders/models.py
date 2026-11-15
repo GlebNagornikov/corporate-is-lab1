@@ -39,14 +39,25 @@ class PromoCode(models.Model):
         self.code = self.code.strip().upper()
         super().save(*args, **kwargs)
 
-    def rejection_reason(self, subtotal=None):
-        now = timezone.now()
+    def deactivation_reason(self, now):
         if not self.is_active:
             return "Промокод деактивирован."
-        if not self.valid_from <= now <= self.valid_until:
+        if now > self.valid_until:
             return "Промокод сейчас не действует."
         if self.max_uses is not None and self.used_count >= self.max_uses:
             return "Лимит использований промокода исчерпан."
+        return None
+
+    def is_effectively_active(self):
+        return self.deactivation_reason(timezone.now()) is None
+
+    def rejection_reason(self, subtotal=None):
+        now = timezone.now()
+        reason = self.deactivation_reason(now)
+        if reason:
+            return reason
+        if now < self.valid_from:
+            return "Промокод сейчас не действует."
         if subtotal is not None and subtotal < self.minimum_subtotal:
             return f"Промокод действует при сумме книг от {self.minimum_subtotal:.2f} ₽."
         return None
