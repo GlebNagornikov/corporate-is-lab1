@@ -81,6 +81,7 @@ class PromoCodeAdmin(admin.ModelAdmin):
     list_display = (
         "code",
         "discount_percent",
+        "minimum_subtotal",
         "valid_from",
         "valid_until",
         "used_count",

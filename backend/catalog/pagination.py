@@ -5,6 +5,10 @@ from .filters import ProductFilter
 from .models import Product
 
 
+class ReviewPagination(PageNumberPagination):
+    page_size = 5
+
+
 class ProductPagination(PageNumberPagination):
     def get_paginated_response(self, data):
         response = super().get_paginated_response(data)

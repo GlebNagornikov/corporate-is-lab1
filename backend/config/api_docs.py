@@ -1,9 +1,15 @@
 from django.conf import settings
+from drf_spectacular.utils import OpenApiResponse
 from drf_spectacular.views import SpectacularAPIView, SpectacularSwaggerView
 from rest_framework.permissions import BasePermission
 from rest_framework_simplejwt.views import TokenObtainPairView
 
 from .throttling import ShopAnonThrottle, TokenThrottle
+
+MANAGER_ACCESS_ERRORS = {
+    401: OpenApiResponse(description="Требуется Bearer-токен."),
+    403: OpenApiResponse(description="Недостаточно прав сотрудника."),
+}
 
 
 class DocsPermission(BasePermission):

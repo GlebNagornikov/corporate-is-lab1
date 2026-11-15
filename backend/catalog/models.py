@@ -14,6 +14,9 @@ from django.db import models, transaction
 from django.db.models import Avg, Count, F, Q
 from django.urls import reverse
 
+BOOKS_ROOT_SLUG = "books"
+VISIBLE_VARIANTS = ~Q(is_legacy_return=True, is_active=False)
+
 
 class Category(models.Model):
     name = models.CharField("Название", max_length=100)
@@ -39,13 +42,28 @@ class Category(models.Model):
     def get_absolute_url(self):
         return f"{reverse('catalog:product_list')}?category={self.slug}"
 
+    def clean(self):
+        super().clean()
+        seen = {self.pk}
+        parent_id = self.parent_id
+        while parent_id is not None:
+            if parent_id in seen:
+                raise ValidationError({"parent": "Жанры не могут образовывать цикл."})
+            seen.add(parent_id)
+            parent_id = (
+                Category.objects.filter(pk=parent_id).values_list("parent_id", flat=True).first()
+            )
+
     def get_descendant_ids(self):
         """id самой категории и всех её подкатегорий любой глубины."""
         ids = [self.pk]
+        seen = {self.pk}
         level = [self.pk]
         while level:
-            level = list(Category.objects.filter(parent_id__in=level).values_list("pk", flat=True))
+            children = Category.objects.filter(parent_id__in=level).values_list("pk", flat=True)
+            level = [pk for pk in children if pk not in seen]
             ids += level
+            seen.update(level)
         return ids
 
 
@@ -54,7 +72,7 @@ class ProductQuerySet(models.QuerySet):
         return self.filter(is_active=True)
 
     def with_rating(self):
-        published = Q(reviews__is_published=True)
+        published = Q(reviews__status=Review.Status.APPROVED)
         return self.annotate(
             rating=Avg("reviews__rating", filter=published),
             reviews_count=Count("reviews", filter=published),
@@ -147,6 +165,10 @@ class Product(models.Model):
     def __str__(self):
         return self.name
 
+    @transaction.atomic
+    def save(self, *args, **kwargs):
+        super().save(*args, **kwargs)
+
     def get_absolute_url(self):
         return reverse("catalog:product_detail", args=[self.slug])
 
@@ -211,6 +233,26 @@ class StockSubscription(models.Model):
         return f"{self.product}: {self.email}"
 
 
+class RestockNotification(models.Model):
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
+    product = models.ForeignKey(Product, on_delete=models.CASCADE)
+    notified_at = models.DateTimeField(null=True)
+    read_at = models.DateTimeField(null=True)
+
+    class Meta:
+        indexes = [models.Index(fields=["user", "notified_at"])]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["user", "product"],
+                condition=Q(notified_at__isnull=True),
+                name="unique_pending_personal_restock",
+            ),
+        ]
+
+    def __str__(self):
+        return f"{self.product_id}: {self.user_id}"
+
+
 class WishlistItem(models.Model):
     user = models.ForeignKey(
         settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="wishlist"
@@ -234,12 +276,18 @@ class ProductVariant(models.Model):
     stock = models.PositiveIntegerField("Остаток", default=0)
     is_active = models.BooleanField("Активен", default=True)
     is_default = models.BooleanField(default=False, editable=False)
+    is_legacy_return = models.BooleanField(default=False, editable=False)
 
     class Meta:
         ordering = ["pk"]
         constraints = [
             models.UniqueConstraint(
                 fields=["product"], condition=Q(is_default=True), name="one_default_variant"
+            ),
+            models.UniqueConstraint(
+                fields=["product"],
+                condition=Q(is_legacy_return=True),
+                name="one_legacy_return_variant",
             ),
             models.CheckConstraint(condition=Q(price__gt=0), name="variant_price_positive"),
         ]
@@ -250,6 +298,13 @@ class ProductVariant(models.Model):
     @transaction.atomic
     def save(self, *args, **kwargs):
         Product.objects.select_for_update().get(pk=self.product_id)
+        update_fields = kwargs.get("update_fields")
+        self._legacy_variant_deactivated = (
+            self.is_legacy_return
+            and not self.is_active
+            and (update_fields is None or "is_active" in update_fields)
+            and ProductVariant.objects.filter(pk=self.pk, is_active=True).exists()
+        )
         return super().save(*args, **kwargs)
 
     def get_absolute_url(self):
@@ -276,6 +331,11 @@ class ProductImage(models.Model):
 
 
 class Review(models.Model):
+    class Status(models.TextChoices):
+        PENDING = "pending", "На модерации"
+        APPROVED = "approved", "Одобрен"
+        REJECTED = "rejected", "Отклонён"
+
     product = models.ForeignKey(
         Product, on_delete=models.CASCADE, related_name="reviews", verbose_name="Товар"
     )
@@ -289,11 +349,13 @@ class Review(models.Model):
         "Оценка", validators=[MinValueValidator(1), MaxValueValidator(5)]
     )
     text = models.TextField("Отзыв")
-    is_published = models.BooleanField("Опубликован", default=True)
+    status = models.CharField(
+        "Состояние", max_length=8, choices=Status.choices, default=Status.PENDING, db_index=True
+    )
     created_at = models.DateTimeField("Дата", auto_now_add=True)
 
     class Meta:
-        ordering = ["-created_at"]
+        ordering = ["-created_at", "-pk"]
         verbose_name = "отзыв"
         verbose_name_plural = "отзывы"
         constraints = [

@@ -62,10 +62,15 @@ export function useCart(): CartState {
       const items = quantity === 0
         ? previous.items.toSpliced(index, 1)
         : previous.items.with(index, withQuantity(item, quantity))
-      const optimistic = client.setQueryData(queryKey, summarizeCart(items))
+      const optimistic = client.setQueryData(queryKey, summarizeCart(items, previous.promo_code))
       return { previous, optimistic }
     },
     onError: (_error, change, context) => {
+      if (change.version === tokens.version() && change.type === 'add') {
+        void client.invalidateQueries({
+          predicate: ({ queryKey }) => queryKey[0] === 'products' && queryKey.length <= 3,
+        })
+      }
       if (change.version === tokens.version() && context &&
           client.getQueryData(queryKey) === context.optimistic) {
         client.setQueryData(queryKey, context.previous)

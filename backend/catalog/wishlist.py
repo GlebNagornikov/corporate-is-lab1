@@ -46,6 +46,7 @@ class WishlistAPI(APIView):
             fields={
                 "product_id": serializers.IntegerField(),
                 "product__name": serializers.CharField(),
+                "product__slug": serializers.SlugField(),
                 "product__is_active": serializers.BooleanField(),
             },
             many=True,
@@ -55,11 +56,16 @@ class WishlistAPI(APIView):
         return Response(
             list(
                 request.user.wishlist.order_by("pk").values(
-                    "product_id", "product__name", "product__is_active"
+                    "product_id", "product__name", "product__slug", "product__is_active"
                 )
             )
         )
 
+    @extend_schema(
+        responses={
+            201: inline_serializer("FavoriteResult", {"product_id": serializers.IntegerField()})
+        }
+    )
     def post(self, request):
         data = FavoriteInput(data=request.data)
         data.is_valid(raise_exception=True)

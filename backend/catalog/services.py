@@ -1,6 +1,7 @@
 import csv
 import json
 from decimal import Decimal, InvalidOperation
+from hashlib import blake2s
 
 from django.conf import settings
 from django.core.exceptions import ValidationError
@@ -8,20 +9,47 @@ from django.core.mail import send_mail
 from django.core.validators import validate_email
 from django.db import IntegrityError, transaction
 from django.db.models import Min, Sum
+from django.utils import timezone
 
-from .models import Category, Product, ProductVariant, StockSubscription, WishlistItem
+from .models import (
+    BOOKS_ROOT_SLUG,
+    VISIBLE_VARIANTS,
+    Category,
+    Product,
+    ProductVariant,
+    RestockNotification,
+    StockSubscription,
+    WishlistItem,
+)
 
 KEY = "comparison"
+
+
+@transaction.atomic
+def create_genre(name):
+    root, _ = Category.objects.select_for_update().get_or_create(
+        slug=BOOKS_ROOT_SLUG, defaults={"name": "Книги"}
+    )
+    if Category.objects.filter(name__iexact=name).exists():
+        raise ValidationError({"name": "Жанр с таким названием уже есть."})
+    slug = "genre-" + blake2s(name.casefold().encode(), digest_size=12).hexdigest()
+    try:
+        return Category.objects.create(name=name, slug=slug, parent=root)
+    except IntegrityError as error:
+        raise ValidationError({"name": "Жанр с таким названием уже есть."}) from error
 
 
 def choose_variant(product, variant=None):
     if variant is not None:
         if variant.product_id != product.pk or not variant.is_active:
             raise ValidationError("Выберите активный вариант этого товара.")
-        if variant.is_default and product.variants.filter(is_default=False).exists():
+        if (
+            variant.is_default
+            and product.variants.filter(VISIBLE_VARIANTS, is_default=False).exists()
+        ):
             raise ValidationError("Выберите размер и цвет товара.")
         return variant
-    if product.variants.filter(is_default=False).exists():
+    if product.variants.filter(VISIBLE_VARIANTS, is_default=False).exists():
         raise ValidationError("Выберите вариант товара.")
     return ProductVariant.objects.get_or_create(
         product=product,
@@ -35,13 +63,19 @@ def choose_variant(product, variant=None):
     )[0]
 
 
-def refresh_inventory(product_id):
+@transaction.atomic
+def refresh_inventory(product_id, *, variant_deleted=False):
+    product = Product.objects.select_for_update().get(pk=product_id)
     variants = ProductVariant.objects.filter(
         product_id=product_id, is_default=False, is_active=True
     )
-    if ProductVariant.objects.filter(product_id=product_id, is_default=False).exists():
+    if (
+        variant_deleted
+        or ProductVariant.objects.filter(
+            VISIBLE_VARIANTS, product_id=product_id, is_default=False
+        ).exists()
+    ):
         values = variants.aggregate(n=Sum("stock"), price=Min("price"))
-        product = Product.objects.get(pk=product_id)
         product.stock = values["n"] or 0
         product.price = values["price"] or product.price
         if product.old_price is not None and product.old_price <= product.price:
@@ -115,20 +149,43 @@ def subscribe(product, email):
     return subscription
 
 
+@transaction.atomic
+def subscribe_personally(product_id, user):
+    product = Product.objects.select_for_update().filter(pk=product_id, is_active=True).first()
+    if product is None:
+        raise Product.DoesNotExist
+    if product.in_stock:
+        raise ValidationError("Подписка доступна только для отсутствующего товара.")
+    RestockNotification.objects.get_or_create(user=user, product=product, notified_at=None)
+
+
+def record_restock(product_id):
+    RestockNotification.objects.filter(product_id=product_id, notified_at=None).update(
+        notified_at=timezone.now()
+    )
+    queue_restock(product_id)
+
+
 def deliver_restock(product_id):
     for pk in StockSubscription.objects.filter(product_id=product_id, completed=False).values_list(
         "pk", flat=True
     ):
         with transaction.atomic():
-            subscription = (
-                StockSubscription.objects.select_for_update().select_related("product").get(pk=pk)
+            product = (
+                Product.objects.select_for_update()
+                .filter(pk=product_id, is_active=True, stock__gt=0)
+                .first()
             )
-            if subscription.completed:
+            if product is None:
+                return
+            subscription = (
+                StockSubscription.objects.select_for_update().filter(pk=pk, completed=False).first()
+            )
+            if subscription is None:
                 continue
-            product = subscription.product
             send_mail(
                 f"В наличии: {product.name}",
-                f"Товар снова в продаже: {settings.SITE_URL}{product.get_absolute_url()}",
+                f"Товар снова в продаже: {settings.SITE_URL.rstrip('/')}/products/{product.slug}",
                 None,
                 [subscription.email],
             )
@@ -143,7 +200,8 @@ def queue_restock(product_id):
 
     identifier = request_id()
     transaction.on_commit(
-        lambda: send_restock.apply_async(args=[product_id], headers={"request_id": identifier})
+        lambda: send_restock.apply_async(args=[product_id], headers={"request_id": identifier}),
+        robust=True,
     )
 
 
@@ -151,24 +209,41 @@ def queue_restock(product_id):
 def import_products(stream, *, dry_run=False):
     reader = csv.DictReader(stream)
     required = {"sku", "name", "slug", "category", "price", "stock"}
-    if not reader.fieldnames or not required.issubset(reader.fieldnames):
-        raise ValidationError("Обязательные столбцы: " + ", ".join(sorted(required)))
+    try:
+        if not reader.fieldnames or not required.issubset(reader.fieldnames):
+            raise ValidationError("Обязательные столбцы: " + ", ".join(sorted(required)))
+        entries = list(reader)
+    except csv.Error as error:
+        raise ValidationError(
+            f"Не удалось прочитать CSV, строка {reader.reader.line_num}."
+        ) from error
+    products = {
+        product.sku: product
+        for product in Product.objects.select_for_update()
+        .filter(sku__in={(row.get("sku") or "").strip() for row in entries})
+        .order_by("pk")
+    }
     rows, errors, seen = [], [], set()
     slugs, variant_skus = set(), set()
-    for number, row in enumerate(reader, 2):
+    for number, row in enumerate(entries, 2):
         try:
             sku = (row.get("sku") or "").strip()
             if not sku or sku in seen:
                 raise ValidationError("Пустой или повторный артикул.")
             seen.add(sku)
             category = Category.objects.get(slug=row["category"])
-            product = Product.objects.filter(sku=sku).first() or Product(sku=sku)
+            product = products.get(sku) or Product(sku=sku)
+            has_variants = (
+                product.pk and product.variants.filter(VISIBLE_VARIANTS, is_default=False).exists()
+            )
             for key in ("name", "slug"):
-                setattr(product, key, row[key].strip())
+                setattr(product, key, (row[key] or "").strip())
             product.category = category
-            product.price, product.stock = Decimal(row["price"]), int(row["stock"])
-            if not product.price.is_finite() or product.price <= 0 or product.stock < 0:
+            price, stock = Decimal(row["price"]), int(row["stock"])
+            if not price.is_finite() or price <= 0 or stock < 0:
                 raise ValidationError("Цена должна быть положительной, остаток неотрицательным.")
+            if not has_variants and not (product.pk and row.get("variant_sku")):
+                product.price, product.stock = price, stock
             if row.get("attributes"):
                 product.attributes = json.loads(row["attributes"])
                 if not isinstance(product.attributes, dict):
@@ -186,10 +261,20 @@ def import_products(stream, *, dry_run=False):
                 if variant and variant.product_id != product.pk:
                     raise ValidationError("Артикул варианта принадлежит другому товару.")
                 variant = variant or ProductVariant(sku=row["variant_sku"])
+                if variant.is_default:
+                    raise ValidationError("Стандартный вариант обновляется полями товара.")
                 variant.name = row.get("variant_name") or "Вариант"
                 variant.price = Decimal(row.get("variant_price") or row["price"])
                 variant.stock = int(row.get("variant_stock") or row["stock"])
                 variant.full_clean(exclude=["product"])
+                if variant.is_active and product.pk:
+                    other_stock = (
+                        product.variants.filter(is_active=True, is_default=False)
+                        .exclude(pk=variant.pk)
+                        .aggregate(total=Sum("stock", default=0))["total"]
+                    )
+                    if other_stock + variant.stock > 2147483647:
+                        raise ValidationError("Слишком большой суммарный остаток.")
             rows.append((product, variant))
         except (
             ValidationError,

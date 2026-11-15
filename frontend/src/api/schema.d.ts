@@ -256,6 +256,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/cart/promo/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** @description Применяет код к своей корзине или снимает его, если передана пустая строка. */
+        patch: operations["api_cart_promo_partial_update"];
+        trace?: never;
+    };
     "/api/catalog/categories/": {
         parameters: {
             query?: never;
@@ -264,7 +281,9 @@ export interface paths {
             cookie?: never;
         };
         /**
-         * @description Чтение публично; отзыв требует входа. Один отзыв на товар.
+         * @description Категории активных товаров и их родительские категории.
+         *
+         *     Чтение публично; отзыв требует входа. Один отзыв на товар.
          *     Лимиты: 60/600 в минуту (аноним/пользователь). Сессия требует CSRF.
          */
         get: operations["api_catalog_categories_list"];
@@ -288,6 +307,23 @@ export interface paths {
          *     Лимиты: 60/600 в минуту (аноним/пользователь). Сессия требует CSRF.
          */
         get: operations["api_catalog_categories_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/catalog/editorial/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description До четырёх доступных карточек из подборки «Выбор редакции». */
+        get: operations["api_catalog_editorial_list"];
         put?: never;
         post?: never;
         delete?: never;
@@ -336,6 +372,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/catalog/products/{slug}/review-eligibility/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description Персональное право на отзыв и состояние собственного отзыва. */
+        get: operations["api_catalog_products_review_eligibility_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/catalog/products/{slug}/reviews/": {
         parameters: {
             query?: never;
@@ -343,16 +396,10 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /**
-         * @description Чтение публично; отзыв требует входа. Один отзыв на товар.
-         *     Лимиты: 60/600 в минуту (аноним/пользователь). Сессия требует CSRF.
-         */
+        /** @description Опубликованные отзывы об издании, от новых к старым, по 5 на страницу. */
         get: operations["api_catalog_products_reviews_list"];
         put?: never;
-        /**
-         * @description Чтение публично; отзыв требует входа. Один отзыв на товар.
-         *     Лимиты: 60/600 в минуту (аноним/пользователь). Сессия требует CSRF.
-         */
+        /** @description Принимает один отзыв от покупателя с доставленным заказом на издание. */
         post: operations["api_catalog_products_reviews_create"];
         delete?: never;
         options?: never;
@@ -472,6 +519,317 @@ export interface paths {
         patch: operations["api_employees_partial_update"];
         trace?: never;
     };
+    "/api/manager/catalog/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description Карточки всех состояний, включая черновики и снятые с продажи. */
+        get: operations["api_manager_catalog_list"];
+        put?: never;
+        /** @description Создаёт издание. Без is_active издание остаётся черновиком. */
+        post: operations["api_manager_catalog_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/manager/catalog/{id}/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description Карточка издания и его складские варианты для сотрудника. */
+        get: operations["api_manager_catalog_retrieve"];
+        put?: never;
+        post?: never;
+        /** @description Удаляет карточку. Если издание есть хотя бы в одном заказе, вернёт 409 при любом статусе заказа. */
+        delete: operations["api_manager_catalog_destroy"];
+        options?: never;
+        head?: never;
+        /** @description Редактирует поля издания. Без нового файла сохраняет прежнюю обложку. */
+        patch: operations["api_manager_catalog_partial_update"];
+        trace?: never;
+    };
+    "/api/manager/catalog/{id}/variants/{variant_id}/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** @description Меняет цену, остаток и доступность существующего складского варианта. */
+        patch: operations["api_manager_catalog_variants_partial_update"];
+        trace?: never;
+    };
+    "/api/manager/catalog/import-json/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Проверяет или импортирует массив книг из файла JSON в UTF-8. Сопоставляет записи по SKU. */
+        post: operations["api_manager_catalog_import_json_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/manager/categories/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description Все жанры для формы сотрудника, включая пустые. */
+        get: operations["api_manager_categories_list"];
+        put?: never;
+        /** @description Создаёт жанр внутри раздела «Книги». Адрес формируется автоматически. */
+        post: operations["api_manager_categories_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/manager/orders/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description Заказы магазина с пагинацией и фильтром по статусу. */
+        get: operations["api_manager_orders_list"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/manager/orders/{id}/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description Карточка заказа и история его статусов для сотрудника. */
+        get: operations["api_manager_orders_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/manager/orders/{id}/status/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Меняет статус заказа по допустимым переходам. При отмене нужна причина. */
+        post: operations["api_manager_orders_status_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/manager/promos/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description Список промокодов и число использований. */
+        get: operations["api_manager_promos_list"];
+        put?: never;
+        /** @description Создаёт промокод с заданным периодом действия и условиями. */
+        post: operations["api_manager_promos_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/manager/promos/{id}/deactivate/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Деактивирует промокод и сохраняет историю его использований. */
+        post: operations["api_manager_promos_deactivate_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/manager/reports/sales/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description Агрегаты продаж по дате оформления в часовом поясе магазина. Выручка — итоговая сумма заказов без отменённых, диаграмма статусов включает все заказы. Книги ранжируются по числу экземпляров и стоимости позиций. */
+        get: operations["api_manager_reports_sales_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/manager/reports/sales/csv/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description Скачивает те же агрегаты в CSV с кодировкой UTF-8. */
+        get: operations["api_manager_reports_sales_csv_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/manager/reviews/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description Очередь отзывов на модерации, от старых к новым. */
+        get: operations["api_manager_reviews_list"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/manager/reviews/{id}/moderate/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Записывает решение по отзыву, который ещё ожидает модерации. */
+        post: operations["api_manager_reviews_moderate_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/notifications/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Мои уведомления
+         * @description JWT или сессия. Операция выполняется только над данными текущего покупателя.
+         *     Лимиты: 60/600 в минуту (аноним/пользователь). Сессия требует CSRF.
+         */
+        get: operations["api_notifications_list"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/notifications/{id}/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Удалить своё уведомление
+         * @description JWT или сессия. Операция выполняется только над данными текущего покупателя.
+         *     Лимиты: 60/600 в минуту (аноним/пользователь). Сессия требует CSRF.
+         */
+        delete: operations["api_notifications_destroy"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/notifications/unread/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Число непрочитанных уведомлений
+         * @description JWT или сессия. Операция выполняется только над данными текущего покупателя.
+         *     Лимиты: 60/600 в минуту (аноним/пользователь). Сессия требует CSRF.
+         */
+        get: operations["api_notifications_unread_retrieve"];
+        put?: never;
+        /**
+         * Прочитать все свои уведомления
+         * @description JWT или сессия. Операция выполняется только над данными текущего покупателя.
+         *     Лимиты: 60/600 в минуту (аноним/пользователь). Сессия требует CSRF.
+         */
+        post: operations["api_notifications_unread_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/orders/": {
         parameters: {
             query?: never;
@@ -485,10 +843,7 @@ export interface paths {
          */
         get: operations["api_orders_list"];
         put?: never;
-        /**
-         * @description Свои заказы; view_order — все, change_order — смена статуса.
-         *     Лимиты: 60/600 в минуту (аноним/пользователь). Сессия требует CSRF.
-         */
+        /** @description Оформляет текущую корзину. Лимит — 5 экземпляров одного издания суммарно по всем его вариантам. Остатки и цены проверяются на сервере. */
         post: operations["api_orders_create"];
         delete?: never;
         options?: never;
@@ -536,6 +891,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/orders/{id}/events/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description Поток SSE доступен владельцу заказа по Bearer-токену. Событие order-changed при подключении и после изменения статуса предлагает заново прочитать карточку. */
+        get: operations["api_orders_events_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/orders/{id}/simulate-payment/": {
         parameters: {
             query?: never;
@@ -562,11 +934,51 @@ export interface paths {
         };
         get?: never;
         put?: never;
+        /** @description Меняет статус заказа по допустимым переходам. При отмене нужна причина. */
+        post: operations["api_orders_status_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/promo/check/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Проверяет код без списания использования. Гость передаёт предварительную сумму книг в subtotal. Для покупателя сумма читается из его корзины. Причина неприменимости возвращается в reason. */
+        post: operations["api_promo_check_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/restock/{id}/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
         /**
-         * @description Свои заказы; view_order — все, change_order — смена статуса.
+         * Проверить личную подписку
+         * @description JWT или сессия. Операция выполняется только над данными текущего покупателя.
          *     Лимиты: 60/600 в минуту (аноним/пользователь). Сессия требует CSRF.
          */
-        post: operations["api_orders_status_create"];
+        get: operations["api_restock_retrieve"];
+        put?: never;
+        /**
+         * Подписаться на поступление издания
+         * @description JWT или сессия. Операция выполняется только над данными текущего покупателя.
+         *     Лимиты: 60/600 в минуту (аноним/пользователь). Сессия требует CSRF.
+         */
+        post: operations["api_restock_create"];
         delete?: never;
         options?: never;
         head?: never;
@@ -675,11 +1087,23 @@ export interface components {
             /** Число страниц */
             pages: number;
         };
+        BookJsonResult: {
+            processed: number;
+            dry_run: boolean;
+        };
+        BookJsonUploadRequest: {
+            /** Format: binary */
+            file: string;
+            /** @default true */
+            dry_run: boolean;
+        };
         Cart: {
             items: components["schemas"]["CartItem"][];
             count: number;
             /** Format: decimal */
             total: string;
+            readonly promo_code: string;
+            readonly promo_quote: components["schemas"]["PromoQuote"] | null;
         };
         CartItem: {
             variant_id: number | null;
@@ -728,6 +1152,12 @@ export interface components {
             csrf_token: string;
         };
         /**
+         * @description * `approved` - approved
+         *     * `rejected` - rejected
+         * @enum {string}
+         */
+        DecisionEnum: "approved" | "rejected";
+        /**
          * @description * `pickup` - Самовывоз
          *     * `courier` - Курьер
          * @enum {string}
@@ -758,11 +1188,140 @@ export interface components {
             hired_at: string;
             department: number;
         };
-        FavoriteInput: {
-            product: number;
-        };
         FavoriteInputRequest: {
             product: number;
+        };
+        FavoriteResult: {
+            product_id: number;
+        };
+        ManagerBook: {
+            readonly id: number;
+            readonly category: components["schemas"]["Category"];
+            /** Название */
+            readonly name: string;
+            /** Адрес в URL */
+            readonly slug: string;
+            /** Артикул */
+            readonly sku: string;
+            /** Описание */
+            readonly description: string;
+            /**
+             * Цена
+             * Format: decimal
+             */
+            readonly price: string;
+            /**
+             * Старая цена
+             * Format: decimal
+             */
+            readonly old_price: string | null;
+            /** Остаток */
+            readonly stock: number;
+            /** Показывать в каталоге */
+            readonly is_active: boolean;
+            /**
+             * Фото
+             * Format: uri
+             */
+            readonly image: string | null;
+            readonly book: components["schemas"]["BookEdition"] | null;
+            readonly variants: components["schemas"]["Variant"][];
+        };
+        ManagerBookWriteRequest: {
+            category: number;
+            /** Название */
+            name: string;
+            /** Адрес в URL */
+            slug: string;
+            /** Артикул */
+            sku: string;
+            /** Описание */
+            description?: string;
+            /** Format: decimal */
+            price: string;
+            /**
+             * Старая цена
+             * Format: decimal
+             */
+            old_price?: string | null;
+            /** Остаток */
+            stock?: number;
+            /** @default false */
+            is_active: boolean;
+            /** Format: binary */
+            image?: string;
+            author: string;
+            publisher: string;
+            year: number;
+            language: string;
+            binding: components["schemas"]["BindingEnum"];
+            isbn?: string;
+            pages: number;
+        };
+        ManagerGenreWriteRequest: {
+            name: string;
+        };
+        ManagerPromo: {
+            readonly id: number;
+            code: string;
+            /** Скидка, % */
+            discount_percent: number;
+            /**
+             * Минимальная сумма корзины
+             * Format: decimal
+             */
+            minimum_subtotal?: string;
+            /**
+             * Действует с
+             * Format: date-time
+             */
+            valid_from: string;
+            /**
+             * Действует по
+             * Format: date-time
+             */
+            valid_until: string;
+            max_uses?: number | null;
+            /** Использован, раз */
+            readonly used_count: number;
+            /** @description Выключен вручную, истёк или исчерпал лимит — false. До начала срока — true, если включён. */
+            readonly is_active: boolean;
+        };
+        ManagerPromoRequest: {
+            code: string;
+            /** Скидка, % */
+            discount_percent: number;
+            /**
+             * Минимальная сумма корзины
+             * Format: decimal
+             */
+            minimum_subtotal?: string;
+            /**
+             * Действует с
+             * Format: date-time
+             */
+            valid_from: string;
+            /**
+             * Действует по
+             * Format: date-time
+             */
+            valid_until: string;
+            max_uses?: number | null;
+        };
+        ManagerReview: {
+            readonly id: number;
+            readonly author: string;
+            /** Оценка */
+            rating: number;
+            /** Отзыв */
+            text: string;
+            /**
+             * Дата
+             * Format: date-time
+             */
+            readonly created_at: string;
+            readonly product_name: string;
+            readonly product_slug: string;
         };
         Me: {
             readonly id: number;
@@ -785,10 +1344,12 @@ export interface components {
         MergeLineRequest: {
             product: number;
             variant?: number;
+            /** @description Количество в гостевой позиции. Сервер ограничивает его актуальным остатком. */
             quantity: number;
         };
         MergeRequest: {
             items: components["schemas"]["MergeLineRequest"][];
+            promo_code?: string;
         };
         Order: {
             readonly id: number;
@@ -916,6 +1477,51 @@ export interface components {
             previous?: string | null;
             results: components["schemas"]["Employee"][];
         };
+        PaginatedManagerBookList: {
+            /** @example 123 */
+            count: number;
+            /**
+             * Format: uri
+             * @example http://api.example.org/accounts/?page=4
+             */
+            next?: string | null;
+            /**
+             * Format: uri
+             * @example http://api.example.org/accounts/?page=2
+             */
+            previous?: string | null;
+            results: components["schemas"]["ManagerBook"][];
+        };
+        PaginatedManagerPromoList: {
+            /** @example 123 */
+            count: number;
+            /**
+             * Format: uri
+             * @example http://api.example.org/accounts/?page=4
+             */
+            next?: string | null;
+            /**
+             * Format: uri
+             * @example http://api.example.org/accounts/?page=2
+             */
+            previous?: string | null;
+            results: components["schemas"]["ManagerPromo"][];
+        };
+        PaginatedManagerReviewList: {
+            /** @example 123 */
+            count: number;
+            /**
+             * Format: uri
+             * @example http://api.example.org/accounts/?page=4
+             */
+            next?: string | null;
+            /**
+             * Format: uri
+             * @example http://api.example.org/accounts/?page=2
+             */
+            previous?: string | null;
+            results: components["schemas"]["ManagerReview"][];
+        };
         PaginatedOrderList: {
             /** @example 123 */
             count: number;
@@ -957,6 +1563,21 @@ export interface components {
              */
             suggestion: string | null;
         };
+        PaginatedReviewList: {
+            /** @example 123 */
+            count: number;
+            /**
+             * Format: uri
+             * @example http://api.example.org/accounts/?page=4
+             */
+            next?: string | null;
+            /**
+             * Format: uri
+             * @example http://api.example.org/accounts/?page=2
+             */
+            previous?: string | null;
+            results: components["schemas"]["Review"][];
+        };
         PatchedDepartmentRequest: {
             name?: string;
             description?: string;
@@ -967,6 +1588,48 @@ export interface components {
             /** Format: date */
             hired_at?: string;
             department?: number;
+        };
+        PatchedManagerBookWriteRequest: {
+            category?: number;
+            /** Название */
+            name?: string;
+            /** Адрес в URL */
+            slug?: string;
+            /** Артикул */
+            sku?: string;
+            /** Описание */
+            description?: string;
+            /** Format: decimal */
+            price?: string;
+            /**
+             * Старая цена
+             * Format: decimal
+             */
+            old_price?: string | null;
+            /** Остаток */
+            stock?: number;
+            /** @default false */
+            is_active: boolean;
+            /** Format: binary */
+            image?: string;
+            author?: string;
+            publisher?: string;
+            year?: number;
+            language?: string;
+            binding?: components["schemas"]["BindingEnum"];
+            isbn?: string;
+            pages?: number;
+        };
+        PatchedManagerVariantWriteRequest: {
+            /** Format: decimal */
+            price?: string;
+            /** Остаток */
+            stock?: number;
+            /** Активен */
+            is_active?: boolean;
+        };
+        PatchedPromoSelectionRequest: {
+            promo_code?: string;
         };
         PatchedQuantityRequest: {
             quantity?: number;
@@ -1066,6 +1729,18 @@ export interface components {
             /** Описание фото */
             alt_text?: string;
         };
+        PromoCheckRequest: {
+            code: string;
+            /** Format: decimal */
+            subtotal?: string;
+        };
+        PromoQuote: {
+            /** Format: decimal */
+            discount: string;
+            /** Format: decimal */
+            total: string;
+            reason: string | null;
+        };
         Register: {
             readonly id: number;
             /**
@@ -1092,6 +1767,52 @@ export interface components {
             email: string;
             password: string;
         };
+        ReportBook: {
+            product_id: number;
+            name: string;
+            quantity: number;
+            /** Format: decimal */
+            revenue: string;
+        };
+        ReportDay: {
+            /** Format: date */
+            day: string;
+            count: number;
+            /** Format: decimal */
+            revenue: string;
+        };
+        ReportDelivery: {
+            delivery_method: string;
+            label: string;
+            count: number;
+            /** Format: decimal */
+            revenue: string;
+        };
+        ReportStatus: {
+            status: string;
+            label: string;
+            count: number;
+        };
+        ReportSummary: {
+            count: number;
+            /** Format: decimal */
+            revenue: string;
+            /** Format: decimal */
+            average: string;
+        };
+        RestockNotification: {
+            readonly id: number;
+            product_name: string;
+            product_slug: string;
+            product_is_active: boolean;
+            /** Format: date-time */
+            notified_at: string;
+            /** Format: date-time */
+            read_at: string | null;
+        };
+        RestockSubscription: {
+            subscribed: boolean;
+        };
         Review: {
             readonly id: number;
             readonly author: string;
@@ -1105,11 +1826,34 @@ export interface components {
              */
             readonly created_at: string;
         };
+        ReviewDecisionRequest: {
+            /**
+             * @description Одобрить (approved) или отклонить (rejected).
+             *
+             *     * `approved` - approved
+             *     * `rejected` - rejected
+             */
+            decision: components["schemas"]["DecisionEnum"];
+        };
+        ReviewEligibility: {
+            /** @description Можно ли текущему покупателю оставить отзыв. */
+            can_review: boolean;
+            /** @description Причина отказа или текущее состояние своего отзыва. */
+            message: string;
+        };
         ReviewRequest: {
             /** Оценка */
             rating: number;
             /** Отзыв */
             text: string;
+        };
+        SalesReport: {
+            summary: components["schemas"]["ReportSummary"];
+            statuses: components["schemas"]["ReportStatus"][];
+            deliveries: components["schemas"]["ReportDelivery"][];
+            daily: components["schemas"]["ReportDay"][];
+            top_quantity: components["schemas"]["ReportBook"][];
+            top_revenue: components["schemas"]["ReportBook"][];
         };
         SimulatedPaymentRequest: {
             outcome: components["schemas"]["OutcomeEnum"];
@@ -1132,6 +1876,9 @@ export interface components {
         TokenRefreshRequest: {
             refresh: string;
         };
+        UnreadCount: {
+            unread_count: number;
+        };
         Variant: {
             readonly id: number;
             /** Вариант */
@@ -1152,6 +1899,7 @@ export interface components {
         WishlistEntry: {
             product_id: number;
             product__name: string;
+            product__slug: string;
             product__is_active: boolean;
         };
     };
@@ -1466,6 +2214,31 @@ export interface operations {
             };
         };
     };
+    api_cart_promo_partial_update: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["PatchedPromoSelectionRequest"];
+                "application/x-www-form-urlencoded": components["schemas"]["PatchedPromoSelectionRequest"];
+                "multipart/form-data": components["schemas"]["PatchedPromoSelectionRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Cart"];
+                };
+            };
+        };
+    };
     api_catalog_categories_list: {
         parameters: {
             query?: never;
@@ -1502,6 +2275,25 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Category"];
+                };
+            };
+        };
+    };
+    api_catalog_editorial_list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Product"][];
                 };
             };
         };
@@ -1583,7 +2375,7 @@ export interface operations {
             };
         };
     };
-    api_catalog_products_reviews_list: {
+    api_catalog_products_review_eligibility_retrieve: {
         parameters: {
             query?: never;
             header?: never;
@@ -1599,7 +2391,45 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["Review"][];
+                    "application/json": components["schemas"]["ReviewEligibility"];
+                };
+            };
+            /** @description Требуется вход. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Издание не найдено. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    api_catalog_products_reviews_list: {
+        parameters: {
+            query?: {
+                /** @description A page number within the paginated result set. */
+                page?: number;
+            };
+            header?: never;
+            path: {
+                slug: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PaginatedReviewList"];
                 };
             };
         };
@@ -1628,6 +2458,20 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["Review"];
                 };
+            };
+            /** @description Неверные поля, нет доставленной покупки или дубль. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Требуется вход. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
         };
     };
@@ -1923,6 +2767,946 @@ export interface operations {
             };
         };
     };
+    api_manager_catalog_list: {
+        parameters: {
+            query?: {
+                /** @description A page number within the paginated result set. */
+                page?: number;
+                /** @description Часть названия, имени автора, SKU или ISBN. */
+                q?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PaginatedManagerBookList"];
+                };
+            };
+            /** @description Требуется Bearer-токен. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Недостаточно прав сотрудника. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    api_manager_catalog_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": components["schemas"]["ManagerBookWriteRequest"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ManagerBook"];
+                };
+            };
+            /** @description Ошибки по именам полей формы или общее сообщение в detail. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Требуется Bearer-токен. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Недостаточно прав сотрудника. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    api_manager_catalog_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A unique integer value identifying this товар. */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ManagerBook"];
+                };
+            };
+            /** @description Требуется Bearer-токен. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Недостаточно прав сотрудника. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Издание не найдено. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    api_manager_catalog_destroy: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A unique integer value identifying this товар. */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No response body */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Требуется Bearer-токен. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Недостаточно прав сотрудника. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Издание не найдено. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Книга есть в заказах, её можно снять с продажи. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    api_manager_catalog_partial_update: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A unique integer value identifying this товар. */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "multipart/form-data": components["schemas"]["PatchedManagerBookWriteRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ManagerBook"];
+                };
+            };
+            /** @description Ошибки по именам полей формы или общее сообщение в detail. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Требуется Bearer-токен. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Недостаточно прав сотрудника. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Издание не найдено. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    api_manager_catalog_variants_partial_update: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A unique integer value identifying this товар. */
+                id: number;
+                variant_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "multipart/form-data": components["schemas"]["PatchedManagerVariantWriteRequest"];
+                "application/x-www-form-urlencoded": components["schemas"]["PatchedManagerVariantWriteRequest"];
+                "application/json": components["schemas"]["PatchedManagerVariantWriteRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ManagerBook"];
+                };
+            };
+            /** @description Ошибки по именам полей формы или общее сообщение в detail. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Требуется Bearer-токен. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Недостаточно прав сотрудника. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Издание или его складской вариант не найден. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    api_manager_catalog_import_json_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": components["schemas"]["BookJsonUploadRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BookJsonResult"];
+                };
+            };
+            /** @description Ошибки формата и записей в поле file. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Требуется Bearer-токен. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Недостаточно прав сотрудника. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    api_manager_categories_list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Category"][];
+                };
+            };
+            /** @description Требуется Bearer-токен. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Недостаточно прав сотрудника. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    api_manager_categories_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ManagerGenreWriteRequest"];
+                "application/x-www-form-urlencoded": components["schemas"]["ManagerGenreWriteRequest"];
+                "multipart/form-data": components["schemas"]["ManagerGenreWriteRequest"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Category"];
+                };
+            };
+            /** @description Ошибка поля name. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Требуется Bearer-токен. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Недостаточно прав сотрудника. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    api_manager_orders_list: {
+        parameters: {
+            query?: {
+                /** @description A page number within the paginated result set. */
+                page?: number;
+                /**
+                 * @description * `new` - Новый
+                 *     * `paid` - Оплачен
+                 *     * `confirmed` - Подтверждён
+                 *     * `shipped` - Передан в доставку
+                 *     * `delivered` - Доставлен
+                 *     * `cancelled` - Отменён
+                 */
+                status?: "cancelled" | "confirmed" | "delivered" | "new" | "paid" | "shipped";
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PaginatedOrderList"];
+                };
+            };
+            /** @description Требуется Bearer-токен. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Недостаточно прав сотрудника. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    api_manager_orders_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A unique integer value identifying this заказ. */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Order"];
+                };
+            };
+            /** @description Требуется Bearer-токен. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Недостаточно прав сотрудника. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Заказ не найден. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    api_manager_orders_status_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A unique integer value identifying this заказ. */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["StatusChangeRequest"];
+                "application/x-www-form-urlencoded": components["schemas"]["StatusChangeRequest"];
+                "multipart/form-data": components["schemas"]["StatusChangeRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Order"];
+                };
+            };
+            /** @description Недопустимый переход или отсутствует причина отмены. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Требуется Bearer-токен. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Недостаточно прав сотрудника. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Заказ не найден. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    api_manager_promos_list: {
+        parameters: {
+            query?: {
+                /** @description A page number within the paginated result set. */
+                page?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PaginatedManagerPromoList"];
+                };
+            };
+            /** @description Требуется Bearer-токен. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Недостаточно прав сотрудника. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    api_manager_promos_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ManagerPromoRequest"];
+                "application/x-www-form-urlencoded": components["schemas"]["ManagerPromoRequest"];
+                "multipart/form-data": components["schemas"]["ManagerPromoRequest"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ManagerPromo"];
+                };
+            };
+            /** @description Поля заполнены неверно или код уже существует. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Требуется Bearer-токен. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Недостаточно прав сотрудника. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    api_manager_promos_deactivate_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A unique integer value identifying this промокод. */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No response body */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Требуется Bearer-токен. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Недостаточно прав сотрудника. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Промокод не найден. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    api_manager_reports_sales_retrieve: {
+        parameters: {
+            query: {
+                /** @description Последний день периода включительно. */
+                end: string;
+                /** @description Первый день периода включительно. */
+                start: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SalesReport"];
+                };
+            };
+            /** @description Укажите обе даты в формате ГГГГ-ММ-ДД по порядку. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Требуется Bearer-токен. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Недостаточно прав сотрудника. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    api_manager_reports_sales_csv_retrieve: {
+        parameters: {
+            query: {
+                /** @description Последний день периода включительно. */
+                end: string;
+                /** @description Первый день периода включительно. */
+                start: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "text/csv": string;
+                };
+            };
+            /** @description Укажите обе даты в формате ГГГГ-ММ-ДД по порядку. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Требуется Bearer-токен. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Недостаточно прав сотрудника. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    api_manager_reviews_list: {
+        parameters: {
+            query?: {
+                /** @description A page number within the paginated result set. */
+                page?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PaginatedManagerReviewList"];
+                };
+            };
+            /** @description Требуется Bearer-токен. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Недостаточно прав сотрудника. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    api_manager_reviews_moderate_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A unique integer value identifying this отзыв. */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReviewDecisionRequest"];
+                "application/x-www-form-urlencoded": components["schemas"]["ReviewDecisionRequest"];
+                "multipart/form-data": components["schemas"]["ReviewDecisionRequest"];
+            };
+        };
+        responses: {
+            /** @description No response body */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Неверное решение или отзыв уже обработан. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Требуется Bearer-токен. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Недостаточно прав сотрудника. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Отзыв не найден. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    api_notifications_list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RestockNotification"][];
+                };
+            };
+        };
+    };
+    api_notifications_destroy: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No response body */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Уведомление не найдено. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    api_notifications_unread_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UnreadCount"];
+                };
+            };
+        };
+    };
+    api_notifications_unread_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No response body */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
     api_orders_list: {
         parameters: {
             query?: {
@@ -1977,6 +3761,19 @@ export interface operations {
                     "application/json": components["schemas"]["Order"];
                 };
             };
+            /** @description Ошибка оформления в detail или список ошибок по имени поля. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        detail: string;
+                    } | {
+                        [key: string]: string[];
+                    };
+                };
+            };
         };
     };
     api_orders_retrieve: {
@@ -2020,6 +3817,49 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["Order"];
                 };
+            };
+        };
+    };
+    api_orders_events_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A unique integer value identifying this заказ. */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "text/event-stream": string;
+                };
+            };
+            /** @description Требуется действующий access-токен. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Заказ не найден. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Поток требует запуска Django под ASGI. */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
         };
     };
@@ -2077,6 +3917,122 @@ export interface operations {
                     "application/json": components["schemas"]["Order"];
                 };
             };
+            /** @description Недопустимый переход или отсутствует причина отмены. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Требуется Bearer-токен. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Недостаточно прав сотрудника. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Заказ не найден. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    api_promo_check_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PromoCheckRequest"];
+                "application/x-www-form-urlencoded": components["schemas"]["PromoCheckRequest"];
+                "multipart/form-data": components["schemas"]["PromoCheckRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PromoQuote"];
+                };
+            };
+            /** @description Неверные данные. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    api_restock_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RestockSubscription"];
+                };
+            };
+        };
+    };
+    api_restock_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RestockSubscription"];
+                };
+            };
+            /** @description Издание уже есть в наличии. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Издание не найдено в каталоге. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
         };
     };
     api_wishlist_list: {
@@ -2113,12 +4069,12 @@ export interface operations {
             };
         };
         responses: {
-            200: {
+            201: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["FavoriteInput"];
+                    "application/json": components["schemas"]["FavoriteResult"];
                 };
             };
         };

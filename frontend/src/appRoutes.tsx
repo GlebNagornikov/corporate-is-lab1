@@ -1,14 +1,14 @@
 import type { QueryClient } from '@tanstack/react-query'
 import { data, type LoaderFunctionArgs, type RouteObject } from 'react-router'
 import { orderQuery, ordersQuery, readOrderPage } from './api/orders'
-import { categoriesQuery, productQuery, productsQuery } from './api/queries'
-import { meQuery, requireManager, requireUser } from './auth/session'
+import { categoriesQuery, editorialQuery, productQuery, productsQuery } from './api/queries'
+import { meQuery, requireUser } from './auth/session'
 import SessionOutlet from './auth/SessionOutlet'
 import CartPage from './cart/CartPage'
 import { cartQuery } from './cart/queries'
 import { parseCatalogParams } from './lib/catalogParams'
-import { orderFilters } from './manager/orderFilters'
-import { ManagerLayout, ManagerPlaceholder } from './manager/ManagerLayout'
+import { managerRoutes } from './manager/routes'
+import { notificationsQuery, wishlistQuery } from './personal/queries'
 import CatalogPage from './routes/CatalogPage'
 import NotFoundPage from './routes/NotFoundPage'
 import ProductPage from './routes/ProductPage'
@@ -20,8 +20,10 @@ export function createAppRoutes(queryClient: QueryClient): RouteObject[] {
   const catalog = {
     Component: CatalogPage,
     loader: ({ request }: LoaderFunctionArgs) => {
+      const { pathname, searchParams } = new URL(request.url)
       void queryClient.prefetchQuery(categoriesQuery())
-      void queryClient.prefetchQuery(productsQuery(parseCatalogParams(new URL(request.url).searchParams)))
+      void queryClient.prefetchQuery(productsQuery(parseCatalogParams(searchParams)))
+      if (pathname === '/' && searchParams.size === 0) void queryClient.prefetchQuery(editorialQuery())
       return null
     },
   }
@@ -71,6 +73,24 @@ export function createAppRoutes(queryClient: QueryClient): RouteObject[] {
           Component: SessionOutlet,
           children: [
             {
+              path: 'wishlist',
+              lazy: async () => ({ Component: (await import('./personal/WishlistPage')).default }),
+              loader: async ({ request }) => {
+                const me = await requireUser(request, queryClient)
+                void queryClient.prefetchQuery(wishlistQuery(me.id))
+                return null
+              },
+            },
+            {
+              path: 'notifications',
+              lazy: async () => ({ Component: (await import('./personal/NotificationsPage')).default }),
+              loader: async ({ request }) => {
+                const me = await requireUser(request, queryClient)
+                void queryClient.prefetchQuery(notificationsQuery(me.id))
+                return null
+              },
+            },
+            {
               path: 'checkout',
               shouldRevalidate: ({ actionResult, defaultShouldRevalidate }) =>
                 actionResult?.orderId ? false : defaultShouldRevalidate,
@@ -110,31 +130,11 @@ export function createAppRoutes(queryClient: QueryClient): RouteObject[] {
                 return null
               },
             },
-            {
-              path: 'manager',
-              Component: ManagerLayout,
-              ErrorBoundary: RouteError,
-              loader: async ({ request }) => {
-                await requireManager(request, queryClient)
-                void queryClient.prefetchQuery(ordersQuery(orderFilters(new URL(request.url).searchParams)))
-                return null
-              },
-              children: [
-                { path: 'catalog', element: <ManagerPlaceholder title="Каталог" /> },
-                { path: 'reviews', element: <ManagerPlaceholder title="Отзывы" /> },
-                { path: 'promos', element: <ManagerPlaceholder title="Промокоды" /> },
-                { path: 'reports', element: <ManagerPlaceholder title="Отчёты" /> },
-                {
-                path: 'orders',
-                lazy: async () => ({
-                  Component: (await import('./manager/ManagerOrdersPage')).default,
-                }),
-              }],
-            },
           ],
         },
         { path: '*', Component: NotFoundPage },
       ],
     },
+    managerRoutes(queryClient),
   ]
 }

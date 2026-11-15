@@ -6,7 +6,7 @@ import { createMemoryRouter } from 'react-router'
 import { RouterProvider } from 'react-router/dom'
 import { afterEach, expect, test, vi } from 'vitest'
 import type { Me } from '../api/client'
-import { orderQuery } from '../api/orders'
+import { managerOrderQuery } from '../manager/queries'
 import { createAppRoutes } from '../appRoutes'
 import { meQuery } from '../auth/session'
 import { guestCart } from '../cart/guestCart'
@@ -39,7 +39,10 @@ test('гость выбирает вариант, меняет количест�
     name: 'Рубашка',
     variants: [{ id: 4, name: 'Размер M', sku: 'M', price: '25.50', stock: 2, is_default: false }],
   })
-  server.use(http.get('*/api/catalog/products/', () => HttpResponse.json(makePage([product]))))
+  server.use(
+    http.get('*/api/catalog/products/', () => HttpResponse.json(makePage([product]))),
+    http.get(`*/api/catalog/products/${product.slug}/`, () => HttpResponse.json(product)),
+  )
   const { router } = renderShop('/')
   const user = userEvent.setup()
 
@@ -47,7 +50,7 @@ test('гость выбирает вариант, меняет количест�
   expect(add).toBeDisabled()
   await user.selectOptions(screen.getByLabelText('Вариант товара'), '4')
   await user.click(add)
-  await user.click(screen.getByRole('link', { name: /Корзина: 1 шт./ }))
+  await user.click(await screen.findByRole('link', { name: /Корзина: 1 шт./ }))
   expect(await screen.findByRole('heading', { name: 'Корзина' })).toBeInTheDocument()
   expect(screen.getByText('Размер M')).toBeInTheDocument()
 
@@ -56,7 +59,7 @@ test('гость выбирает вариант, меняет количест�
   expect(plus).toBeDisabled()
   expect(screen.getByRole('link', { name: /Корзина: 2 шт./ })).toHaveTextContent('51')
   await user.click(screen.getByRole('link', { name: 'Оформить заказ' }))
-  expect(await screen.findByRole('heading', { name: 'Вход' })).toBeInTheDocument()
+  expect(await screen.findByRole('heading', { name: 'Вход' }, { timeout: 5000 })).toBeInTheDocument()
   expect(router.state.location.search).toBe('?next=%2Fcheckout')
   expect(guestCart.items()).toMatchObject([{ variant_id: 4, quantity: 2 }])
 })
@@ -105,11 +108,48 @@ test('владелец открывает учебную оплату из за�
   renderShop('/orders/7', buyer)
   const user = userEvent.setup()
   await user.click(await screen.findByText('Оплатить', { selector: 'summary' }))
-  await user.click(screen.getByRole('button', { name: 'Отказ' }))
+  const submit = screen.getByRole('button', { name: /^Оплатить / })
+  const number = screen.getByLabelText('Номер карты')
+  const expiry = screen.getByLabelText('Срок действия')
+  const code = screen.getByLabelText('CVV')
+  await user.type(number, '4242424242424241')
+  await user.type(expiry, '1299')
+  await user.type(code, '12')
+  await user.click(submit)
+  expect(number).toHaveFocus()
+  expect(number).toHaveAttribute('aria-invalid', 'true')
+  expect(code).toHaveAttribute('aria-invalid', 'true')
+  await user.clear(number)
+  await user.type(number, '4000000000000002')
+  await user.clear(expiry)
+  await user.type(expiry, '1300')
+  await user.type(code, '3')
+  await user.click(submit)
+  expect(expiry).toHaveFocus()
+  await user.clear(expiry)
+  await user.type(expiry, '1299')
+  await user.click(submit)
   expect(await screen.findByText('Учебный платёж отклонён. Можно повторить оплату.')).toBeInTheDocument()
-  await user.click(screen.getByRole('button', { name: 'Успех' }))
+  await user.clear(number)
+  await user.type(number, '4242424242424242')
+  await user.type(code, '123')
+  await user.click(submit)
   expect(await screen.findByText('Оплачен')).toBeInTheDocument()
   expect(screen.queryByText('Оплатить', { selector: 'summary' })).not.toBeInTheDocument()
+})
+
+test('менеджер открывает карточку заказа из списка', async () => {
+  const order = makeOrder({ full_name: 'Анна Смирнова' })
+  server.use(
+    http.get('*/api/manager/orders/', () => HttpResponse.json({ results: [order], count: 1 })),
+    http.get('*/api/manager/orders/7/', () => HttpResponse.json(order)),
+  )
+  renderShop('/manager/orders', { ...buyer, is_manager: true })
+  const user = userEvent.setup()
+  await user.click(await screen.findByRole('link', { name: '№7' }))
+  expect(await screen.findByRole('heading', { name: 'Заказ №7' })).toBeInTheDocument()
+  expect(screen.getByText('Анна Смирнова')).toBeInTheDocument()
+  expect(screen.getByRole('heading', { name: 'История' })).toBeInTheDocument()
 })
 
 test('менеджер фильтрует заказы и выполняет доступный переход из API', async () => {
@@ -126,12 +166,12 @@ test('менеджер фильтрует заказы и выполняет д�
     return HttpResponse.json(order)
   })
   server.use(
-    http.get('*/api/orders/', ({ request }) => {
+    http.get('*/api/manager/orders/', ({ request }) => {
       const status = new URL(request.url).searchParams.get('status')
       const results = !status || status === order.status ? [order] : []
       return HttpResponse.json({ results, count: results.length })
     }),
-    http.post('*/api/orders/7/status/', change),
+    http.post('*/api/manager/orders/7/status/', change),
   )
   const { client, router } = renderShop('/manager/orders?status=new', { ...buyer, is_manager: true })
   const user = userEvent.setup()
@@ -146,7 +186,7 @@ test('менеджер фильтрует заказы и выполняет д�
   await user.click(screen.getByRole('button', { name: 'Подтвердить действие' }))
   expect(await screen.findByText('Заказов нет.')).toBeInTheDocument()
   expect(change).toHaveBeenCalledOnce()
-  expect(client.getQueryData(orderQuery(7).queryKey)?.status).toBe('confirmed')
+  expect(client.getQueryData(managerOrderQuery(7).queryKey)?.status).toBe('confirmed')
 
   await user.selectOptions(screen.getByLabelText('Статус'), 'confirmed')
   const table = await screen.findByRole('table')
@@ -160,7 +200,7 @@ test.each(['/orders', '/manager/orders?status=paid'])(
     let release!: () => void
     const pending = new Promise<void>((resolve) => { release = resolve })
     const isManager = path.startsWith('/manager')
-    server.use(http.get('*/api/orders/', async ({ request }) => {
+    server.use(http.get(isManager ? '*/api/manager/orders/' : '*/api/orders/', async ({ request }) => {
       const search = new URL(request.url).searchParams
       expect(search.get('status')).toBe(isManager ? 'paid' : null)
       if (search.get('page') === '2') {

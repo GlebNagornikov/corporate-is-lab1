@@ -21,6 +21,20 @@ class OpenAPIContractTests(SimpleTestCase):
             "#/components/schemas/StatusChangeRequest",
         )
 
+    def test_manager_catalog_documents_binary_cover_and_access_errors(self):
+        schema = SchemaGenerator().get_schema(public=True)
+        for path, method in (
+            ("/api/manager/catalog/", "post"),
+            ("/api/manager/catalog/{id}/", "patch"),
+        ):
+            action = schema["paths"][path][method]
+            payload = action["requestBody"]["content"]["multipart/form-data"]["schema"]
+            name = payload["$ref"].rsplit("/", 1)[-1]
+            cover = schema["components"]["schemas"][name]["properties"]["image"]
+            self.assertEqual(cover["format"], "binary")
+            self.assertIn("401", action["responses"])
+            self.assertIn("403", action["responses"])
+
 
 class APIDocsTests(TestCase):
     def test_eleventh_token_request_is_throttled(self):

@@ -17,6 +17,8 @@ import environ
 from redis.backoff import NoBackoff
 from redis.retry import Retry
 
+from config import __version__
+
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BACKEND_DIR = Path(__file__).resolve().parent.parent.parent
 BASE_DIR = BACKEND_DIR.parent
@@ -91,6 +93,7 @@ TEMPLATES = [
 
 
 WSGI_APPLICATION = "config.wsgi.application"
+ASGI_APPLICATION = "config.asgi.application"
 
 
 # Database
@@ -99,7 +102,7 @@ WSGI_APPLICATION = "config.wsgi.application"
 DATABASES = {
     "default": env.db("DATABASE_URL"),
 }
-DATABASES["default"]["CONN_MAX_AGE"] = env.int("DB_CONN_MAX_AGE", default=60)
+DATABASES["default"]["CONN_MAX_AGE"] = env.int("DB_CONN_MAX_AGE", default=0)
 
 
 # Password validation
@@ -149,7 +152,11 @@ REST_FRAMEWORK = {
         "config.throttling.ShopAnonThrottle",
         "config.throttling.ShopUserThrottle",
     ],
-    "DEFAULT_THROTTLE_RATES": {"anon": "60/min", "user": "600/min", "token": "10/min"},
+    "DEFAULT_THROTTLE_RATES": {
+        "anon": env("API_ANON_THROTTLE_RATE", default="60/min"),
+        "user": "600/min",
+        "token": env("API_TOKEN_THROTTLE_RATE", default="10/min"),
+    },
     "NUM_PROXIES": 1,
     "DEFAULT_AUTHENTICATION_CLASSES": [
         "rest_framework_simplejwt.authentication.JWTAuthentication",
@@ -164,6 +171,7 @@ REST_FRAMEWORK = {
 SIMPLE_JWT = {
     "ACCESS_TOKEN_LIFETIME": timedelta(minutes=env.int("JWT_ACCESS_MINUTES", default=15)),
     "REFRESH_TOKEN_LIFETIME": timedelta(days=env.int("JWT_REFRESH_DAYS", default=7)),
+    "CHECK_REVOKE_TOKEN": True,
 }
 
 # Email
@@ -211,6 +219,7 @@ MEDIA_URL = "media/"
 MEDIA_ROOT = BASE_DIR / "media"
 SITE_URL = env("SITE_URL", default="https://localhost").rstrip("/")
 PAYMENT_WEBHOOK_SECRET = env("PAYMENT_WEBHOOK_SECRET", default=SECRET_KEY)
+ORDER_EVENTS_REDIS_URL = env("ORDER_EVENTS_REDIS_URL", default="redis://redis:6379/0")
 CACHES = {
     "default": {
         "BACKEND": "catalog.cache_backend.ResilientRedisCache",
@@ -235,7 +244,7 @@ CELERY_BROKER_TRANSPORT_OPTIONS = {"visibility_timeout": 3600}
 SPECTACULAR_SETTINGS = {
     "TITLE": "Магазин: REST API",
     "DESCRIPTION": "Магазин и сотрудники. JWT/сессия; права указаны у операций.",
-    "VERSION": "1.2.1",
+    "VERSION": __version__,
     "SERVE_INCLUDE_SCHEMA": False,
     "COMPONENT_SPLIT_REQUEST": True,
     "ENUM_NAME_OVERRIDES": {

@@ -28,20 +28,20 @@ export default function OrdersPage() {
       ) : (
         <>
         <div className="table-scroll" aria-busy={orders.isPlaceholderData}>
-          <table className={orders.isPlaceholderData ? 'table stale' : 'table'}>
+          <table className={orders.isPlaceholderData ? 'table order-table stale' : 'table order-table'}>
             <thead>
               <tr>
                 <th scope="col">Заказ</th><th scope="col">Дата</th>
-                <th scope="col">Статус</th><th scope="col">Сумма</th>
+                <th scope="col">Статус</th><th scope="col" className="order-amount">Сумма</th>
               </tr>
             </thead>
             <tbody>
               {orders.data.results.map((order) => (
                 <tr key={order.id}>
                   <th scope="row"><Link to={`/orders/${order.id}`}>Заказ №{order.id}</Link></th>
-                  <td>{formatDate(order.created_at)}</td>
-                  <td>{order.status_display}</td>
-                  <td>{formatPrice(order.total)}</td>
+                  <td data-label="Дата">{formatDate(order.created_at)}</td>
+                  <td data-label="Статус">{order.status_display}</td>
+                  <td className="order-amount" data-label="Сумма">{formatPrice(order.total)}</td>
                 </tr>
               ))}
             </tbody>

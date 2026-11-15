@@ -10,11 +10,12 @@ type FormFailure = { status: number; message: string; fields: Record<string, str
 type OrderPlaced = { orderId: number }
 type FormResult = FormFailure | OrderPlaced
 
-export async function submitRouteForm<T>(
+export async function submitRouteForm<T, Result extends Response | OrderPlaced>(
   request: Request, schema: z.ZodType<T>, client: QueryClient, mutationKey: readonly string[],
-  mutationFn: (values: T) => Promise<Response | OrderPlaced>,
-): Promise<FormResult | Response> {
-  const parsed = schema.safeParse(await request.json().catch(() => null))
+  mutationFn: (values: T) => Promise<Result>,
+  read = (request: Request): Promise<unknown> => request.json(),
+): Promise<FormFailure | Result> {
+  const parsed = schema.safeParse(await read(request).catch(() => null))
   if (!parsed.success) {
     const fields: Record<string, string[]> = {}
     for (const { path: [field], message } of parsed.error.issues) {

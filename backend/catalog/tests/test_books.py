@@ -6,6 +6,7 @@ from django.test import TestCase
 from rest_framework.test import APIClient
 
 from catalog.models import BookEdition, Category, Product, ProductImage
+from catalog.pagination import ProductPagination
 
 
 class BookCatalogTests(TestCase):
@@ -83,10 +84,28 @@ class BookCatalogTests(TestCase):
         self.assertNotIn("images", listing.json()["results"][0])
 
     def test_stable_sort_with_equal_price(self):
-        response = self.client.get("/api/catalog/products/", {"ordering": "price"})
-        self.assertEqual(
-            [x["id"] for x in response.json()["results"]], sorted([self.product.pk, self.legacy.pk])
+        size = ProductPagination.page_size
+        more_books = Product.objects.bulk_create(
+            [
+                Product(
+                    category=self.product.category,
+                    name=f"Книга {index}",
+                    slug=f"equal-price-{index}",
+                    sku=f"EQ-{index}",
+                    price=100,
+                )
+                for index in range(size)
+            ]
         )
+        ids = sorted([self.product.pk, self.legacy.pk, *(book.pk for book in more_books)])
+        for ordering in ("price", "-price"):
+            with self.subTest(ordering=ordering):
+                for page, expected in ((1, ids[:size]), (2, ids[size:])):
+                    response = self.client.get(
+                        "/api/catalog/products/", {"ordering": ordering, "page": page}
+                    )
+                    self.assertEqual(response.status_code, 200)
+                    self.assertEqual([x["id"] for x in response.json()["results"]], expected)
 
     def test_login(self):
         from django.contrib.auth import get_user_model
@@ -98,8 +117,10 @@ class BookCatalogTests(TestCase):
         self.assertEqual(response.status_code, 200)
 
     def test_legacy_archive_is_preview_by_default_and_does_not_touch_changed_product(self):
+        root = Category.objects.create(name="Бытовая техника", slug="appliances")
+        subcategory = Category.objects.create(name="Демо", slug="demo", parent=root)
         known = Product.objects.create(
-            category=self.product.category,
+            category=subcategory,
             sku="DEMO-1",
             slug="demo-shirt-1",
             name="Демо-футболка 1",
@@ -126,6 +147,11 @@ class BookCatalogTests(TestCase):
         csv_demo.refresh_from_db()
         self.assertTrue(known.is_active)
         self.assertTrue(csv_demo.is_active)
+        category_url = "/api/catalog/categories/"
+        self.assertEqual(
+            {entry["slug"] for entry in self.client.get(category_url).json()},
+            {"appliances", "demo", "novels"},
+        )
         call_command("archive_legacy_demo", apply=True, stdout=io.StringIO())
         known.refresh_from_db()
         changed.refresh_from_db()
@@ -133,3 +159,7 @@ class BookCatalogTests(TestCase):
         self.assertFalse(known.is_active)
         self.assertFalse(csv_demo.is_active)
         self.assertTrue(changed.is_active)
+        self.assertEqual(
+            [entry["slug"] for entry in self.client.get(category_url).json()], ["novels"]
+        )
+        self.assertEqual(self.client.get(f"{category_url}appliances/").status_code, 200)

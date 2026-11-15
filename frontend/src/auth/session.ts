@@ -28,6 +28,9 @@ function resetUserData(cancelProfile: boolean, client = queryClient) {
   client.removeQueries({ queryKey: cartQuery().queryKey })
   client.removeQueries({ queryKey: priceChangesQuery().queryKey })
   client.removeQueries({ queryKey: ['orders'] })
+  client.removeQueries({ queryKey: ['manager'] })
+  client.removeQueries({ queryKey: ['review-eligibility'] })
+  client.removeQueries({ queryKey: ['personal'] })
 }
 
 // При истечении токена запрос профиля сам завершится с null.
@@ -55,19 +58,18 @@ export async function login(username: string, password: string, client = queryCl
     const me = requireData(await api.GET('/api/auth/me/'))
     ensureSession(version)
     const items = guestCart.items()
-    if (items.length > 0) {
-      // API принимает до 99 единиц в одной строке запроса.
-      const lines = items.flatMap((item) => Array.from(
-        { length: Math.ceil(item.quantity / 99) },
-        (_, index) => ({
-          product: item.product_id,
-          variant: item.variant_id ?? undefined,
-          quantity: Math.min(99, item.quantity - index * 99),
-        }),
-      ))
-      const cart = requireData(await api.POST('/api/cart/merge/', { body: { items: lines } }))
+    const promoCode = guestCart.promoCode()
+    if (items.length > 0 || promoCode) {
+      const lines = items.map((item) => ({
+        product: item.product_id,
+        variant: item.variant_id ?? undefined,
+        quantity: item.quantity,
+      }))
+      const cart = requireData(await api.POST('/api/cart/merge/', {
+        body: { items: lines, ...(promoCode ? { promo_code: promoCode } : {}) },
+      }))
       ensureSession(version)
-      guestCart.removeTransferred(items)
+      guestCart.removeTransferred(items, promoCode)
       client.setQueryData(cartQuery().queryKey, cart)
       client.setQueryData(priceChangesQuery().queryKey, findPriceChanges(items, cart.items))
     }

@@ -1,0 +1,20 @@
+.restock-notice {
+  position: fixed;
+  z-index: 10;
+  inset-inline-end: 1rem;
+  inset-block-end: max(1rem, env(safe-area-inset-bottom));
+  width: min(24rem, 100% - 2rem);
+  padding: 1rem;
+  border: 1px solid var(--control);
+  border-inline-start: .25rem solid var(--accent);
+  border-radius: .5rem;
+  background: var(--surface);
+  color: var(--text);
+  box-shadow: 0 .5rem 1.5rem #0003;
+  overflow-wrap: anywhere;
+}
+
+.restock-notice p { margin: 0 0 .4rem; }
+.restock-notice-title { display: flex; align-items: center; gap: .5rem; font-weight: 700; }
+.restock-notice-title svg { color: var(--accent); flex: none; }
+.restock-notice-actions { display: flex; flex-wrap: wrap; align-items: center; gap: .5rem .8rem; }

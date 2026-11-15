@@ -40,6 +40,33 @@ class PaymentTests(TestCase):
         self.assertEqual(self.order.status, "new")
         self.assertEqual(payment.status, "pending")
 
+    def test_non_ascii_signature_is_rejected(self):
+        response = self.client.post(
+            "/payments/webhook/",
+            b"{}",
+            content_type="application/json",
+            HTTP_X_PAYMENT_SIGNATURE="é",
+        )
+        self.assertEqual(response.status_code, 403)
+
+    def test_signed_callback_with_invalid_fields_returns_400(self):
+        payment = begin_payment(self.order, self.user)
+        for fields in (
+            {"payment_id": {}, "outcome": "success"},
+            {"payment_id": str(payment.pk), "outcome": {}},
+        ):
+            with self.subTest(fields=fields):
+                body = json.dumps(fields).encode()
+                response = self.client.post(
+                    "/payments/webhook/",
+                    body,
+                    content_type="application/json",
+                    HTTP_X_PAYMENT_SIGNATURE=signature(body),
+                )
+                self.assertEqual(response.status_code, 400)
+        payment.refresh_from_db()
+        self.assertEqual(payment.status, "pending")
+
     def test_success_is_idempotent_and_customer_cannot_cancel_paid(self):
         payment = begin_payment(self.order, self.user)
         self.assertEqual(self.callback(payment).status_code, 200)

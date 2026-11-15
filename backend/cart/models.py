@@ -16,6 +16,7 @@ class Cart(models.Model):
     )
     created_at = models.DateTimeField("Создана", auto_now_add=True)
     updated_at = models.DateTimeField("Изменена", auto_now=True)
+    promo_code = models.CharField("Промокод", max_length=30, blank=True, default="")
 
     class Meta:
         verbose_name = "корзина"

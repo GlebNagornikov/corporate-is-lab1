@@ -22,6 +22,13 @@ describe('checkoutSchema', () => {
     expect(result.error?.issues.map(({ path }) => path)).toEqual([['address']])
   })
 
+  test.each([[328, true], [329, false]] as const)('адрес из %i символов', (length, accepted) => {
+    const result = checkoutSchema.safeParse({
+      ...valid, delivery_method: 'courier', address: '𠮷'.repeat(length),
+    })
+    expect(result.success).toBe(accepted)
+  })
+
   test.each(['+7 913 123-45-67', '9131234567', '89131234567'])('принимает телефон %s', (phone) => {
     expect(checkoutSchema.safeParse({ ...valid, phone }).success).toBe(true)
   })

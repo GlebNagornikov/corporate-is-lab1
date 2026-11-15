@@ -9,8 +9,8 @@
 <body class="bg-light">
 <nav class="navbar navbar-expand-lg navbar-dark bg-dark mb-4">
   <div class="container">
-    <a class="navbar-brand" href="{% url 'catalog:product_list' %}">Магазин</a>
-    <form class="d-flex me-auto" action="{% url 'catalog:product_list' %}" method="get">
+    <a class="navbar-brand" href="{% url 'legacy-shop' %}">Магазин</a>
+    <form class="d-flex me-auto" action="{% url 'legacy-shop' %}" method="get">
       <input class="form-control me-2" type="search" name="q" placeholder="Поиск товаров"
              value="{{ request.GET.q }}">
     </form>

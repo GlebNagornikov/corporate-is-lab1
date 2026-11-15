@@ -59,6 +59,11 @@ services:
 
   web:
     <<: *app
+    environment:
+      DATABASE_URL: postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
+      EMAIL_HOST: mailpit
+      EMAIL_PORT: 1025
+      DB_CONN_MAX_AGE: "0"
     dns_opt: ["timeout:1", "attempts:1"]
     restart: unless-stopped
     volumes:
@@ -67,6 +72,8 @@ services:
     depends_on:
       migrate:
         condition: service_completed_successfully
+      redis:
+        condition: service_healthy
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/healthz/')"]
       interval: 10s

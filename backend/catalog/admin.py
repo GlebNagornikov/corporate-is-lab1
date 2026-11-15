@@ -103,22 +103,22 @@ class ProductAdmin(admin.ModelAdmin):
 
 @admin.register(Review)
 class ReviewAdmin(admin.ModelAdmin):
-    list_display = ("product", "author", "rating", "is_published", "created_at")
-    list_filter = ("is_published", "rating")
+    list_display = ("product", "author", "rating", "status", "created_at")
+    list_filter = ("status", "rating")
     list_select_related = ("product", "author")
     search_fields = ("product__name", "author__username", "text")
     actions = ("publish", "hide")
 
-    @admin.action(description="Опубликовать выбранные отзывы")
+    @admin.action(permissions=["change"], description="Опубликовать выбранные отзывы")
     def publish(self, request, queryset):
-        queryset.update(is_published=True)
+        queryset.update(status=Review.Status.APPROVED)
         from .caching import invalidate_catalog
 
         invalidate_catalog()
 
-    @admin.action(description="Скрыть выбранные отзывы")
+    @admin.action(permissions=["change"], description="Скрыть выбранные отзывы")
     def hide(self, request, queryset):
-        queryset.update(is_published=False)
+        queryset.update(status=Review.Status.REJECTED)
         from .caching import invalidate_catalog
 
         invalidate_catalog()

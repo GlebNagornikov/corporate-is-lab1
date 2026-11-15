@@ -75,3 +75,8 @@ class ReviewSerializer(serializers.ModelSerializer):
     class Meta:
         model = Review
         fields = ["id", "author", "rating", "text", "created_at"]
+
+
+class ReviewEligibilitySerializer(serializers.Serializer):
+    can_review = serializers.BooleanField(help_text="Можно ли текущему покупателю оставить отзыв.")
+    message = serializers.CharField(help_text="Причина отказа или текущее состояние своего отзыва.")

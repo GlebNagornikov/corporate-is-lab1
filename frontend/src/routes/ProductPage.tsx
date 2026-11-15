@@ -1,14 +1,16 @@
-import { useSuspenseQuery } from '@tanstack/react-query'
+import { useQuery, useSuspenseQuery } from '@tanstack/react-query'
 import { lazy, Suspense, useState } from 'react'
 import { useParams } from 'react-router'
-import { productQuery } from '../api/queries'
+import { productQuery, reviewEligibilityQuery } from '../api/queries'
 import { useSession } from '../auth/useSession'
 import AddToCartButton from '../components/AddToCartButton'
 import ProductBreadcrumbs from '../components/ProductBreadcrumbs'
 import Reviews from '../components/Reviews'
-import StoreIcon from '../components/StoreIcon'
 import { formatPrice } from '../lib/format'
 import { usePageTitle } from '../lib/usePageTitle'
+import FavoriteButton from '../personal/FavoriteButton'
+import RestockButton from '../personal/RestockButton'
+import { favoriteEntry } from '../personal/queries'
 
 const ReviewForm = lazy(() => import('../components/ReviewForm'))
 
@@ -33,6 +35,7 @@ export default function ProductPage() {
   const { slug } = useParams<'slug'>()
   const { data: product } = useSuspenseQuery(productQuery(slug!))
   const { data: me } = useSession()
+  const eligibility = useQuery(reviewEligibilityQuery(product.slug, me?.id))
   usePageTitle(product.name)
   const photos = [
     { image: product.image ?? '/no-image.svg', alt_text: `Обложка: ${product.name}` },
@@ -58,7 +61,10 @@ export default function ProductPage() {
             {product.in_stock ? `В наличии: ${product.stock} шт.` : 'Нет в наличии'}
           </p>
           <AddToCartButton key={product.id} product={product} />
-          <span className="planned" title="Избранное появится позже"><StoreIcon name="heart" />Избранное</span>
+          <div className="product-personal-actions">
+            {!product.in_stock && <RestockButton productId={product.id} />}
+            <FavoriteButton entry={favoriteEntry(product)} />
+          </div>
         </div>
       </div>
       <div className="product-notes">
@@ -80,9 +86,14 @@ export default function ProductPage() {
       </div>
       <h2>Отзывы ({product.reviews_count})</h2>
       {product.rating !== null && <p className="muted">Средняя оценка: {product.rating} из 5</p>}
-      {me && (
+      {me && eligibility.isError && <p className="error" role="alert">Не удалось проверить право на отзыв.{' '}
+        <button type="button" className="secondary" onClick={() => void eligibility.refetch()}>Повторить</button>
+      </p>}
+      {me && eligibility.isSuccess && (
         <Suspense fallback={<p className="muted" role="status">Загрузка формы отзыва…</p>}>
-          <ReviewForm key={product.id} slug={product.slug} />
+          {eligibility.data.can_review
+            ? <ReviewForm key={`${me.id}:${product.id}`} slug={product.slug} buyerId={me.id} />
+            : <p className="muted" role="status">{eligibility.data.message}</p>}
         </Suspense>
       )}
       <Reviews slug={product.slug} />

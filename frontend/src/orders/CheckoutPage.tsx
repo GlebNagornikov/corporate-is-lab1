@@ -1,8 +1,10 @@
 import { zodResolver } from '@hookform/resolvers/zod'
+import { useEffect } from 'react'
 import { useForm, useWatch } from 'react-hook-form'
 import { Link, useNavigate } from 'react-router'
 import { useSession } from '../auth/useSession'
 import { useCartSnapshot } from '../cart/useCartSnapshot'
+import { editionLimitErrors, editionLimitRule } from '../cart/editionLimit'
 import FormInput from '../components/FormInput'
 import { formatPrice } from '../lib/format'
 import { useRouteForm } from '../lib/routeForm'
@@ -23,15 +25,22 @@ export default function CheckoutPage() {
       delivery_method: 'pickup',
       address: '',
       comment: '',
-      promo_code: '',
+      promo_code: cart.promo_code ?? '',
     },
   })
-  const { register, control, clearErrors, formState: { errors, isSubmitting } } = form
+  const { register, control, clearErrors, resetField, formState: { errors, isSubmitting, dirtyFields } } = form
+  useEffect(() => {
+    if (!dirtyFields.promo_code) resetField('promo_code', { defaultValue: cart.promo_code ?? '' })
+  }, [cart.promo_code, dirtyFields.promo_code, resetField])
   const { onSubmit, isPending } = useRouteForm(form, checkoutFields, (id) => {
     void navigate(`/orders/${id}`, { replace: true, state: { justPlaced: true } })
   })
   const busy = isSubmitting || isPending
   const delivery = useWatch({ control, name: 'delivery_method' })
+  const code = useWatch({ control, name: 'promo_code' })
+  const quote = code.trim().toUpperCase() === cart.promo_code ? cart.promo_quote : null
+  const limitErrors = editionLimitErrors(cart.items)
+  const exceedsLimit = limitErrors.length > 0
 
   if (!cart.items.length && !busy) {
     return (
@@ -54,7 +63,10 @@ export default function CheckoutPage() {
       <p className="eyebrow">Последний шаг</p>
       <h1>Оформление заказа</h1>
       <div className="order-layout">
-        <form className="details form" onSubmit={onSubmit} aria-busy={busy} noValidate>
+        <form className="details form" onSubmit={(event) => {
+          if (exceedsLimit) event.preventDefault()
+          else onSubmit(event)
+        }} aria-busy={busy} noValidate>
           <h2>Получатель и доставка</h2>
           <FormInput label="Получатель" autoComplete="name"
             error={errors.full_name?.message} {...register('full_name')} />
@@ -90,16 +102,30 @@ export default function CheckoutPage() {
             {errors.comment && <p className="error" id="comment-error">{errors.comment.message}</p>}
           </div>
           {errors.root?.message && <p className="error" role="alert">{errors.root.message}</p>}
-          <button type="submit" disabled={busy}>
+          <p className="muted" id="checkout-edition-limit">{editionLimitRule}</p>
+          {exceedsLimit && (
+            <ul className="error" id="checkout-edition-errors" aria-live="polite">
+              {limitErrors.map(({ id, message }) => <li key={id}>{message}</li>)}
+            </ul>
+          )}
+          <button type="submit" disabled={busy || exceedsLimit}
+            aria-describedby={exceedsLimit ? 'checkout-edition-limit checkout-edition-errors' : 'checkout-edition-limit'}>
             {busy ? 'Отправка…' : 'Подтвердить заказ'}
           </button>
         </form>
         <aside className="details order-summary" aria-label="Сводка заказа">
           <h2>Ваш заказ</h2>
           <ul className="summary-lines">{cart.items.map((item) => (
-            <li key={`${item.product_id}:${item.variant_id}`}><span>{item.name} × {item.quantity}</span><span>{formatPrice(item.total)}</span></li>
+            <li key={`${item.product_id}:${item.variant_id}`}>
+              <span>{item.name}{!item.is_default_variant && item.variant_name && ` · ${item.variant_name}`} × {item.quantity}</span>
+              <span>{formatPrice(item.total)}</span>
+            </li>
           ))}</ul>
           <p className="price">Книги · {formatPrice(cart.total)}</p>
+          {quote?.reason && <p className="error">{quote.reason}</p>}
+          {quote && !quote.reason && (
+            <p>Скидка {formatPrice(quote.discount)} · Книги со скидкой {formatPrice(quote.total)}</p>
+          )}
           <p className="muted">{delivery === 'pickup' ? 'Самовывоз бесплатный.' : 'Доставка и скидка рассчитываются при оформлении.'}</p>
           <Link to="/cart">Вернуться в корзину</Link>
         </aside>
