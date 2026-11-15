@@ -5,6 +5,7 @@ from django.core import mail
 from django.test import TestCase
 
 from orders.models import EmailNotification, Order
+from orders.services import change_status
 from orders.tasks import queue_order_email, send_notification
 
 
@@ -29,6 +30,24 @@ class MailTaskTests(TestCase):
         self.assertEqual(len(mail.outbox), 1)
         job.refresh_from_db()
         self.assertTrue(job.sent)
+
+    def test_cancellation_email_includes_manager_reason(self):
+        manager = get_user_model().objects.create_user("manager", is_staff=True)
+        reason = "Издание «Мифы & легенды» повреждено.\nЗамену предложить не можем."
+        earlier_job = EmailNotification.objects.create(
+            order=self.order, kind="status", status_snapshot=Order.Status.NEW
+        )
+        change_status(self.order, Order.Status.CANCELLED, by=manager, comment=reason)
+        cancellation_job = self.order.email_notifications.get(
+            status_snapshot=Order.Status.CANCELLED
+        )
+
+        send_notification.apply(args=[earlier_job.pk]).get()
+        send_notification.apply(args=[cancellation_job.pk]).get()
+
+        self.assertNotIn("Причина отмены", mail.outbox[0].body)
+        self.assertEqual(mail.outbox[1].to, [self.order.email])
+        self.assertIn(f"Причина отмены: {reason}", mail.outbox[1].body)
 
     def test_smtp_failure_retries_and_job_remains_recoverable(self):
         job = EmailNotification.objects.create(order=self.order, kind="placed")
