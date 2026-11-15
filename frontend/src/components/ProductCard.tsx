@@ -3,16 +3,19 @@ import { Link } from 'react-router'
 import type { Product } from '../api/client'
 import { productQuery } from '../api/queries'
 import { formatPrice } from '../lib/format'
+import FavoriteButton from '../personal/FavoriteButton'
+import { favoriteEntry } from '../personal/queries'
 import AddToCartButton from './AddToCartButton'
 
-export default function ProductCard({ product }: { product: Product }) {
+export default function ProductCard({ product, eager = false }: { product: Product; eager?: boolean }) {
   const queryClient = useQueryClient()
   const prefetch = () => void queryClient.prefetchQuery(productQuery(product.slug))
 
   return (
     <article className="card">
-      <img className="card-image" src={product.image ?? '/no-image.svg'} alt="" loading="lazy" />
+      <img className="card-image" src={product.image ?? '/no-image.svg'} alt="" loading={eager ? 'eager' : 'lazy'} />
       <span className="muted">{product.category.name}</span>
+      {product.book && <p className="muted">{product.book.author}</p>}
       <h2>
         <Link
           to={`/products/${encodeURIComponent(product.slug)}`}
@@ -34,6 +37,7 @@ export default function ProductCard({ product }: { product: Product }) {
         <p className="muted">★ {product.rating} ({product.reviews_count})</p>
       )}
       <AddToCartButton product={product} />
+      <FavoriteButton entry={favoriteEntry(product)} />
     </article>
   )
 }

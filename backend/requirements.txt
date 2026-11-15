@@ -1,0 +1,2 @@
+# Основные зависимости приложения; версии закреплены в requirements/base.txt.
+-r requirements/base.txt

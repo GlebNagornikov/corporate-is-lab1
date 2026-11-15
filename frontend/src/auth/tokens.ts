@@ -1,21 +1,22 @@
-const ACCESS_KEY = 'shop-access'
-const REFRESH_KEY = 'shop-refresh'
+// Удаляем токены, оставшиеся в браузере от предыдущей версии витрины.
+localStorage.removeItem('shop-access')
+localStorage.removeItem('shop-refresh')
+
+let accessToken: string | null = null
 let sessionVersion = 0
 
 export const tokens = {
-  access: () => localStorage.getItem(ACCESS_KEY),
-  refresh: () => localStorage.getItem(REFRESH_KEY),
+  access: () => accessToken,
   version: () => sessionVersion,
-  save({ access, refresh }: { access: string; refresh?: string }) {
-    localStorage.setItem(ACCESS_KEY, access)
-    if (refresh !== undefined) {
-      localStorage.setItem(REFRESH_KEY, refresh)
-      sessionVersion += 1
-    }
+  save({ access }: { access: string }) {
+    accessToken = access
+    sessionVersion += 1
+  },
+  refreshAccess(access: string) {
+    accessToken = access
   },
   clear() {
-    localStorage.removeItem(ACCESS_KEY)
-    localStorage.removeItem(REFRESH_KEY)
+    accessToken = null
     sessionVersion += 1
   },
 }

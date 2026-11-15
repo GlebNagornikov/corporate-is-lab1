@@ -10,7 +10,7 @@ export const checkoutSchema = z.object({
     .refine(isRussianPhone, 'Введите российский номер, например +7 913 123-45-67'),
   email: z.email('Введите адрес почты'),
   delivery_method: z.enum(['pickup', 'courier']),
-  address: z.string().trim().max(300, 'Не длиннее 300 символов'),
+  address: z.string().trim().refine((address) => Array.from(address).length <= 328, 'Не длиннее 328 символов'),
   comment: z.string().max(500, 'Не длиннее 500 символов'),
   promo_code: z.string().trim().max(30, 'Не длиннее 30 символов'),
 }).refine(({ delivery_method, address }) => delivery_method !== 'courier' || address !== '', {

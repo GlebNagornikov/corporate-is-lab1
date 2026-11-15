@@ -14,17 +14,28 @@ export async function createBuyer(request: APIRequestContext): Promise<Credentia
   return { username, password }
 }
 
-async function submitLogin(page: Page, { username, password }: Credentials) {
+export async function submitLogin(page: Page, { username, password }: Credentials) {
   await page.getByLabel('Имя пользователя').fill(username)
   await page.getByLabel('Пароль', { exact: true }).fill(password)
-  await page.getByRole('button', { name: 'Войти', exact: true }).click()
-  await expect(page.getByRole('button', { name: 'Выйти' })).toBeVisible()
+  const [response] = await Promise.all([
+    page.waitForResponse((result) => result.url().endsWith('/api/auth/session/login/')),
+    page.getByRole('button', { name: 'Войти', exact: true }).click(),
+  ])
+  expect(response.status()).toBe(200)
 }
 
 export async function loginAs(page: Page, credentials: Credentials, next: string) {
   await page.goto(`/login?next=${encodeURIComponent(next)}`)
   await submitLogin(page, credentials)
   await expect(page).toHaveURL(next)
+}
+
+export async function payWithDemoCard(page: Page) {
+  await page.locator('summary').filter({ hasText: 'Оплатить' }).click()
+  await page.getByLabel('Номер карты').fill('4242424242424242')
+  await page.getByLabel('Срок действия').fill(`12/${String(new Date().getFullYear() + 1).slice(-2)}`)
+  await page.getByLabel('CVV').fill('123')
+  await page.getByRole('button', { name: /^Оплатить / }).click()
 }
 
 export async function checkoutAsGuest(page: Page, buyer: Credentials): Promise<string> {

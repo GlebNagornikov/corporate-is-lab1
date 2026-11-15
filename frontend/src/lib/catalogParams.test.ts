@@ -20,4 +20,10 @@ describe('parseCatalogParams', () => {
   test('отбрасывает неизвестную сортировку и первую страницу', () => {
     expect(parseCatalogParams(new URLSearchParams('ordering=password&page=1'))).toEqual({})
   })
+
+  test('сохраняет выбранный переплёт в запросе и отбрасывает неизвестный', () => {
+    expect(parseCatalogParams(new URLSearchParams('binding=hardcover&page=2')))
+      .toEqual({ binding: 'hardcover', page: 2 })
+    expect(parseCatalogParams(new URLSearchParams('binding=unknown'))).toEqual({})
+  })
 })

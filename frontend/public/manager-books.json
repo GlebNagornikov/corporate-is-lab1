@@ -1,0 +1,20 @@
+[
+  {
+    "sku": "BOOK-JSON-001",
+    "name": "Пример книги",
+    "slug": "primer-knigi",
+    "category": "fairy-tales",
+    "price": "650.00",
+    "stock": 5,
+    "author": "Имя автора",
+    "publisher": "Название издательства",
+    "year": 2025,
+    "language": "Русский",
+    "binding": "hardcover",
+    "pages": 240,
+    "isbn": "",
+    "description": "Краткая аннотация",
+    "old_price": null,
+    "is_active": false
+  }
+]

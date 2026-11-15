@@ -8,23 +8,25 @@ import { server } from '../test/server'
 import LoginPage from './LoginPage'
 import { nextPath } from './nextPath'
 import RegisterPage from './RegisterPage'
-import { logout } from './session'
+import { loginAction, registerAction } from './authActions'
+import { tokens } from './tokens'
 
 afterEach(() => {
-  logout()
+  tokens.clear()
   queryClient.clear()
 })
 
 test('форма входа показывает ошибку пароля и после успешного входа возвращает на исходный адрес', async () => {
   const token = vi.fn()
     .mockReturnValueOnce(HttpResponse.json({ detail: 'Неверные данные' }, { status: 401 }))
-    .mockReturnValueOnce(HttpResponse.json({ access: 'a', refresh: 'r' }))
+    .mockReturnValueOnce(HttpResponse.json({ access: 'a' }))
   server.use(
-    http.post('*/api/auth/token/', token),
+    http.post('*/api/auth/session/login/', token),
     http.get('*/api/auth/me/', () => HttpResponse.json({ id: 1, username: 'buyer' })),
+    http.get('*/api/cart/', () => HttpResponse.json({ items: [], count: 0, total: '0.00' })),
   )
   const user = userEvent.setup()
-  renderRoute(<LoginPage />, '/?next=%2F%3Ffrom%3Dcheckout')
+  renderRoute(<LoginPage />, '/?next=%2F%3Ffrom%3Dcheckout', loginAction)
 
   await user.type(screen.getByLabelText('Имя пользователя'), 'buyer')
   await user.type(screen.getByLabelText('Пароль'), 'secret')
@@ -42,7 +44,7 @@ test('форма регистрации проверяет совпадение 
   }, { status: 400 }))
   server.use(http.post('*/api/auth/register/', registration))
   const user = userEvent.setup()
-  renderRoute(<RegisterPage />)
+  renderRoute(<RegisterPage />, '/', registerAction)
 
   await user.type(screen.getByLabelText('Имя пользователя'), 'buyer')
   await user.type(screen.getByLabelText('Электронная почта'), 'buyer@example.test')

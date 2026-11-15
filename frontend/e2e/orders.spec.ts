@@ -1,17 +1,32 @@
 import { expect, test } from '@playwright/test'
-import { checkoutAsGuest, createBuyer, loginAs } from './helpers.ts'
+import { checkoutAsGuest, createBuyer, loginAs, payWithDemoCard } from './helpers.ts'
+
+let consoleErrors: string[]
+test.beforeEach(({ page }) => {
+  consoleErrors = []
+  page.on('pageerror', (error) => consoleErrors.push(error.message))
+  page.on('console', (message) => {
+    if (message.type() === 'error') consoleErrors.push(message.text())
+  })
+})
+test.afterEach(() => { expect(consoleErrors).toEqual([]) })
 
 test('гость собирает корзину, входит и оформляет заказ', async ({ page, request }) => {
   const buyer = await createBuyer(request)
   const id = await checkoutAsGuest(page, buyer)
+  await expect(page.getByRole('heading', { name: `Заказ №${id}` })).toBeVisible()
+  const cookie = (await page.context().cookies()).find(({ name }) => name === 'shop_refresh')
+  expect(cookie).toMatchObject({ httpOnly: true, secure: true, sameSite: 'Strict', path: '/api/auth/' })
+  expect(await page.evaluate(() => [localStorage.getItem('shop-access'), localStorage.getItem('shop-refresh')]))
+    .toEqual([null, null])
+  await page.reload()
   await expect(page.getByRole('heading', { name: `Заказ №${id}` })).toBeVisible()
 })
 
 test('менеджер подтверждает заказ после учебной оплаты', async ({ page, request }) => {
   const buyer = await createBuyer(request)
   const id = await checkoutAsGuest(page, buyer)
-  await page.locator('summary').filter({ hasText: 'Оплатить' }).click()
-  await page.getByRole('button', { name: 'Успех', exact: true }).click()
+  await payWithDemoCard(page)
   await expect(page.locator('strong').getByText('Оплачен', { exact: true })).toBeVisible()
 
   await page.getByRole('button', { name: 'Выйти' }).click()
@@ -24,13 +39,40 @@ test('менеджер подтверждает заказ после учебн
     has: page.getByRole('link', { name: `№${id}`, exact: true }),
   })
   await expect(row.locator('.actions button')).toHaveText(['Подтвердить', 'Отменить'])
-  await row.getByRole('button', { name: 'Подтвердить', exact: true }).click()
+  const confirm = row.getByRole('button', { name: 'Подтвердить', exact: true })
+  await confirm.click()
+  const dialog = page.getByRole('dialog')
+  await expect(dialog.getByRole('textbox')).toBeFocused()
+  await page.keyboard.press('Escape')
+  await expect(dialog).toHaveCount(0)
+  await expect(confirm).toBeFocused()
+  await confirm.click()
+  await dialog.getByRole('button', { name: 'Подтвердить действие' }).click()
   await expect(row).toHaveCount(0)
 
   await page.getByRole('combobox', { name: 'Статус', exact: true }).selectOption('confirmed')
   await expect(page).toHaveURL('/manager/orders?status=confirmed')
   await expect(row.getByRole('cell', { name: 'Подтверждён', exact: true })).toBeVisible()
   await expect(row.getByRole('button', { name: 'Передать в доставку' })).toBeEnabled()
+  const cancel = row.getByRole('button', { name: 'Отменить', exact: true })
+  await cancel.click()
+  await expect(dialog.getByRole('textbox', { name: /Причина отмены/ })).toBeFocused()
+  await expect(dialog.getByRole('button', { name: 'Подтвердить действие' })).toBeDisabled()
+  await page.keyboard.press('Escape')
+  await expect(cancel).toBeFocused()
+  await row.getByRole('link', { name: `№${id}` }).click()
+  await expect(page).toHaveURL(`/manager/orders/${id}`)
+  await expect(page.getByRole('heading', { name: `Заказ №${id}` })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'История' })).toBeVisible()
+  await expect(page.getByText('Анна Смирнова', { exact: true })).toBeVisible()
+  const quantity = page.getByRole('columnheader', { name: 'Количество', exact: true })
+  await expect(quantity).toHaveCSS('white-space', 'nowrap')
+  await page.setViewportSize({ width: 360, height: 780 })
+  await expect(quantity).toHaveCSS('white-space', 'nowrap')
+  expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(360)
+  await page.getByRole('button', { name: 'Передать в доставку' }).click()
+  await dialog.getByRole('button', { name: 'Подтвердить действие' }).click()
+  await expect(page.locator('#order-status strong')).toHaveText('Передан в доставку')
 })
 
 test('покупатель не попадает в раздел менеджера', async ({ page, request }) => {

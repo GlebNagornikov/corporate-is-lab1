@@ -22,5 +22,5 @@ test('показывает «Не найдено», если загрузчик 
   )
 
   expect(await screen.findByRole('heading', { name: 'Не найдено' })).toBeInTheDocument()
-  expect(screen.getByRole('link', { name: '← В каталог' })).toHaveAttribute('href', '/')
+  expect(screen.getByRole('link', { name: 'На главную' })).toHaveAttribute('href', '/')
 })

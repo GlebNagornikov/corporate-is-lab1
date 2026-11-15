@@ -1,0 +1,76 @@
+.report-page { display: grid; gap: 1rem; }
+.report-page > :is(h1, p, dl) { margin: 0; }
+.report-period, .report-period-form {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: end;
+  gap: .75rem 1rem;
+}
+.report-period { justify-content: space-between; }
+.report-period-form label { display: grid; gap: .2rem; font-size: .85rem; font-weight: 700; }
+.report-period-form input { min-width: 8.5rem; }
+.report-period-form a { align-self: center; font-size: .85rem; }
+.report-export p { margin: .5rem 0 0; }
+.report-summary {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 10rem), 1fr));
+  gap: .75rem;
+}
+.report-summary > div {
+  padding: .8rem 1rem;
+  border-radius: .35rem;
+  background: var(--wash);
+}
+.report-summary dt { color: var(--muted); font-size: .85rem; }
+.report-summary dd {
+  margin: .3rem 0 0;
+  color: var(--accent);
+  font: 600 clamp(1.25rem, 3vw, 1.85rem)/1.2 var(--display);
+  overflow-wrap: anywhere;
+}
+.report-charts { display: grid; grid-template-columns: minmax(0, 3fr) minmax(0, 2fr); gap: 1rem; }
+.report-charts > section { align-self: start; }
+.report-charts h2, .report-top h2 { font-size: clamp(1.25rem, 2.5vw, 1.65rem); }
+.report-charts section > p:last-child, .report-top > p:last-child { margin-bottom: 0; }
+.report-bars-scroll { max-height: 23rem; overflow: auto; scrollbar-gutter: stable; }
+.report-bars { list-style: none; margin: 0; padding: .15rem .55rem .15rem 0; }
+.report-bars li {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: baseline;
+  gap: .25rem .65rem;
+  padding-block: .4rem;
+  font-size: .875rem;
+}
+.report-bars strong, .report-top-table td { font-variant-numeric: tabular-nums; }
+.report-bar-track {
+  grid-column: 1 / -1;
+  height: .45rem;
+  background: var(--wash);
+}
+.report-bar-track > span { display: block; height: 100%; background: var(--accent); }
+.report-top-table { width: 100%; }
+.report-top-table :is(td, th) { white-space: normal; overflow-wrap: anywhere; }
+.report-top-table :is(td, th):not(:first-child) { text-align: right; }
+.report-top-table td { white-space: nowrap; }
+.report-top-table thead button {
+  min-height: 2rem;
+  padding: .1rem 0;
+  border: 0;
+  color: var(--accent);
+  background: transparent;
+  text-align: inherit;
+}
+@media (max-width: 700px) {
+  .report-charts { grid-template-columns: 1fr; }
+  .report-top-table :is(td, th) { padding-inline: .2rem; font-size: .8rem; }
+  .report-top-table thead th:nth-child(2) button { white-space: nowrap; }
+}
+@media (max-width: 480px) {
+  .report-period-form {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    width: 100%;
+  }
+  .report-period-form input { width: 100%; min-width: 0; }
+}

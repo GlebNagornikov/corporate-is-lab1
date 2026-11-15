@@ -5,44 +5,53 @@ import { createMemoryRouter } from 'react-router'
 import { RouterProvider } from 'react-router/dom'
 import { afterEach, expect, test, vi } from 'vitest'
 import { createAppRoutes } from '../appRoutes'
-import { guestCart } from '../cart/guestCart'
+import { guestCart, summarizeCart } from '../cart/guestCart'
 import { cartQuery } from '../cart/queries'
+import { priceChangesQuery } from '../cart/priceChanges'
 import { queryClient } from '../queryClient'
 import { makeProduct } from '../test/fixtures'
 import { server } from '../test/server'
-import { login, logout, meQuery, register } from './session'
+import { login, meQuery, register } from './session'
 import { tokens } from './tokens'
 
 const buyer = {
   id: 1, username: 'buyer', email: 'buyer@example.test',
   first_name: '', last_name: '', is_manager: false,
 }
-const emptyCart = { items: [], count: 0, total: '0.00' }
+const emptyCart = summarizeCart([])
 
 afterEach(() => {
   cleanup()
-  logout()
+  tokens.clear()
   guestCart.clear()
   queryClient.clear()
 })
 
 function mockLogin() {
   server.use(
-    http.post('*/api/auth/token/', () => HttpResponse.json({ access: 'a', refresh: 'r' })),
+    http.post('*/api/auth/session/login/', () => HttpResponse.json({ access: 'a' })),
     http.get('*/api/auth/me/', () => HttpResponse.json(buyer)),
     http.get('*/api/cart/', () => HttpResponse.json(emptyCart)),
   )
 }
 
-test('регистрация входит в аккаунт и переносит варианты, разбивая количество по лимиту API', async () => {
+test('регистрация входит в аккаунт и переносит каждый вариант одной строкой', async () => {
   mockLogin()
+  const updated = {
+    items: [{
+      product_id: 7, variant_id: 3, variant_name: 'Красный', is_default_variant: false,
+      name: 'Книга', slug: 'book', image: null, stock: 110, quantity: 101,
+      price: '16.50', total: '1666.50',
+    }],
+    count: 101,
+    total: '1666.50',
+  }
   const merge = vi.fn(async ({ request }: { request: Request }) => {
     expect(request.headers.get('Authorization')).toBe('Bearer a')
     expect(await request.json()).toEqual({ items: [
-      { product: 7, variant: 3, quantity: 99 },
-      { product: 7, variant: 3, quantity: 2 },
+      { product: 7, variant: 3, quantity: 101 },
     ] })
-    return HttpResponse.json(emptyCart)
+    return HttpResponse.json(updated)
   })
   server.use(
     http.post('*/api/auth/register/', () => HttpResponse.json(buyer, { status: 201 })),
@@ -57,7 +66,10 @@ test('регистрация входит в аккаунт и переноси�
   expect(merge).toHaveBeenCalledOnce()
   expect(guestCart.items()).toEqual([])
   expect(queryClient.getQueryData(meQuery().queryKey)).toEqual(buyer)
-  expect(queryClient.getQueryData(cartQuery().queryKey)).toEqual(emptyCart)
+  expect(queryClient.getQueryData(cartQuery().queryKey)).toEqual(updated)
+  expect(queryClient.getQueryData(priceChangesQuery().queryKey)).toEqual([
+    { item: updated.items[0], before: '15.50' },
+  ])
 })
 
 test('при отказе переноса вход завершается ошибкой, а гостевые позиции сохраняются', async () => {
@@ -89,37 +101,38 @@ test('перенаправляет гостя на вход, сохраняя а
   server.use(http.get('*/api/orders/7/', order))
   const router = renderApp('/orders/7?from=cart')
 
-  expect(await screen.findByRole('heading', { name: 'Вход' })).toBeInTheDocument()
+  expect(await screen.findByRole('heading', { name: 'Вход' }, { timeout: 5000 })).toBeInTheDocument()
   expect(router.state.location.search).toBe('?next=%2Forders%2F7%3Ffrom%3Dcart')
   expect(order).not.toHaveBeenCalled()
 })
 
 test('запрещает покупателю раздел менеджера', async () => {
   mockLogin()
-  tokens.save({ access: 'a', refresh: 'r' })
+  tokens.save({ access: 'a' })
   renderApp('/manager/orders')
   expect(await screen.findByRole('heading', { name: 'Нет доступа' })).toBeInTheDocument()
 })
 
 test('открывает ленивый маршрут заказов для менеджера', async () => {
-  tokens.save({ access: 'a', refresh: 'r' })
+  tokens.save({ access: 'a' })
   server.use(
     http.get('*/api/auth/me/', () => HttpResponse.json({ ...buyer, is_manager: true })),
     http.get('*/api/cart/', () => HttpResponse.json(emptyCart)),
-    http.get('*/api/orders/', () => HttpResponse.json({ count: 0, results: [] })),
+    http.get('*/api/manager/orders/', () => HttpResponse.json({ count: 0, results: [] })),
   )
   renderApp('/manager/orders')
   expect(await screen.findByRole('heading', { name: 'Заказы магазина' })).toBeInTheDocument()
 })
 
 test('истёкшая сессия очищает приватный кэш и открывает экран входа', async () => {
-  tokens.save({ access: 'expired', refresh: 'expired' })
+  tokens.save({ access: 'expired' })
   queryClient.setQueryData(cartQuery().queryKey, emptyCart)
   queryClient.setQueryData(['orders', 'list'], { results: [] })
+  queryClient.setQueryData(['manager', 'catalog', 'list'], { results: [] })
   const invalid = () => HttpResponse.json({ detail: 'Токен недействителен' }, { status: 401 })
   server.use(
     http.get('*/api/auth/me/', invalid),
-    http.post('*/api/auth/token/refresh/', invalid),
+    http.post('*/api/auth/session/refresh/', invalid),
   )
 
   renderApp('/checkout')
@@ -127,4 +140,5 @@ test('истёкшая сессия очищает приватный кэш и 
   expect(tokens.access()).toBeNull()
   expect(queryClient.getQueryData(cartQuery().queryKey)).toBeUndefined()
   expect(queryClient.getQueryData(['orders', 'list'])).toBeUndefined()
+  expect(queryClient.getQueryData(['manager', 'catalog', 'list'])).toBeUndefined()
 })

@@ -5,14 +5,22 @@ repos:
       - id: trailing-whitespace
       - id: end-of-file-fixer
       - id: check-yaml
+        exclude: ^docker-compose\.e2e\.yml$
+      - id: check-yaml
+        name: check YAML syntax (Compose override tags)
+        files: ^docker-compose\.e2e\.yml$
+        args: [--unsafe]
       - id: check-added-large-files
+        exclude: ^docs/bookshop-design-concept\.png$
       - id: detect-private-key
   - repo: https://github.com/astral-sh/ruff-pre-commit
     rev: v0.17.1
     hooks:
       - id: ruff-check
+        files: ^(backend/|scripts/|docker/).*\.py$
         args: [--fix]
       - id: ruff-format
+        files: ^(backend/|scripts/|docker/).*\.py$
   - repo: local
     hooks:
       - id: frontend-lint

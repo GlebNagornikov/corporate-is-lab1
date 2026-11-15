@@ -9,3 +9,13 @@ htmlcov/
 .env.prod
 nginx/certs/
 backups/
+/lab pdfs/
+
+# Секреты окружения во всех проектах
+.env*
+!.env.example
+**/.env*
+!**/.env.example
+.venv/
+*.py[cod]
+.ruff_cache/

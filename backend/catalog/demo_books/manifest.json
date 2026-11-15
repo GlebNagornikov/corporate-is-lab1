@@ -1,0 +1,422 @@
+[
+  {
+    "sku": "BOOK-CLASSIC-001",
+    "slug": "war-of-worlds-1898",
+    "title": "Война миров / The War of the Worlds",
+    "genre_slug": "science-fiction",
+    "genre": "Научная фантастика",
+    "description": "Первое книжное издание романа Герберта Уэллса об экспедиции с Марса.",
+    "price": "990.00",
+    "stock": 10,
+    "image": "war-worlds.jpg",
+    "edition": {
+      "author": "Герберт Уэллс",
+      "publisher": "William Heinemann",
+      "year": 1898,
+      "language": "Английский",
+      "binding": "hardcover",
+      "isbn": "",
+      "pages": 303
+    }
+  },
+  {
+    "sku": "BOOK-CLASSIC-002",
+    "slug": "wonderful-wizard-oz-1900",
+    "title": "Удивительный волшебник из страны Оз / The Wonderful Wizard of Oz",
+    "genre_slug": "fairy-tales",
+    "genre": "Сказки",
+    "description": "Первое издание сказки Лаймена Фрэнка Баума с обложкой У. У. Денслоу.",
+    "price": "1190.00",
+    "stock": 8,
+    "image": "wizard-oz.jpg",
+    "edition": {
+      "author": "Лаймен Фрэнк Баум",
+      "publisher": "George M. Hill Company",
+      "year": 1900,
+      "language": "Английский",
+      "binding": "hardcover",
+      "isbn": "",
+      "pages": 259
+    }
+  },
+  {
+    "sku": "BOOK-CLASSIC-003",
+    "slug": "anne-green-gables-1908",
+    "title": "Энн из Зелёных крыш / Anne of Green Gables",
+    "genre_slug": "novels",
+    "genre": "Романы",
+    "description": "Первое издание романа Люси Мод Монтгомери, опубликованное в Бостоне.",
+    "price": "1290.00",
+    "stock": 7,
+    "image": "anne.png",
+    "edition": {
+      "author": "Люси Мод Монтгомери",
+      "publisher": "L. C. Page & Company",
+      "year": 1908,
+      "language": "Английский",
+      "binding": "hardcover",
+      "isbn": "",
+      "pages": 429
+    }
+  },
+  {
+    "sku": "BOOK-CLASSIC-004",
+    "slug": "peter-pan-kensington-1906",
+    "title": "Питер Пэн в Кенсингтонском саду / Peter Pan in Kensington Gardens",
+    "genre_slug": "fairy-tales",
+    "genre": "Сказки",
+    "description": "Издание с иллюстрациями Артура Рэкхема.",
+    "price": "1090.00",
+    "stock": 6,
+    "image": "peter-pan.jpg",
+    "edition": {
+      "author": "Джеймс Мэтью Барри",
+      "publisher": "Hodder & Stoughton",
+      "year": 1906,
+      "language": "Английский",
+      "binding": "hardcover",
+      "isbn": "",
+      "pages": 126
+    }
+  },
+  {
+    "sku": "BOOK-CLASSIC-005",
+    "slug": "story-amulet-1906",
+    "title": "История амулета / The Story of the Amulet",
+    "genre_slug": "fairy-tales",
+    "genre": "Сказки",
+    "description": "Первое издание детского романа Эдит Несбит.",
+    "price": "990.00",
+    "stock": 9,
+    "image": "amulet.jpg",
+    "edition": {
+      "author": "Эдит Несбит",
+      "publisher": "T. Fisher Unwin",
+      "year": 1906,
+      "language": "Английский",
+      "binding": "hardcover",
+      "isbn": "",
+      "pages": 374
+    }
+  },
+  {
+    "sku": "BOOK-CLASSIC-006",
+    "slug": "tittlemouse-1910",
+    "title": "Миссис Титлмаус / The Tale of Mrs Tittlemouse",
+    "genre_slug": "fairy-tales",
+    "genre": "Сказки",
+    "description": "Первое издание сказки Беатрис Поттер с иллюстрациями автора.",
+    "price": "890.00",
+    "stock": 8,
+    "image": "tittlemouse.jpg",
+    "edition": {
+      "author": "Беатрис Поттер",
+      "publisher": "Frederick Warne & Co.",
+      "year": 1910,
+      "language": "Английский",
+      "binding": "hardcover",
+      "isbn": "",
+      "pages": 85
+    }
+  },
+  {
+    "sku": "BOOK-CLASSIC-007",
+    "slug": "roly-poly-1908",
+    "title": "Рулет-пудинг / The Roly-Poly Pudding",
+    "genre_slug": "fairy-tales",
+    "genre": "Сказки",
+    "description": "Первое издание сказки Беатрис Поттер с иллюстрациями автора.",
+    "price": "890.00",
+    "stock": 8,
+    "image": "roly-poly.jpg",
+    "edition": {
+      "author": "Беатрис Поттер",
+      "publisher": "Frederick Warne & Co.",
+      "year": 1908,
+      "language": "Английский",
+      "binding": "hardcover",
+      "isbn": "",
+      "pages": 52
+    }
+  },
+  {
+    "sku": "BOOK-CLASSIC-008",
+    "slug": "pie-patty-pan-1905",
+    "title": "Пирог и сковородка / The Pie and the Patty-Pan",
+    "genre_slug": "fairy-tales",
+    "genre": "Сказки",
+    "description": "Первое издание сказки Беатрис Поттер с иллюстрациями автора.",
+    "price": "890.00",
+    "stock": 8,
+    "image": "pie.jpg",
+    "edition": {
+      "author": "Беатрис Поттер",
+      "publisher": "Frederick Warne & Co.",
+      "year": 1905,
+      "language": "Английский",
+      "binding": "hardcover",
+      "isbn": "",
+      "pages": 52
+    }
+  },
+  {
+    "sku": "BOOK-CLASSIC-009",
+    "slug": "mr-tod-1912",
+    "title": "Мистер Тод / The Tale of Mr Tod",
+    "genre_slug": "fairy-tales",
+    "genre": "Сказки",
+    "description": "Первое издание сказки Беатрис Поттер с иллюстрациями автора.",
+    "price": "890.00",
+    "stock": 8,
+    "image": "mr-tod.jpg",
+    "edition": {
+      "author": "Беатрис Поттер",
+      "publisher": "Frederick Warne & Co.",
+      "year": 1912,
+      "language": "Английский",
+      "binding": "hardcover",
+      "isbn": "",
+      "pages": 93
+    }
+  },
+  {
+    "sku": "BOOK-CLASSIC-010",
+    "slug": "ginger-pickles-1909",
+    "title": "Джинджер и Пиклз / Ginger and Pickles",
+    "genre_slug": "fairy-tales",
+    "genre": "Сказки",
+    "description": "Первое издание сказки Беатрис Поттер с иллюстрациями автора.",
+    "price": "890.00",
+    "stock": 8,
+    "image": "ginger.jpg",
+    "edition": {
+      "author": "Беатрис Поттер",
+      "publisher": "Frederick Warne & Co.",
+      "year": 1909,
+      "language": "Английский",
+      "binding": "hardcover",
+      "isbn": "",
+      "pages": 52
+    }
+  },
+  {
+    "sku": "BOOK-CLASSIC-011",
+    "slug": "peter-rabbit-1902",
+    "title": "Кролик Питер / The Tale of Peter Rabbit",
+    "genre_slug": "fairy-tales",
+    "genre": "Сказки",
+    "description": "Первое издание сказки Беатрис Поттер с иллюстрациями автора.",
+    "price": "890.00",
+    "stock": 8,
+    "image": "peter-rabbit.jpg",
+    "edition": {
+      "author": "Беатрис Поттер",
+      "publisher": "Frederick Warne & Co.",
+      "year": 1902,
+      "language": "Английский",
+      "binding": "hardcover",
+      "isbn": "",
+      "pages": 85
+    }
+  },
+  {
+    "sku": "BOOK-CLASSIC-012",
+    "slug": "squirrel-nutkin-1903",
+    "title": "Бельчонок Наткин / The Tale of Squirrel Nutkin",
+    "genre_slug": "fairy-tales",
+    "genre": "Сказки",
+    "description": "Первое издание сказки Беатрис Поттер с иллюстрациями автора.",
+    "price": "890.00",
+    "stock": 8,
+    "image": "squirrel.jpg",
+    "edition": {
+      "author": "Беатрис Поттер",
+      "publisher": "Frederick Warne & Co.",
+      "year": 1903,
+      "language": "Английский",
+      "binding": "hardcover",
+      "isbn": "",
+      "pages": 85
+    }
+  },
+  {
+    "sku": "BOOK-CLASSIC-013",
+    "slug": "benjamin-bunny-1904",
+    "title": "Кролик Бенджамин / The Tale of Benjamin Bunny",
+    "genre_slug": "fairy-tales",
+    "genre": "Сказки",
+    "description": "Первое издание сказки Беатрис Поттер с иллюстрациями автора.",
+    "price": "890.00",
+    "stock": 8,
+    "image": "benjamin.jpg",
+    "edition": {
+      "author": "Беатрис Поттер",
+      "publisher": "Frederick Warne & Co.",
+      "year": 1904,
+      "language": "Английский",
+      "binding": "hardcover",
+      "isbn": "",
+      "pages": 85
+    }
+  },
+  {
+    "sku": "BOOK-CLASSIC-014",
+    "slug": "two-bad-mice-1904",
+    "title": "Две непослушные мышки / The Tale of Two Bad Mice",
+    "genre_slug": "fairy-tales",
+    "genre": "Сказки",
+    "description": "Первое издание сказки Беатрис Поттер с иллюстрациями автора.",
+    "price": "890.00",
+    "stock": 8,
+    "image": "two-mice.jpg",
+    "edition": {
+      "author": "Беатрис Поттер",
+      "publisher": "Frederick Warne & Co.",
+      "year": 1904,
+      "language": "Английский",
+      "binding": "hardcover",
+      "isbn": "",
+      "pages": 85
+    }
+  },
+  {
+    "sku": "BOOK-CLASSIC-015",
+    "slug": "jeremy-fisher-1906",
+    "title": "Мистер Джереми Фишер / The Tale of Mr Jeremy Fisher",
+    "genre_slug": "fairy-tales",
+    "genre": "Сказки",
+    "description": "Первое издание сказки Беатрис Поттер с иллюстрациями автора.",
+    "price": "890.00",
+    "stock": 8,
+    "image": "jeremy.jpg",
+    "edition": {
+      "author": "Беатрис Поттер",
+      "publisher": "Frederick Warne & Co.",
+      "year": 1906,
+      "language": "Английский",
+      "binding": "hardcover",
+      "isbn": "",
+      "pages": 85
+    }
+  },
+  {
+    "sku": "BOOK-CLASSIC-016",
+    "slug": "tom-kitten-1907",
+    "title": "Котёнок Том / The Tale of Tom Kitten",
+    "genre_slug": "fairy-tales",
+    "genre": "Сказки",
+    "description": "Первое издание сказки Беатрис Поттер с иллюстрациями автора.",
+    "price": "890.00",
+    "stock": 8,
+    "image": "tom-kitten.jpg",
+    "edition": {
+      "author": "Беатрис Поттер",
+      "publisher": "Frederick Warne & Co.",
+      "year": 1907,
+      "language": "Английский",
+      "binding": "hardcover",
+      "isbn": "",
+      "pages": 85
+    }
+  },
+  {
+    "sku": "BOOK-CLASSIC-017",
+    "slug": "jemima-puddle-duck-1908",
+    "title": "Уточка Джемайма / The Tale of Jemima Puddle-Duck",
+    "genre_slug": "fairy-tales",
+    "genre": "Сказки",
+    "description": "Первое издание сказки Беатрис Поттер с иллюстрациями автора.",
+    "price": "890.00",
+    "stock": 8,
+    "image": "jemima.jpg",
+    "edition": {
+      "author": "Беатрис Поттер",
+      "publisher": "Frederick Warne & Co.",
+      "year": 1908,
+      "language": "Английский",
+      "binding": "hardcover",
+      "isbn": "",
+      "pages": 85
+    }
+  },
+  {
+    "sku": "BOOK-CLASSIC-018",
+    "slug": "flopsy-bunnies-1909",
+    "title": "Кролики Флопси / The Tale of the Flopsy Bunnies",
+    "genre_slug": "fairy-tales",
+    "genre": "Сказки",
+    "description": "Первое издание сказки Беатрис Поттер с иллюстрациями автора.",
+    "price": "890.00",
+    "stock": 8,
+    "image": "flopsy.jpg",
+    "edition": {
+      "author": "Беатрис Поттер",
+      "publisher": "Frederick Warne & Co.",
+      "year": 1909,
+      "language": "Английский",
+      "binding": "hardcover",
+      "isbn": "",
+      "pages": 85
+    }
+  },
+  {
+    "sku": "BOOK-CLASSIC-019",
+    "slug": "tailor-gloucester-1903",
+    "title": "Портной из Глостера / The Tailor of Gloucester",
+    "genre_slug": "fairy-tales",
+    "genre": "Сказки",
+    "description": "Первое издание сказки Беатрис Поттер с иллюстрациями автора.",
+    "price": "890.00",
+    "stock": 8,
+    "image": "tailor.jpg",
+    "edition": {
+      "author": "Беатрис Поттер",
+      "publisher": "Frederick Warne & Co.",
+      "year": 1903,
+      "language": "Английский",
+      "binding": "hardcover",
+      "isbn": "",
+      "pages": 85
+    }
+  },
+  {
+    "sku": "BOOK-CLASSIC-020",
+    "slug": "johnny-town-mouse-1918",
+    "title": "Городская мышь Джонни / The Tale of Johnny Town-Mouse",
+    "genre_slug": "fairy-tales",
+    "genre": "Сказки",
+    "description": "Первое издание сказки Беатрис Поттер с иллюстрациями автора.",
+    "price": "890.00",
+    "stock": 8,
+    "image": "johnny.jpg",
+    "edition": {
+      "author": "Беатрис Поттер",
+      "publisher": "Frederick Warne & Co.",
+      "year": 1918,
+      "language": "Английский",
+      "binding": "hardcover",
+      "isbn": "",
+      "pages": 85
+    }
+  },
+  {
+    "sku": "BOOK-CLASSIC-021",
+    "slug": "pigling-bland-1913",
+    "title": "Поросёнок Бланд / The Tale of Pigling Bland",
+    "genre_slug": "fairy-tales",
+    "genre": "Сказки",
+    "description": "Первое издание сказки Беатрис Поттер с иллюстрациями автора.",
+    "price": "890.00",
+    "stock": 8,
+    "image": "pigling.jpg",
+    "edition": {
+      "author": "Беатрис Поттер",
+      "publisher": "Frederick Warne & Co.",
+      "year": 1913,
+      "language": "Английский",
+      "binding": "hardcover",
+      "isbn": "",
+      "pages": 93
+    }
+  }
+]

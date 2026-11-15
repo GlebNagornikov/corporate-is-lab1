@@ -1,4 +1,6 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import { SessionProvider } from '../auth/SessionProvider'
+import { CartProvider } from './CartProvider'
 import { act, renderHook, waitFor } from '@testing-library/react'
 import { http, HttpResponse } from 'msw'
 import type { ReactNode } from 'react'
@@ -14,7 +16,7 @@ afterEach(() => guestCart.clear())
 
 function wrapperFor(client: QueryClient) {
   return ({ children }: { children: ReactNode }) => (
-    <QueryClientProvider client={client}>{children}</QueryClientProvider>
+    <QueryClientProvider client={client}><SessionProvider><CartProvider>{children}</CartProvider></SessionProvider></QueryClientProvider>
   )
 }
 
@@ -28,22 +30,30 @@ test('гостевая корзина обновляет подписчиков 
   act(() => result.current.add({ ...product, price: '20.00' }))
   act(() => result.current.add(product))
   expect(result.current).toMatchObject({ isGuest: true, count: 2, total: '25.00' })
-  expect(JSON.parse(localStorage.getItem('shop-guest-cart') ?? '[]')).toEqual(result.current.items)
+  act(() => guestCart.setPromoCode('BOOK10'))
+  expect(result.current.promo_code).toBe('BOOK10')
+  expect(JSON.parse(localStorage.getItem('shop-guest-cart') ?? '{}')).toEqual({
+    items: result.current.items, promo_code: 'BOOK10',
+  })
 
   act(() => result.current.setQuantity(product.id, 0))
   expect(result.current).toMatchObject({ items: [], count: 0, total: '0.00' })
+  expect(result.current.promo_code).toBe('')
+  expect(JSON.parse(localStorage.getItem('shop-guest-cart') ?? '{}').promo_code).toBe('')
 })
 
 test.each([0, 2])('показывает количество %i сразу и откатывает ошибку сервера', async (quantity) => {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false, staleTime: Infinity } } })
   const cart: Cart = {
     items: [{
-      product_id: 1, variant_id: 10, variant_name: 'Стандартный',
+      product_id: 1, variant_id: 10, variant_name: 'Стандартный', is_default_variant: true,
       name: 'Книга', slug: 'book', image: null, stock: 3,
       price: '12.50', quantity: 1, total: '12.50',
     }],
     count: 1,
     total: '12.50',
+    promo_code: 'BOOK10',
+    promo_quote: { discount: '1.25', total: '11.25', reason: null },
   }
   const buyer: Me = {
     id: 1, username: 'buyer', email: '', first_name: '', last_name: '', is_manager: false,
@@ -73,7 +83,9 @@ test.each([0, 2])('показывает количество %i сразу и о
   try {
     act(() => result.current.setQuantity(1, quantity))
     const total = quantity === 0 ? '0.00' : '25.00'
-    await waitFor(() => expect(result.current).toMatchObject({ count: quantity, total }))
+    await waitFor(() => expect(result.current).toMatchObject({
+      count: quantity, total, promo_code: quantity === 0 ? '' : 'BOOK10', promo_quote: null,
+    }))
     if (quantity === 0) expect(result.current.items).toEqual([])
     else expect(result.current.items[0].total).toBe(total)
 

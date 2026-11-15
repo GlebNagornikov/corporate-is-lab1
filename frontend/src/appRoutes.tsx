@@ -1,46 +1,51 @@
 import type { QueryClient } from '@tanstack/react-query'
-import { data, type RouteObject } from 'react-router'
-import { orderQuery, ordersQuery } from './api/orders'
-import { categoriesQuery, productQuery, productsQuery } from './api/queries'
-import { meQuery, requireManager, requireUser } from './auth/session'
+import { data, type LoaderFunctionArgs, type RouteObject } from 'react-router'
+import { orderQuery, ordersQuery, readOrderPage } from './api/orders'
+import { categoriesQuery, editorialQuery, productQuery, productsQuery } from './api/queries'
+import { meQuery, requireUser } from './auth/session'
 import SessionOutlet from './auth/SessionOutlet'
 import CartPage from './cart/CartPage'
 import { cartQuery } from './cart/queries'
 import { parseCatalogParams } from './lib/catalogParams'
-import { orderFilters } from './manager/orderFilters'
+import { managerRoutes } from './manager/routes'
+import { notificationsQuery, wishlistQuery } from './personal/queries'
 import CatalogPage from './routes/CatalogPage'
 import NotFoundPage from './routes/NotFoundPage'
 import ProductPage from './routes/ProductPage'
 import RootLayout from './routes/RootLayout'
 import RouteError from './routes/RouteError'
+import RootError from './routes/RootError'
 
 export function createAppRoutes(queryClient: QueryClient): RouteObject[] {
+  const catalog = {
+    Component: CatalogPage,
+    loader: ({ request }: LoaderFunctionArgs) => {
+      const { pathname, searchParams } = new URL(request.url)
+      void queryClient.prefetchQuery(categoriesQuery())
+      void queryClient.prefetchQuery(productsQuery(parseCatalogParams(searchParams)))
+      if (pathname === '/' && searchParams.size === 0) void queryClient.prefetchQuery(editorialQuery())
+      return null
+    },
+  }
   return [
     {
       path: '/',
       Component: RootLayout,
-      ErrorBoundary: RouteError,
-      HydrateFallback: () => <p role="status">Загрузка…</p>,
+      ErrorBoundary: RootError,
+      HydrateFallback: () => <p className="shell layout" role="status">Загрузка книжной полки…</p>,
       loader: async () => {
-        void queryClient.prefetchQuery(categoriesQuery())
         await queryClient.ensureQueryData(meQuery())
         return null
       },
       children: [
-        {
-          index: true,
-          Component: CatalogPage,
-          loader: ({ request }) => {
-            const query = parseCatalogParams(new URL(request.url).searchParams)
-            void queryClient.prefetchQuery(productsQuery(query))
-            return null
-          },
-        },
+        { index: true, ...catalog },
+        { path: 'catalog', ...catalog },
         {
           path: 'products/:slug',
           Component: ProductPage,
           ErrorBoundary: RouteError,
           loader: async ({ params }) => {
+            void queryClient.prefetchQuery(categoriesQuery())
             await queryClient.ensureQueryData(productQuery(params.slug!))
             return null
           },
@@ -48,18 +53,53 @@ export function createAppRoutes(queryClient: QueryClient): RouteObject[] {
         { path: 'cart', Component: CartPage },
         {
           path: 'login',
-          lazy: async () => ({ Component: (await import('./auth/LoginPage')).default }),
+          lazy: async () => {
+            const [{ default: Component }, { loginAction }] = await Promise.all([
+              import('./auth/LoginPage'), import('./auth/authActions'),
+            ])
+            return { Component, action: ({ request }) => loginAction(request, queryClient) }
+          },
         },
         {
           path: 'register',
-          lazy: async () => ({ Component: (await import('./auth/RegisterPage')).default }),
+          lazy: async () => {
+            const [{ default: Component }, { registerAction }] = await Promise.all([
+              import('./auth/RegisterPage'), import('./auth/authActions'),
+            ])
+            return { Component, action: ({ request }) => registerAction(request, queryClient) }
+          },
         },
         {
           Component: SessionOutlet,
           children: [
             {
+              path: 'wishlist',
+              lazy: async () => ({ Component: (await import('./personal/WishlistPage')).default }),
+              loader: async ({ request }) => {
+                const me = await requireUser(request, queryClient)
+                void queryClient.prefetchQuery(wishlistQuery(me.id))
+                return null
+              },
+            },
+            {
+              path: 'notifications',
+              lazy: async () => ({ Component: (await import('./personal/NotificationsPage')).default }),
+              loader: async ({ request }) => {
+                const me = await requireUser(request, queryClient)
+                void queryClient.prefetchQuery(notificationsQuery(me.id))
+                return null
+              },
+            },
+            {
               path: 'checkout',
-              lazy: async () => ({ Component: (await import('./orders/CheckoutPage')).default }),
+              shouldRevalidate: ({ actionResult, defaultShouldRevalidate }) =>
+                actionResult?.orderId ? false : defaultShouldRevalidate,
+              lazy: async () => {
+                const [{ default: Component }, { checkoutAction }] = await Promise.all([
+                  import('./orders/CheckoutPage'), import('./orders/checkoutAction'),
+                ])
+                return { Component, action: ({ request }) => checkoutAction(request, queryClient) }
+              },
               loader: async ({ request }) => {
                 await requireUser(request, queryClient)
                 void queryClient.prefetchQuery(cartQuery())
@@ -71,7 +111,8 @@ export function createAppRoutes(queryClient: QueryClient): RouteObject[] {
               lazy: async () => ({ Component: (await import('./orders/OrdersPage')).default }),
               loader: async ({ request }) => {
                 await requireUser(request, queryClient)
-                void queryClient.prefetchQuery(ordersQuery())
+                const page = readOrderPage(new URL(request.url).searchParams)
+                void queryClient.prefetchQuery(ordersQuery({ page }))
                 return null
               },
             },
@@ -89,25 +130,11 @@ export function createAppRoutes(queryClient: QueryClient): RouteObject[] {
                 return null
               },
             },
-            {
-              path: 'manager',
-              ErrorBoundary: RouteError,
-              loader: async ({ request }) => {
-                await requireManager(request, queryClient)
-                void queryClient.prefetchQuery(ordersQuery(orderFilters(new URL(request.url).searchParams)))
-                return null
-              },
-              children: [{
-                path: 'orders',
-                lazy: async () => ({
-                  Component: (await import('./manager/ManagerOrdersPage')).default,
-                }),
-              }],
-            },
           ],
         },
         { path: '*', Component: NotFoundPage },
       ],
     },
+    managerRoutes(queryClient),
   ]
 }

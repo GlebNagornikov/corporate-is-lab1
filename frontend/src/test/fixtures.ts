@@ -17,6 +17,7 @@ export function makeProduct(overrides: Partial<Product> = {}): Product {
   return {
     id: 1,
     name: 'Книга «Чистый код»',
+    book: null,
     slug: 'bk-001',
     sku: 'BK-001',
     category: programming,

@@ -1,0 +1,13 @@
+name: shop-e2e
+
+# Local HTTPS acceptance on its own database and loopback port.
+services:
+  web:
+    environment:
+      API_ANON_THROTTLE_RATE: "600/min"
+      API_TOKEN_THROTTLE_RATE: "120/min"
+  nginx:
+    ports: !override
+      - "127.0.0.1:8443:443"
+  mailpit:
+    ports: !reset []

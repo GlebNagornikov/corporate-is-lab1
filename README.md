@@ -1,280 +1,189 @@
-# Corporate IS — учебный интернет-магазин
+# Книжная полка
 
-Django, PostgreSQL, REST API с JWT. В версии **1.1.0** выпущены **все 12** доработок
-пункта 8.2. В версии **1.2.0** на HTTPS-стенде работает витрина React.
+Независимый книжный магазин с каталогом физических изданий. React и TypeScript обслуживают витрину и кабинет, Django REST Framework и PostgreSQL хранят каталог, корзины и заказы. Redis используется для кэша, очереди писем и событий заказов.
 
-Покупатель ищет товары, выбирает вариант, оформляет доставку и оплачивает заказ
-в учебном шлюзе. Менеджер управляет каталогом, вариантами и статусами, импортирует CSV
-и смотрит отчёт продаж. Реальные платежи не выполняются.
+Гость может просматривать витрину и собирать корзину. Покупатель управляет своими заказами, отзывами и уведомлениями. Менеджер управляет каталогом, заказами и модулями в разделе **Кабинет менеджера**. Django admin и CRM доступны с отдельными правами.
 
-## Быстрый запуск разработки
+## Что можно показать
 
-Нужны Git и запущенный Docker Desktop с Compose. Локальный Python не требуется.
-Команды выполняются из корня репозитория; примеры рассчитаны на PowerShell.
+1. Найти книгу по названию или автору, отфильтровать по жанру и переплёту, поделиться ссылкой на результат.
+2. Открыть издание и выбрать доступный складской вариант.
+3. Зарегистрироваться, войти и перенести гостевую корзину.
+4. Применить промокод и оформить заказ с доставкой или самовывозом.
+5. Выполнить учебную оплату и увидеть статус и историю в личном кабинете.
+6. Изменить статус заказа сотрудником и увидеть обновление у покупателя без перезагрузки.
+7. Создать и опубликовать книгу с обложкой, отредактировать цену или остаток.
+8. Оставить отзыв после доставки и опубликовать его из очереди модерации.
+9. Добавить книгу в избранное и получить уведомление о пополнении остатка.
+10. Построить отчёт о продажах и скачать CSV за тот же период.
 
-```powershell
-git clone --branch develop git@github.com:GlebNagornikov/corporate-is-lab1.git
-cd corporate-is-lab1
-Copy-Item .env.example .env
-```
+В одном заказе допускается до **пяти экземпляров одного издания**, суммарно по его вариантам. При оформлении сервер проверяет остатки и лимит, применяет скидку и рассчитывает цены. После входа гостевые и серверные количества складываются по товару и варианту в пределах остатка и лимита издания. Недоступные позиции пропускаются. Гостевой промокод переносится, если в непустой корзине ещё нет своего кода. Витрина сообщает об изменениях цен и очищает локальную корзину после успешного переноса.
 
-В новом `.env` заменить SECRET_KEY, POSTGRES_PASSWORD и пароль в DATABASE_URL.
-Значения SECRET_KEY и PAYMENT_WEBHOOK_SECRET можно сгенерировать так:
+| Модуль | Правило |
+| --- | --- |
+| М1 · Отзывы и рейтинг | Один отзыв на издание после доставки собственного заказа. На витрине и в рейтинге учитываются одобренные отзывы. Рабочий зачётный вариант, официальный шифр требует подтверждения преподавателя. |
+| М2 · Промокоды | Сервер проверяет код, срок, активность, минимальную сумму и лимит применений. Проверка в корзине не расходует лимит. |
+| М3 · Избранное и поступления | Личные списки и уведомления привязаны к аккаунту. Пополнение с нуля уведомляет подписчика один раз за цикл. |
+| М4 · Отчёт | Диапазон дат хранится в URL, CSV использует этот же диапазон. Правила агрегации описаны в [приёмке](docs/lab11-step12-acceptance.md). |
 
-```powershell
-docker run --rm python:3.13-slim python -c "import secrets; print(secrets.token_urlsafe(50))"
-```
+## Запуск на новом компьютере с Windows
 
-Не заменять существующий `.env`: пароль в уже созданном томе PostgreSQL от этого
-не изменится. В пароль внутри URL допускаются буквы, цифры, `_` и `-`; остальные
-спецсимволы требуют URL-кодирования. Значения с `$` заключать в одинарные кавычки.
+1. Установите [Git for Windows](https://git-scm.com/download/win), [Docker Desktop](https://docs.docker.com/desktop/setup/install/windows-install/) и [Node.js 24 LTS](https://nodejs.org/en/download). Если установщик Docker предложит включить WSL 2 или перезагрузиться, выполните это и снова откройте Docker Desktop. Дождитесь запуска Docker Engine.
+2. Откройте **PowerShell** из меню «Пуск». Копируйте команды по одной и нажимайте Enter. Первая группа проверяет программы. `docker compose version` должен вывести версию Compose, `node --version` — строку с `v24.`.
 
-```powershell
-docker compose up -d --build
-docker compose exec web python manage.py migrate
-docker compose exec web python manage.py seed_catalog --images
-docker compose exec web python manage.py setup_demo --password "DemoShop2026!"
-```
+   ```powershell
+   git --version
+   docker compose version
+   docker info --format '{{.ServerVersion}}'
+   node --version
+   ```
 
-`seed_catalog` создаёт 30 товаров и картинки; повторный запуск **обновляет** цены и
-остатки демокаталога. Для своей базы этот шаг пропустить. `setup_demo` добавляет пять
-отдельных DEMO-товаров с вариантами, характеристиками и фото, промокод CHECKPOINT10,
-покупателя и менеджера. Повторный запуск не меняет существующие пароли; для явного
-сброса есть `--reset-password`. Аккаунт с несовпадающей ролью не изменяется.
+3. Перейдите в домашнюю папку, скачайте релиз и скопируйте шаблон настроек. Точка в `.env` входит в имя файла. Если папка `knizhnaya-polka` уже существует, выберите другое имя в обеих командах.
 
-| Аккаунт | Логин | Пароль при приведённой выше команде |
-|---|---|---|
-| Покупатель | buyer_demo | DemoShop2026! |
-| Менеджер, staff без superuser | manager_demo | DemoShop2026! |
+   ```powershell
+   Set-Location $HOME
+   git clone --branch v2.0 https://github.com/GlebNagornikov/corporate-is-lab1.git knizhnaya-polka
+   Set-Location knizhnaya-polka
+   Copy-Item .env.example .env
+   ```
 
-Это публичные **демонстрационные** реквизиты; использовать для локальной лабораторной.
-Существующие аккаунты при клонировании не переносятся. Для полного администратора:
-`docker compose exec web python manage.py createsuperuser`.
+4. Запустите Django, Vite и вспомогательные сервисы. При первом запуске Docker скачает образы и соберёт приложение. Дождитесь возврата приглашения PowerShell после каждой команды. Миграции на пустой базе выведут строки `Applying ... OK`, а `seed_demo` напечатает число демоизданий.
 
-| Назначение | Dev | Prod |
-|---|---|---|
-| Магазин | http://127.0.0.1:8000/ | https://localhost/ |
-| Админка | http://127.0.0.1:8000/admin/ | https://localhost/admin/ |
-| Swagger API | http://127.0.0.1:8000/api/docs/ | https://localhost/api/docs/ (только staff) |
-| Схема OpenAPI | http://127.0.0.1:8000/api/schema/ | https://localhost/api/schema/ (только staff) |
-| Mailpit | http://localhost:8025/ | http://localhost:8026/ |
+   ```powershell
+   docker compose up -d --build --wait
+   docker compose exec web python manage.py migrate --noinput
+   docker compose exec web python manage.py seed_demo --password 'DemoShop2026!'
+   docker compose ps
+   ```
 
-Выход выполняется POST-формой. Для dev после работы с HTTPS использовать 127.0.0.1:
-HSTS у localhost действует на все порты ещё 60 секунд.
+5. Откройте [магазин](http://127.0.0.1:5173/). Когда Vite завершит установку, на главной появятся «Книги, к которым возвращаются» и обложки. Если страница ещё не открывается, подождите вывода `Local` или `Network` в `docker compose logs frontend`, затем обновите её. Нажмите **Войти** и используйте одну из пар ниже.
 
-### Тесты React-витрины
+   | Роль | Имя пользователя | Пароль |
+   | --- | --- | --- |
+   | Покупатель | `buyer_demo` | `DemoShop2026!` |
+   | Менеджер | `manager_demo` | `DemoShop2026!` |
 
-Из папки `frontend`:
+   Это реквизиты локальной демобазы. Повторный посев сохраняет пароли уже созданных пользователей. [Swagger](http://127.0.0.1:8000/api/docs/) открывается через Django, [Mailpit](http://127.0.0.1:8025/) показывает учебные письма.
 
-```powershell
-npm ci
-npx playwright install chromium
-npm run typecheck
-npm run lint
-npm test
-npm run e2e
-```
+6. Чтобы остановить магазин, в той же папке введите `docker compose stop`. Для следующего запуска откройте Docker Desktop, вернитесь в папку проекта и введите `docker compose up -d`. Данные лежат в томе PostgreSQL и папке `media`.
 
-Для Playwright нужен запущенный React-магазин на `http://127.0.0.1:5173`, книги в наличии
-и демо-менеджер из `setup_demo`. Адрес и реквизиты менеджера можно задать через
-`E2E_BASE_URL`, `E2E_MANAGER_USERNAME` и `E2E_MANAGER_PASSWORD`.
-Тесты создают отдельных покупателей и заказы в базе выбранного стенда.
-При падении Playwright сохраняет трассировку в `frontend/test-results/`.
+[HTTPS и перенос своих данных](docs/shop-setup.md)
 
-## Прод-подобный стенд
+## Django и Vite в отдельных окнах
 
-Чистый checkout релиза исключает незавершённые локальные изменения из образа.
-На новом компьютере можно клонировать сразу тег `v1.2.0`. Для существующей рабочей
-папки с изменениями использовать отдельный `git worktree add --detach <папка> v1.2.0`.
+Для показа команд из части 7 установите [Python 3.14](https://www.python.org/downloads/windows/). Убедитесь, что команда `py -3.14 --version` показывает 3.14. При первом запуске подготовьте `.env` командой `Copy-Item .env.example .env`. Если Compose уже поднял весь магазин по README, сначала остановите веб-сервисы командой `docker compose stop frontend web`.
 
-```powershell
-Copy-Item .env.prod.example .env.prod
-New-Item -ItemType Directory -Force nginx/certs
-& 'C:/Program Files/Git/usr/bin/openssl.exe' req -x509 -nodes -newkey rsa:2048 -days 365 -keyout nginx/certs/localhost.key -out nginx/certs/localhost.crt -subj '/CN=localhost' -addext 'subjectAltName=DNS:localhost,IP:127.0.0.1'
-```
+1. В первом окне запустите PostgreSQL и локальный Redis, создайте окружение Python, примените миграции и загрузите каталог.
 
-В `.env.prod` установить APP_VERSION=1.2.0, отдельные случайные SECRET_KEY,
-PAYMENT_WEBHOOK_SECRET и POSTGRES_PASSWORD. Prod использует собственную БД shop.
-В Git Bash вместо пути к openssl использовать `openssl`; при преобразовании пути
-заменить `-subj '/CN=localhost'` на `-subj '//CN=localhost'`.
+   ```powershell
+   docker compose up -d --wait db
+   docker compose run -d --name bookshop-local-redis -p 127.0.0.1:6380:6379 redis redis-server
+   py -3.14 -m venv .venv
+   .\.venv\Scripts\python.exe -m pip install -r backend/requirements.txt -r backend/requirements/dev.txt
+   $env:REDIS_CACHE_URL = 'redis://127.0.0.1:6380/1'
+   $env:REDIS_THROTTLE_URL = 'redis://127.0.0.1:6380/2'
+   $env:ORDER_EVENTS_REDIS_URL = 'redis://127.0.0.1:6380/0'
+   $env:CELERY_BROKER_URL = 'redis://127.0.0.1:6380/0'
+   .\.venv\Scripts\python.exe backend/manage.py migrate --noinput
+   .\.venv\Scripts\python.exe backend/manage.py seed_demo --password 'DemoShop2026!'
+   .\.venv\Scripts\python.exe backend/manage.py runserver 127.0.0.1:8000
+   ```
 
-```powershell
-docker compose -f docker-compose.prod.yml --env-file .env.prod up -d --build
-docker compose -f docker-compose.prod.yml --env-file .env.prod exec web python manage.py seed_catalog --images
-docker compose -f docker-compose.prod.yml --env-file .env.prod exec web python manage.py setup_demo --password "DemoShop2026!"
-docker compose -f docker-compose.prod.yml --env-file .env.prod exec web python manage.py createsuperuser
-```
+   Дождитесь строки `Starting development server at http://127.0.0.1:8000/`. Если база уже подготовлена, миграции сообщат `No migrations to apply`.
 
-Миграции выполняет отдельный сервис: **db healthy → migrate Exited (0) → web healthy → nginx**.
-Worker также ждёт миграции и Redis. В браузере подтвердить исключение для собственного
-самоподписанного сертификата. Статика и media раздаются nginx из отдельных томов.
-Образ `shop-nginx` содержит сборку витрины и конфигурацию nginx. Сертификаты подключаются при запуске.
+2. Во втором окне установите зависимости и запустите Vite. Команда `npm.cmd` работает и при запрете PowerShell-скриптов.
 
-Prod-образ содержит Gunicorn и зависимости base, работает от app (UID 1000), не содержит
-Debug Toolbar, Ruff и Coverage. Код копируется в образ, bind mount исходников отсутствует.
-Файл Dockerfile имеет четыре этапа: base, dev, builder, prod. Dev использует target dev.
+   ```powershell
+   npm.cmd --prefix frontend ci
+   npm.cmd --prefix frontend run dev -- --host 127.0.0.1 --port 5173 --strictPort
+   ```
 
-## Переменные окружения
+   Откройте [ссылку Vite](http://127.0.0.1:5173/) и войдите под демопользователем из README. Для потока SSE и доставки писем используйте полный Compose или HTTPS-стенд, где запускаются ASGI и Celery.
 
-Шаблоны: [.env.example](.env.example), [.env.prod.example](.env.prod.example).
-Настоящие файлы, сертификаты, ключи и backups не коммитятся и не включаются в образ.
+3. Для остановки нажмите Ctrl+C в обоих окнах. Уберите временный контейнер Redis и остановите базу.
 
-| Переменная | Назначение |
-|---|---|
-| SECRET_KEY | Случайный ключ Django; отдельный для dev/prod |
-| PAYMENT_WEBHOOK_SECRET | Отдельный случайный HMAC-секрет учебного платёжного шлюза |
-| APP_VERSION | Общий тег образов `shop-web` и `shop-nginx`, текущий релиз `1.2.0` |
-| POSTGRES_DB / USER / PASSWORD | Учётные данные отдельной БД окружения |
-| POSTGRES_HOST_PORT | Dev-порт PostgreSQL, 5432; prod БД наружу не публикуется |
-| DATABASE_URL | Для manage.py с хоста; Compose устанавливает внутренний адрес db |
-| DB_CONN_MAX_AGE | Повторное использование соединения БД, 60 секунд |
-| ALLOWED_HOSTS | Хосты prod без схемы и порта; localhost |
-| CSRF_TRUSTED_ORIGINS | HTTPS-источники prod; https://localhost |
-| SITE_URL | Абсолютные ссылки писем; dev http://127.0.0.1:8000, prod https://localhost |
-| REDIS_CACHE_URL | Redis DB1, кэш каталога; ошибки соединения не ломают витрину |
-| CELERY_BROKER_URL | Redis DB0, очередь писем; AOF и noeviction |
-| REDIS_THROTTLE_URL | Redis DB2, ограничения API; при отказе локальный лимит каждого процесса |
-| EMAIL_HOST / EMAIL_PORT | SMTP; Compose задаёт mailpit:1025 |
-| DEFAULT_FROM_EMAIL | Отправитель писем |
-| GUNICORN_WORKERS | Число prod-worker процессов, 3 |
-| LOG_LEVEL | Уровень JSON-логов приложений, INFO |
-| JWT_ACCESS_MINUTES / JWT_REFRESH_DAYS | Сроки access/refresh, 15 минут / 7 дней |
-| DJANGO_SETTINGS_MODULE | manage.py по умолчанию dev, prod-образ и WSGI — prod |
+   ```powershell
+   docker stop bookshop-local-redis
+   docker rm bookshop-local-redis
+   docker compose stop db
+   ```
 
-## Все индивидуальные доработки и проверка
+## API
 
-Каждая реализована отдельной feature-веткой и PR в develop; бизнес-правила вынесены
-в сервисы/модели. У каждой не менее трёх тестов, включая негативные сценарии.
+Базовый адрес для запросов в dev — `http://127.0.0.1:8000`. Приватные запросы принимают `Authorization: Bearer <access>`. Публичные операции доступны гостю. «Свой» означает доступ к данным текущего пользователя. Операции кабинета проверяют роль и разрешения Django соответствующего действия. CRM проверяет модельные разрешения на чтение и запись. Без авторизации приватный API отвечает 401, при недостатке прав — 403, для чужого заказа — 404.
 
-| № | Доработка | Как проверить вручную | Тесты |
-|---|---|---|---|
-| 1 | Избранное | Войти, добавить из каталога/карточки дважды; открыть «Избранное». Снять товар с продажи — появляется отметка. Другой пользователь не видит список. | catalog.tests.test_wishlist |
-| 2 | Сравнение | У гостя выбрать четыре DEMO-товара. Пятый и товар другой корневой категории отклоняются; разные характеристики подсвечены. | catalog.tests.test_comparison |
-| 3 | Варианты | У DEMO-товара выбрать S и L с разными ценами/остатками в admin. В корзине две строки; заказ сохраняет названия и цены; отмена возвращает соответствующие остатки. | catalog.tests.test_variants |
-| 4 | Поступление | Открыть DEMO-5 с нулевым остатком, оставить email. В admin увеличить остаток одного варианта: приходит одно письмо. Повторное увеличение не рассылает снова. | catalog.tests.test_restock |
-| 5 | CSV-импорт | Команда import_products examples/products.csv --dry-run, затем без флага. Повторить — дубля нет. Добавить отрицательную цену/неизвестную категорию — весь файл отклонён с номерами строк. В admin товаров есть «Импорт CSV». | catalog.tests.test_importing |
-| 6 | Отчёт | Под manager_demo открыть «Панель менеджера → Заказы → Отчёт по продажам», выбрать период и скачать CSV. Покупателю 403. Выручка исключает отменённые заказы. SQL-запросов всегда шесть. | orders.tests.test_reporting |
-| 7 | Адреса | Создать два адреса. При оформлении основной уже в поле «Адрес доставки». Стрелка в поле позволяет выбрать другой адрес. Изменение в адресной книге не меняет оформленный заказ. Чужой адрес недоступен. | accounts.test_addresses, orders.tests.test_views |
-| 8 | Оплата | Оформить заказ → «Оплатить» → учебный успех/отказ. При успехе paid, далее менеджер confirmed/shipped/delivered. Повторный webhook не дублирует переход; неверная HMAC даёт 403. Покупатель paid не отменяет. | orders.tests.test_payments |
-| 9 | Redis-кэш | Повторно открыть карточку и посмотреть SQL в Debug Toolbar. Изменить цену или отзыв и обновить страницу товара. Новое значение видно при следующем запросе. Остановить Redis и проверить работу HTML-каталога. | catalog.tests.test_caching |
-| 10 | Celery | Остановить mailpit, оформить заказ: ответ приходит без ожидания SMTP. Запустить mailpit, дождаться письма; смотреть logs worker. Для повторной постановки сохранённых писем — dispatch_notifications. | orders.tests.test_tasks |
-| 11 | API docs и лимиты | Открыть /api/docs/. В prod доступ есть только у staff. 11-я попытка получения токена в минуту даёт 429 и Retry-After. spectacular --validate --fail-on-warn проходит. | config.test_api_docs |
-| 12 | JSON/request-id | Взять X-Request-ID ответа; найти его в logs nginx web, для писем также worker. Запись заказа содержит order_id. | config.test_logging |
+| Метод | Путь | Доступ | Операция |
+| --- | --- | --- | --- |
+| GET | `/api/docs/`, `/api/schema/` | Dev публично, HTTPS через сессию сотрудника Django | Swagger и OpenAPI |
+| POST | `/api/auth/register/` | Публично | Регистрация |
+| GET | `/api/auth/me/` | JWT | Профиль и роль |
+| POST | `/api/auth/token/`, `/api/auth/token/refresh/` | Пароль или refresh соответственно | Выдать или обновить JWT для API |
+| GET | `/api/auth/session/csrf/` | Публично | Получить CSRF для SPA |
+| POST | `/api/auth/session/login/` | Пароль и CSRF | Войти и получить refresh в HttpOnly cookie |
+| POST | `/api/auth/session/refresh/`, `/api/auth/session/logout/` | Сессия SPA и CSRF | Обновить access или завершить сессию |
+| GET | `/api/catalog/categories/`, `/api/catalog/categories/{slug}/` | Публично | Жанры |
+| GET | `/api/catalog/products/`, `/api/catalog/products/{slug}/`, `/api/catalog/editorial/` | Публично | Каталог, издание, подборка |
+| GET | `/api/catalog/products/{slug}/review-eligibility/` | JWT | Возможность оставить отзыв |
+| GET, POST | `/api/catalog/products/{slug}/reviews/` | GET публично, POST JWT с доставленной покупкой | Читать и оставить отзыв |
+| GET | `/api/cart/` | Свой | Корзина |
+| POST | `/api/cart/items/`, `/api/cart/merge/` | Свой | Добавить позицию или перенести гостевые |
+| PATCH, DELETE | `/api/cart/items/{product_id}/` | Свой | Изменить количество или удалить позицию с учётом варианта |
+| PATCH | `/api/cart/promo/` | Свой | Применить или убрать код |
+| POST | `/api/promo/check/` | Публично | Проверить промокод, для JWT по сумме в БД |
+| GET, POST | `/api/orders/` | Свой | Просмотреть заказы или оформить корзину |
+| GET | `/api/orders/{id}/`, `/api/orders/{id}/events/` | Свой | Детали заказа и поток SSE |
+| POST | `/api/orders/{id}/cancel/`, `/api/orders/{id}/simulate-payment/` | Свой | Отменить новый заказ или провести учебную оплату |
+| POST | `/api/orders/{id}/status/`, `/api/manager/orders/{id}/status/` | Менеджер | Сменить статус по допустимому переходу |
+| GET, POST, DELETE | `/api/wishlist/` | Свой | Читать, добавить или убрать избранное |
+| DELETE | `/api/wishlist/{id}/` | Свой | Убрать книгу по ID товара |
+| GET, POST | `/api/restock/{id}/` | Свой | Проверить или оформить подписку по ID товара |
+| GET | `/api/notifications/` | Свой | Список уведомлений |
+| GET, POST | `/api/notifications/unread/` | Свой | Счётчик или прочитать все |
+| DELETE | `/api/notifications/{id}/` | Свой | Удалить уведомление |
+| GET | `/api/manager/orders/`, `/api/manager/orders/{id}/` | Менеджер | Список, контакты и история заказов |
+| GET, POST | `/api/manager/catalog/` | Менеджер | Список книг, создание через multipart |
+| GET, PATCH, DELETE | `/api/manager/catalog/{id}/` | Менеджер | Детали, редактирование, удаление |
+| PATCH | `/api/manager/catalog/{id}/variants/{variant_id}/` | Менеджер | Цена, остаток и доступность варианта |
+| POST | `/api/manager/catalog/import-json/` | Менеджер | Проверить или импортировать JSON-файл |
+| GET, POST | `/api/manager/categories/` | Менеджер | Жанры для формы, создание жанра |
+| GET | `/api/manager/reviews/` | Менеджер | Очередь отзывов |
+| POST | `/api/manager/reviews/{id}/moderate/` | Менеджер | Одобрить или отклонить |
+| GET, POST | `/api/manager/promos/` | Менеджер | Список и создание кодов |
+| POST | `/api/manager/promos/{id}/deactivate/` | Менеджер | Деактивировать код |
+| GET | `/api/manager/reports/sales/`, `/api/manager/reports/sales/csv/` | Менеджер | Отчёт и CSV |
+| GET, POST | `/api/departments/`, `/api/employees/` | Права CRM | Списки и создание |
+| GET, PUT, PATCH, DELETE | `/api/departments/{id}/`, `/api/employees/{id}/` | Права CRM | Карточки, изменение, удаление |
+| POST | `/payments/webhook/` | Подпись HMAC | Уведомление учебного шлюза |
+| GET | `/healthz/` | Публично | Доступность приложения и БД |
 
-Пример запуска отдельного набора:
+Примеры JSON для `POST` (ID товара и заказа берутся из ответов API).
 
-```powershell
-docker compose exec web python manage.py test catalog.tests.test_variants --settings=config.settings.test
-```
+| Путь | Тело |
+| --- | --- |
+| `/api/auth/token/` | `{"username":"buyer_demo","password":"DemoShop2026!"}` |
+| `/api/cart/items/` | `{"product":1,"variant":null,"quantity":1}` |
+| `/api/orders/` | `{"full_name":"Анна Петрова"},"phone":"+79991234567","email":"anna@example.com","delivery_method":"pickup"}` |
+| `/api/manager/orders/{id}/status/` | `{"status":"confirmed"}` |
 
-Ключевые правила совместимости: остатки custom-вариантов суммируются для витрины,
-цена товара — минимальная активного варианта; стандартный вариант поддерживает обычные
-товары. Подписка сообщает о появлении любого варианта. Импорт поддерживает дополнительные
-variant_sku/variant_name/variant_price/variant_stock и attributes (JSON).
-Избранное/сравнение относятся к товару, а покупка — к выбранному варианту.
-Отчёт считает неотменённые заказы независимо от оплаты; сумма включает скидку и доставку,
-топ товаров считается по стоимости позиций до скидки заказа и доставки.
-Кэш хранит только общие данные, без чужих форм, CSRF и пользовательских признаков.
+## Приёмка
 
-## Заказы и REST API
+[Команды проверок, два сквозных сценария и негативные проверки](docs/lab11-release-checks.md) входят в протокол части 7. [Приёмка шага 12](docs/lab11-step12-acceptance.md) содержит матрицу Б1–Б11 и Ф1–Ф13, замеры и ссылки на тесты.
 
-Новый заказ резервирует склад в транзакции с блокировкой корзины, товаров и вариантов.
-Сохраняются снимки товара, варианта, цены и адреса. Курьер требует адрес; доставка 500 ₽,
-бесплатно от 5000 ₽ после скидки; самовывоз бесплатен. Гостевая корзина объединяется при входе.
-Телефон нормализуется к +7XXXXXXXXXX. Письма ставятся в очередь после commit.
+| Критерий | Как проверить |
+| --- | --- |
+| Р1 · TypeScript | `npm.cmd --prefix frontend run typecheck`, контракт в `frontend/src/api/schema.d.ts`. |
+| Р2 · TanStack Query | `frontend/src/api/queries.ts`, сценарии корзины и отката в Vitest. |
+| Р3 · Data Router | `frontend/src/appRoutes.tsx`, loaders и actions входа, регистрации, оформления и книг. |
+| Р4 · Тесты React | `npm.cmd --prefix frontend test`, в том числе формы, доступ и ошибки. |
+| Р5 · E2E | `frontend/e2e/two-profile-checkout.spec.ts` и `storefront.spec.ts`. |
+| Р6 · Ленивая загрузка | [Замеры шага 12](docs/lab11-step12-acceptance.md#замеры-production-сборок). Базовый JS gzip 80,37 → 119,83 кБ, отдельно ManagerLayout 1,15 кБ и ReportCharts 1,46 кБ. |
+| Р7 · OpenAPI | Swagger и проверка `spectacular --validate --fail-on-warn`. |
+| Р8 · Серверная корзина | Войти под одним покупателем в двух окнах, обновить второе окно после изменения корзины. |
+| Р9 · SSE | `frontend/e2e/order-events.spec.ts`, статус на сайте покупателя меняется без F5. |
+| Р10 · Тема | Переключить тему, обновить страницу, проверить её сохранение и контраст. [Визуальная проверка](docs/VISUAL_AUDIT.md). |
+| Р11 · Доступность | [Lighthouse](docs/lighthouse) для главной, издания и оформления, ручная проверка клавиатурой. |
+| Р12 · Прокрутка | `frontend/e2e/storefront.spec.ts`, возврат из карточки и открытие `?page=2` в новой вкладке. |
+| Р13 · Compose | Запуск dev и HTTPS по инструкции, F5 на вложенном маршруте, загрузка `/api` и `/media`. |
+| Р14 · CI | [GitHub Actions](https://github.com/GlebNagornikov/corporate-is-lab1/actions), Django, React, dev и HTTPS Playwright. |
 
-Статусы: **new → paid → confirmed → shipped → delivered**. Покупатель отменяет только new;
-менеджер также отменяет paid/confirmed с возвратом остатков. Webhook принимает HMAC-SHA256
-в X-Payment-Signature от точных байтов JSON. Каждая попытка записана в Payment.
-
-| API | Назначение |
-|---|---|
-| POST /api/auth/token/; /api/auth/token/refresh/ | JWT access/refresh |
-| GET /api/catalog/categories/; /api/catalog/products/ | Каталог, фильтры и поиск; детали по slug |
-| GET/POST /api/catalog/products/<slug>/reviews/ | Отзывы; публикация требует входа |
-| GET /api/cart/; POST /api/cart/items/ | Корзина; добавление product, variant, quantity |
-| PATCH/DELETE /api/cart/items/<product_id>/?variant=<id> | Изменить/удалить конкретный вариант |
-| GET/POST /api/orders/; GET /api/orders/<id>/ | Свои заказы / оформление; address_book — ID своего адреса |
-| POST /api/orders/<id>/cancel/; /status/ | Отмена покупателем / смена статуса менеджером |
-| GET/POST/DELETE /api/wishlist/ | Только своё избранное; DELETE принимает product |
-| DELETE /api/wishlist/<product_id>/ | Удалить своё избранное |
-| POST /payments/webhook/ | Подписанный результат оплаты; JWT не требуется |
-| /api/employees/; /api/departments/ | CRUD с соответствующими правами Django |
-
-Аноним на закрытом API получает 401, вошедший без прав — 403, чужой заказ — 404.
-Непустой отдел при удалении — 409. JWT проверяется раньше сессии; сессия требует CSRF.
-Параметры каталога: q, category (slug), price_min/max, in_stock, on_sale, rating_min,
-ordering, page. Поиск использует PostgreSQL russian/pg_trgm, пример опечатки: «наушнеки».
-
-## Автоматические проверки сдачи
-
-```powershell
-docker compose exec web python manage.py check
-docker compose exec web python manage.py makemigrations --check --dry-run
-docker compose exec web coverage run manage.py test --settings=config.settings.test
-docker compose exec web coverage report --fail-under=80
-docker compose exec web python manage.py spectacular --validate --fail-on-warn --settings=config.settings.test
-uvx --from pre-commit==4.7.0 pre-commit run --all-files
-```
-
-Последняя команда запускается на компьютере с Git и uv; pre-commit в контейнере без
-Git не используется. Ruff можно отдельно проверить `docker compose exec web ruff check .`.
-Тесты используют PostgreSQL, быстрый тестовый хешер, LocMemCache и синхронный Celery.
-Результаты контрольной проверки: [docs/checkpoint-verification.md](docs/checkpoint-verification.md).
-
-Prod:
-
-```powershell
-docker compose -f docker-compose.prod.yml --env-file .env.prod ps -a
-docker compose -f docker-compose.prod.yml --env-file .env.prod exec web python manage.py check --deploy
-curl.exe -I http://localhost/
-curl.exe -k https://localhost/healthz/
-curl.exe -kI https://localhost/static/admin/css/base.css
-docker compose -f docker-compose.prod.yml --env-file .env.prod exec web python -c "import debug_toolbar"
-```
-
-Ожидаются редирект 301 на HTTPS, версия 1.2.0 в `/healthz/` и подвале витрины и ответ 200 для CSS.
-Импорт `debug_toolbar` завершается `ModuleNotFoundError`.
-
-Сквозные сценарии на стенде создают тестовых покупателей и заказы. После `npm ci --prefix frontend`
-и `npx --prefix frontend playwright install chromium` запустите их в PowerShell:
-
-```powershell
-$env:E2E_BASE_URL = 'https://localhost'
-npm --prefix frontend run e2e
-```
-
-## История выпусков, откат и данные
-
-v1.0.0 — первый релиз, v1.0.1 — нормализация телефонов, v1.1.0 — все 12 доработок.
-v1.1.1 исправляет демосценарий, v1.1.2 — витрину, оформление заказа и отчёт.
-v1.2.0 переносит витрину React на HTTPS-стенд.
-Каждый тег аннотированный, находится на merge-коммите main, версия кода совпадает с тегом.
-Feature PR идут в develop, релизная ветка сливается в main, затем main сливается обратно в develop.
-Подробности выпусков: [CHANGELOG](CHANGELOG.md), [лабораторная №7](docs/lab7-prod-stack.md).
-
-При откате переключитесь на Git-тег нужной версии и задайте соответствующий `APP_VERSION`.
-Так Compose получит конфигурацию того же выпуска. Затем запустите
-`docker compose -f docker-compose.prod.yml --env-file .env.prod up -d --no-build`, если его образы уже собраны.
-Для возврата повторите те же шаги с `v1.2.0`. Откат кода сохраняет текущую схему и данные PostgreSQL.
-
-Резервная копия PostgreSQL (PowerShell):
-
-```powershell
-New-Item -ItemType Directory -Force backups
-docker compose -f docker-compose.prod.yml --env-file .env.prod exec db sh -c 'pg_dump -U "$POSTGRES_USER" -d "$POSTGRES_DB" -Fc -f /tmp/shop.dump'
-docker compose -f docker-compose.prod.yml --env-file .env.prod cp db:/tmp/shop.dump backups/shop.dump
-```
-
-Не перенаправлять бинарный pg_dump через `>` в PowerShell 5. Media, .env.prod и
-сертификаты сохраняются отдельно. Полный цикл восстановления проверен в части 5.
-
-Остановка: `docker compose down` или prod-команда с теми же -f/--env-file и down.
-**Не добавлять -v: это удаляет тома с БД, Redis и изображениями.** Dev и prod используют
-разные проекты/тома. Изменение исходников не требует dev-пересборки; изменение зависимостей
-требует `up -d --build`. При запуске новых worker после изменения кода перезапустить worker.
-
-Hotfix 1.1.1 устраняет конфликт старого STUDENT10 с демосценарием: setup_demo создаёт
-отдельный CHECKPOINT10, а scripts/check_checkpoint.py поддерживает --promo-code.
-Старые промокоды, их сроки и скидки не перезаписываются. Перед повторной проверкой
-существующего стенда выполнить setup_demo ещё раз с прежним демопаролем.
+[Журнал изменений](CHANGELOG.md) · [План лабораторной №11](LAB11-PLAN.md) · [Предыдущие доработки](docs/catalog-extras.md)

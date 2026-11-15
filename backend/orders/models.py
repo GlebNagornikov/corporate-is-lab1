@@ -1,0 +1,224 @@
+import uuid
+
+from django.conf import settings
+from django.core.validators import MaxValueValidator, MinValueValidator
+from django.db import models
+from django.db.models import Q
+from django.urls import reverse
+from django.utils import timezone
+
+
+class PromoCode(models.Model):
+    code = models.CharField("Код", max_length=30, unique=True)
+    discount_percent = models.PositiveSmallIntegerField(
+        "Скидка, %", validators=[MinValueValidator(1), MaxValueValidator(90)]
+    )
+    valid_from = models.DateTimeField("Действует с")
+    valid_until = models.DateTimeField("Действует по")
+    minimum_subtotal = models.DecimalField(
+        "Минимальная сумма корзины",
+        max_digits=12,
+        decimal_places=2,
+        default=0,
+        validators=[MinValueValidator(0)],
+    )
+    max_uses = models.PositiveIntegerField(
+        "Лимит использований", null=True, blank=True, help_text="Пусто — без ограничений"
+    )
+    used_count = models.PositiveIntegerField("Использован, раз", default=0, editable=False)
+    is_active = models.BooleanField("Активен", default=True)
+
+    class Meta:
+        verbose_name = "промокод"
+        verbose_name_plural = "промокоды"
+
+    def __str__(self):
+        return f"{self.code} (−{self.discount_percent}%)"
+
+    def save(self, *args, **kwargs):
+        self.code = self.code.strip().upper()
+        super().save(*args, **kwargs)
+
+    def deactivation_reason(self, now):
+        if not self.is_active:
+            return "Промокод деактивирован."
+        if now > self.valid_until:
+            return "Промокод сейчас не действует."
+        if self.max_uses is not None and self.used_count >= self.max_uses:
+            return "Лимит использований промокода исчерпан."
+        return None
+
+    def is_effectively_active(self):
+        return self.deactivation_reason(timezone.now()) is None
+
+    def rejection_reason(self, subtotal=None):
+        now = timezone.now()
+        reason = self.deactivation_reason(now)
+        if reason:
+            return reason
+        if now < self.valid_from:
+            return "Промокод сейчас не действует."
+        if subtotal is not None and subtotal < self.minimum_subtotal:
+            return f"Промокод действует при сумме книг от {self.minimum_subtotal:.2f} ₽."
+        return None
+
+    def is_valid_now(self):
+        return self.rejection_reason() is None
+
+
+class Order(models.Model):
+    class Status(models.TextChoices):
+        NEW = "new", "Новый"
+        PAID = "paid", "Оплачен"
+        CONFIRMED = "confirmed", "Подтверждён"
+        SHIPPED = "shipped", "Передан в доставку"
+        DELIVERED = "delivered", "Доставлен"
+        CANCELLED = "cancelled", "Отменён"
+
+    class Delivery(models.TextChoices):
+        PICKUP = "pickup", "Самовывоз"
+        COURIER = "courier", "Курьер"
+
+    TRANSITIONS = {
+        Status.NEW: {Status.PAID, Status.CANCELLED},
+        Status.PAID: {Status.CONFIRMED, Status.CANCELLED},
+        Status.CONFIRMED: {Status.SHIPPED, Status.CANCELLED},
+        Status.SHIPPED: {Status.DELIVERED},
+        Status.DELIVERED: set(),
+        Status.CANCELLED: set(),
+    }
+
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.PROTECT,
+        related_name="orders",
+        verbose_name="Покупатель",
+    )
+    status = models.CharField(
+        "Статус", max_length=20, choices=Status.choices, default=Status.NEW, db_index=True
+    )
+    full_name = models.CharField("Получатель", max_length=200)
+    phone = models.CharField("Телефон", max_length=20)
+    email = models.EmailField("Email")
+    delivery_method = models.CharField(
+        "Доставка", max_length=20, choices=Delivery.choices, default=Delivery.PICKUP
+    )
+    # A full address-book snapshot includes five fields and four ", " separators.
+    address = models.CharField("Адрес доставки", max_length=328, blank=True)
+    comment = models.TextField("Комментарий", blank=True)
+    promo_code = models.ForeignKey(
+        PromoCode,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="orders",
+        verbose_name="Промокод",
+    )
+    subtotal = models.DecimalField("Сумма товаров", max_digits=12, decimal_places=2)
+    discount = models.DecimalField("Скидка", max_digits=12, decimal_places=2, default=0)
+    delivery_cost = models.DecimalField("Доставка", max_digits=10, decimal_places=2, default=0)
+    total = models.DecimalField("Итого", max_digits=12, decimal_places=2)
+    created_at = models.DateTimeField("Создан", auto_now_add=True)
+    updated_at = models.DateTimeField("Изменён", auto_now=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+        verbose_name = "заказ"
+        verbose_name_plural = "заказы"
+        constraints = [
+            models.CheckConstraint(
+                condition=~Q(delivery_method="courier") | ~Q(address=""),
+                name="courier_order_has_address",
+            ),
+        ]
+
+    def __str__(self):
+        return f"Заказ №{self.pk}"
+
+    def get_absolute_url(self):
+        return reverse("orders:detail", args=[self.pk])
+
+    def can_change_to(self, status):
+        return status in self.TRANSITIONS[self.status]
+
+    @property
+    def can_be_cancelled_by_customer(self):
+        return self.status == self.Status.NEW
+
+    @property
+    def can_be_paid(self):
+        return self.status == self.Status.NEW
+
+
+class OrderItem(models.Model):
+    order = models.ForeignKey(Order, on_delete=models.CASCADE, related_name="items")
+    product = models.ForeignKey(
+        "catalog.Product", on_delete=models.PROTECT, related_name="order_items"
+    )
+    product_name = models.CharField("Товар", max_length=200)
+    variant = models.ForeignKey(
+        "catalog.ProductVariant", on_delete=models.PROTECT, null=True, blank=True
+    )
+    variant_name = models.CharField("Вариант", max_length=120, blank=True)
+    price = models.DecimalField("Цена", max_digits=10, decimal_places=2)
+    quantity = models.PositiveIntegerField("Количество")
+
+    class Meta:
+        verbose_name = "позиция заказа"
+        verbose_name_plural = "позиции заказа"
+
+    def __str__(self):
+        return f"{self.product_name} × {self.quantity}"
+
+    @property
+    def total(self):
+        return self.price * self.quantity
+
+
+class EmailNotification(models.Model):
+    order = models.ForeignKey(Order, on_delete=models.CASCADE, related_name="email_notifications")
+    kind = models.CharField(max_length=20, choices=[("placed", "Заказ"), ("status", "Статус")])
+    status_snapshot = models.CharField(max_length=20, blank=True)
+    sent = models.BooleanField(default=False, db_index=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"{self.order}: {self.kind}"
+
+
+class Payment(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    order = models.ForeignKey(Order, on_delete=models.PROTECT, related_name="payments")
+    amount = models.DecimalField(max_digits=12, decimal_places=2)
+    status = models.CharField(
+        max_length=20,
+        default="pending",
+        choices=[("pending", "Ожидание"), ("success", "Успех"), ("failed", "Отказ")],
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"{self.order}: {self.status}"
+
+
+class OrderStatusLog(models.Model):
+    order = models.ForeignKey(Order, on_delete=models.CASCADE, related_name="history")
+    from_status = models.CharField("Был", max_length=20, choices=Order.Status.choices, blank=True)
+    to_status = models.CharField("Стал", max_length=20, choices=Order.Status.choices)
+    changed_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        related_name="+",
+        verbose_name="Кто изменил",
+    )
+    comment = models.CharField("Комментарий", max_length=300, blank=True)
+    created_at = models.DateTimeField("Когда", auto_now_add=True)
+
+    class Meta:
+        ordering = ["created_at"]
+        verbose_name = "смена статуса"
+        verbose_name_plural = "история статусов"
+
+    def __str__(self):
+        return f"{self.order}: {self.from_status or '—'} → {self.to_status}"

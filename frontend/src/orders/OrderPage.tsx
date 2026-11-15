@@ -5,14 +5,25 @@ import { orderQuery } from '../api/orders'
 import { tokens } from '../auth/tokens'
 import { formatDate, formatPrice } from '../lib/format'
 import { statusLabels } from '../lib/statuses'
+import { usePageTitle } from '../lib/usePageTitle'
+import { managerOrderQuery } from '../manager/queries'
+import OrderStatusActions from '../manager/OrderStatusActions'
+import PaymentCardForm from './PaymentCardForm'
+import { useOrderEvents } from './useOrderEvents'
 
-export default function OrderPage() {
+function BuyerOrderEvents({ id }: { id: number }) {
+  useOrderEvents(id)
+  return null
+}
+
+export default function OrderPage({ manager = false }: { manager?: boolean }) {
   const id = Number(useParams<'orderId'>().orderId)
+  usePageTitle(`Заказ №${id}`)
   const { state }: { state: unknown } = useLocation()
   const justPlaced = state !== null && typeof state === 'object' &&
     'justPlaced' in state && state.justPlaced === true
   const client = useQueryClient()
-  const query = orderQuery(id)
+  const query = manager ? managerOrderQuery(id) : orderQuery(id)
   const { data: order } = useSuspenseQuery(query)
   function updateOrder(updated: Order, version: number) {
     if (version !== tokens.version()) return
@@ -40,14 +51,30 @@ export default function OrderPage() {
   const isUpdating = pay.isPending || cancel.isPending
 
   return (
-    <section className="details narrow">
+    <section className="details order-detail">
+      {!manager && <BuyerOrderEvents id={id} />}
       {justPlaced && <p className="success" role="status">Заказ оформлен. Спасибо!</p>}
       <h1>Заказ №{order.id}</h1>
-      <p>{formatDate(order.created_at)} · <strong>{order.status_display}</strong></p>
+      <p id="order-status" tabIndex={manager ? -1 : undefined}>
+        {formatDate(order.created_at)} · <strong>{order.status_display}</strong>
+      </p>
+      {manager && (
+        <dl className="order-totals order-contact">
+          <dt>Получатель</dt><dd>{order.full_name}</dd>
+          <dt>Телефон</dt><dd>{order.phone}</dd>
+          <dt>Почта</dt><dd>{order.email}</dd>
+          <dt>Доставка</dt><dd>{order.delivery_method === 'courier' ? order.address : 'Самовывоз'}</dd>
+          {order.comment && <><dt>Комментарий</dt><dd>{order.comment}</dd></>}
+        </dl>
+      )}
       <div className="table-scroll">
-        <table className="table">
+        <table className="table order-table">
           <thead>
-            <tr><th scope="col">Товар</th><th scope="col">Количество</th><th scope="col">Сумма</th></tr>
+            <tr>
+              <th scope="col">Товар</th>
+              <th scope="col" className="order-quantity">Количество</th>
+              <th scope="col" className="order-amount">Сумма</th>
+            </tr>
           </thead>
           <tbody>
             {order.items.map((item) => (
@@ -56,14 +83,14 @@ export default function OrderPage() {
                   {item.product_name}
                   {item.variant_name && <small className="line-variant muted">{item.variant_name}</small>}
                 </td>
-                <td>{item.quantity} шт.</td>
-                <td>{formatPrice(item.total)}</td>
+                <td data-label="Количество">{item.quantity} шт.</td>
+                <td className="order-amount" data-label="Сумма">{formatPrice(item.total)}</td>
               </tr>
             ))}
           </tbody>
         </table>
       </div>
-      <dl className="order-totals">
+      <dl className="order-totals order-amounts">
         <dt>Товары</dt><dd>{formatPrice(order.subtotal)}</dd>
         {Number(order.discount) > 0 && (
           <>
@@ -74,27 +101,22 @@ export default function OrderPage() {
         <dt>Доставка</dt><dd>{formatPrice(order.delivery_cost)}</dd>
         <dt className="price">Итого</dt><dd className="price">{formatPrice(order.total)}</dd>
       </dl>
-      {order.can_pay && (
+      {manager && order.allowed_transitions.length > 0 && <section className="order-status-actions">
+        <h2>Действия с заказом</h2>
+        <OrderStatusActions key={id} order={order} focusFallback="order-status" />
+      </section>}
+      {!manager && order.can_pay && (
         <details className="order-payment">
           <summary>Оплатить</summary>
-          <p>Учебный платёжный шлюз. Реальные деньги не списываются.</p>
-          <div className="actions">
-            <button type="button" disabled={isUpdating}
-              onClick={() => pay.mutate({ outcome: 'success', version: tokens.version() })}>
-              Успех
-            </button>
-            <button type="button" className="secondary" disabled={isUpdating}
-              onClick={() => pay.mutate({ outcome: 'failed', version: tokens.version() })}>
-              Отказ
-            </button>
-          </div>
+          <PaymentCardForm key={id} total={order.total} disabled={isUpdating}
+            submit={(outcome) => pay.mutate({ outcome, version: tokens.version() })} />
           {pay.isSuccess && pay.variables.outcome === 'failed' && (
             <p role="status">Учебный платёж отклонён. Можно повторить оплату.</p>
           )}
           {pay.error && <p className="error" role="alert">{pay.error.message}</p>}
         </details>
       )}
-      {order.can_cancel && (
+      {!manager && order.can_cancel && (
         <button type="button" disabled={isUpdating} onClick={() => cancel.mutate(tokens.version())}>
           Отменить заказ
         </button>
@@ -110,7 +132,11 @@ export default function OrderPage() {
           </li>
         ))}
       </ul>
-      <Link to="/orders">К списку заказов</Link>
+      <Link to={manager ? '/manager/orders' : '/orders'}>К списку заказов</Link>
     </section>
   )
+}
+
+export function ManagerOrderPage() {
+  return <OrderPage manager />
 }
