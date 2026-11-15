@@ -17,6 +17,8 @@ import environ
 from redis.backoff import NoBackoff
 from redis.retry import Retry
 
+from config import __version__
+
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BACKEND_DIR = Path(__file__).resolve().parent.parent.parent
 BASE_DIR = BACKEND_DIR.parent
@@ -242,7 +244,7 @@ CELERY_BROKER_TRANSPORT_OPTIONS = {"visibility_timeout": 3600}
 SPECTACULAR_SETTINGS = {
     "TITLE": "Магазин: REST API",
     "DESCRIPTION": "Магазин и сотрудники. JWT/сессия; права указаны у операций.",
-    "VERSION": "1.2.1",
+    "VERSION": __version__,
     "SERVE_INCLUDE_SCHEMA": False,
     "COMPONENT_SPLIT_REQUEST": True,
     "ENUM_NAME_OVERRIDES": {
