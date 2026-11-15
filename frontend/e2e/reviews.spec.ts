@@ -76,33 +76,34 @@ test('М1: право после доставки, очередь, рейтин�
     headers: buyerHeaders, data: { rating: 5, text: approvedText },
   })).status()).toBe(400)
   await deliver(request, book.id, buyerHeaders, managerHeaders)
-  await page.reload()
-  await expect(formButton).toBeVisible()
+  await expect(formButton).toBeVisible({ timeout: 20_000 })
   await page.getByRole('radio', { name: 'Оценка 1 из 5' }).focus()
   await page.keyboard.press('ArrowRight')
   await expect(page.getByRole('radio', { name: 'Оценка 2 из 5' })).toBeChecked()
   await page.keyboard.press('Tab')
   const reviewInput = page.getByLabel('Текст отзыва')
   await expect(reviewInput).toBeFocused()
-  await reviewInput.fill(approvedText)
-  await formButton.click()
-  await expect(page.getByText('Ваш отзыв ожидает модерации.')).toBeVisible()
-  await expect(page.getByText(approvedText)).toHaveCount(0)
-  await expect(page.getByRole('heading', { name: initialHeading })).toBeVisible()
-  expect((await request.post(reviewsPath, {
-    headers: buyerHeaders, data: { rating: 1, text: 'Дубль' },
-  })).status()).toBe(400)
-
-  await deliver(request, book.id, otherHeaders, managerHeaders)
-  expect((await request.post(reviewsPath, {
-    headers: otherHeaders, data: { rating: 1, text: rejectedText },
-  })).status()).toBe(201)
   const staffProfile = await browser.newContext({ baseURL, ignoreHTTPSErrors: true })
   try {
     const staff = await staffProfile.newPage()
     await loginAs(staff, manager, queuePath)
     const approval = staff.getByRole('listitem').filter({ hasText: approvedText })
+    await expect(approval).toHaveCount(0)
+    await reviewInput.fill(approvedText)
+    await formButton.click()
+    await expect(page.getByText('Ваш отзыв ожидает модерации.')).toBeVisible()
+    await expect(page.getByText(approvedText)).toHaveCount(0)
+    await expect(page.getByRole('heading', { name: initialHeading })).toBeVisible()
+    expect((await request.post(reviewsPath, {
+      headers: buyerHeaders, data: { rating: 1, text: 'Дубль' },
+    })).status()).toBe(400)
+
+    await deliver(request, book.id, otherHeaders, managerHeaders)
+    expect((await request.post(reviewsPath, {
+      headers: otherHeaders, data: { rating: 1, text: rejectedText },
+    })).status()).toBe(201)
     const rejection = staff.getByRole('listitem').filter({ hasText: rejectedText })
+    await expect(approval).toBeVisible({ timeout: 20_000 })
     await approval.getByRole('button', { name: 'Одобрить' }).click()
     await expect(approval).toHaveCount(0)
     await rejection.getByRole('button', { name: 'Отклонить' }).click()
@@ -110,11 +111,10 @@ test('М1: право после доставки, очередь, рейтин�
   } finally {
     await staffProfile.close()
   }
-  await page.reload()
-  await expect(page.getByRole('heading', { name: `Отзывы (${book.reviews_count + 1})` })).toBeVisible()
-  await expect(page.getByText(approvedText)).toBeVisible()
+  await expect(page.getByRole('heading', { name: `Отзывы (${book.reviews_count + 1})` })).toBeVisible({ timeout: 20_000 })
+  await expect(page.getByText(approvedText)).toBeVisible({ timeout: 20_000 })
   await expect(page.getByText(rejectedText)).toHaveCount(0)
-  await expect(page.getByText('Вы уже оставили отзыв на это издание.')).toBeVisible()
+  await expect(page.getByText('Вы уже оставили отзыв на это издание.')).toBeVisible({ timeout: 20_000 })
 
   // Переходы внутри SPA сохраняют общий Query-кэш.
   await page.getByRole('button', { name: 'Выйти' }).click()

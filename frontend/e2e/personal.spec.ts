@@ -66,8 +66,17 @@ test('М3: избранное, отказ, пополнение из кабин�
     await page.getByRole('link', { name: title }).click()
     await page.getByRole('button', { name: 'Сообщить о поступлении' }).click()
     await expect(page.getByText('Сообщим, когда книга появится в наличии.')).toBeVisible()
+    await page.addInitScript(() => {
+      const createOscillator = AudioContext.prototype.createOscillator
+      AudioContext.prototype.createOscillator = function () {
+        const notes = Number(document.body.dataset.restockSoundNotes ?? 0)
+        document.body.dataset.restockSoundNotes = String(notes + 1)
+        return createOscillator.call(this)
+      }
+    })
     await page.reload()
     await expect(page.getByText('Сообщим, когда книга появится в наличии.')).toBeVisible()
+    await page.getByRole('heading', { name: title }).click()
     await page.screenshot({ path: testInfo.outputPath('book-mobile.png'), fullPage: true })
 
     const staff = await staffProfile.newPage()
@@ -85,6 +94,12 @@ test('М3: избранное, отказ, пополнение из кабин�
     await page.evaluate(() => document.dispatchEvent(new Event('visibilitychange')))
     const badge = page.getByRole('link', { name: 'Уведомления, непрочитанных: 1' })
     await expect(badge).toBeVisible()
+    const notice = page.getByRole('status').filter({ hasText: 'Книга снова в наличии' })
+    await expect(notice).toContainText(title)
+    await expect(page.locator('body')).toHaveAttribute('data-restock-sound-notes', '2')
+    expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(360)
+    await page.getByRole('button', { name: 'Закрыть', exact: true }).click()
+    await expect(notice).toHaveCount(0)
     await badge.click()
     await expect(page.getByRole('link', { name: title })).toBeVisible()
     await expect(page.getByText('Книга снова в наличии')).toHaveCount(1)

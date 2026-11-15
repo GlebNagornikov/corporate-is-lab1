@@ -32,9 +32,3 @@ export const notificationsQuery = (userId: number) => queryOptions({
   queryFn: async ({ signal }) => requireData(await api.GET('/api/notifications/', { signal })),
   refetchOnWindowFocus: false,
 })
-
-export const unreadQuery = (userId: number) => queryOptions({
-  queryKey: ['personal', userId, 'unread'],
-  queryFn: async ({ signal }) => requireData(await api.GET('/api/notifications/unread/', { signal })),
-  refetchOnWindowFocus: false,
-})

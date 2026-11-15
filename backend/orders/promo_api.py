@@ -76,6 +76,14 @@ class PromoCheckView(GenericAPIView):
 
 class ManagerPromoSerializer(serializers.ModelSerializer):
     code = PromoCodeField(max_length=30)
+    is_active = serializers.BooleanField(
+        source="is_effectively_active",
+        read_only=True,
+        help_text=(
+            "Выключен вручную, истёк или исчерпал лимит — false. "
+            "До начала срока — true, если включён."
+        ),
+    )
     max_uses = serializers.IntegerField(
         min_value=1, max_value=2147483647, required=False, allow_null=True
     )

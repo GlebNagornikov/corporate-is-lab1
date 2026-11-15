@@ -5,7 +5,7 @@ import { tokens } from '../auth/tokens'
 import { useSession } from '../auth/useSession'
 import { formatDate } from '../lib/format'
 import { usePageTitle } from '../lib/usePageTitle'
-import { notificationsQuery, unreadQuery } from './queries'
+import { notificationsQuery } from './queries'
 
 export default function NotificationsPage() {
   const { data: me } = useSession()
@@ -25,10 +25,7 @@ function Notifications({ userId }: { userId: number }) {
         : await api.DELETE('/api/notifications/{id}/', { params: { path: { id } } })
       if (!result.response.ok) throw toApiError(result.response, result.error)
       if (tokens.version() === version) {
-        await Promise.all([
-          client.invalidateQueries({ queryKey: options.queryKey }),
-          client.invalidateQueries({ queryKey: unreadQuery(userId).queryKey }),
-        ])
+        await client.invalidateQueries({ queryKey: options.queryKey })
       }
     },
   })

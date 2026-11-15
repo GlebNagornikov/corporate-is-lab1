@@ -63,12 +63,6 @@ export default function CartPage() {
                               +
                             </button>
                           </div>
-                          {item.quantity > 1 && (
-                            <button type="button" aria-label={`Удалить из корзины: ${label}`}
-                              onClick={() => cart.setQuantity(item.product_id, 0, item.variant_id)}>
-                              Удалить
-                            </button>
-                          )}
                         </div>
                       </td>
                       <td className="order-amount" data-label="Сумма">{formatPrice(item.total)}</td>

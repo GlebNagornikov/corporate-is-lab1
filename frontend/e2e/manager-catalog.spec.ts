@@ -9,7 +9,7 @@ const manager = {
 }
 const cover = fileURLToPath(new URL('../../backend/catalog/demo_books/covers/anne.png', import.meta.url))
 
-test('сотрудник создаёт черновик с обложкой, публикует и снимает книгу с продажи', async ({ page }) => {
+test('сотрудник создаёт черновик с обложкой, публикует и снимает книгу с продажи', async ({ page, browser, baseURL }) => {
   const suffix = randomUUID().slice(0, 8)
   const slug = `kt3-${suffix}`
   const name = `Книга КТ3 ${suffix}`
@@ -17,10 +17,7 @@ test('сотрудник создаёт черновик с обложкой, п
   const storefront = await page.getByRole('link', { name: 'На витрину' }).boundingBox()
   const logout = await page.getByRole('button', { name: 'Выйти' }).boundingBox()
   expect(logout!.x - storefront!.x - storefront!.width).toBeGreaterThanOrEqual(18)
-  const find = await page.getByRole('button', { name: 'Найти' }).boundingBox()
-  const add = await page.getByRole('link', { name: 'Добавить книгу' }).boundingBox()
-  expect(find!.width).toBeCloseTo(add!.width)
-  expect(find!.height).toBeCloseTo(add!.height)
+  await expect(page.getByRole('button', { name: 'Найти', exact: true })).toHaveCount(0)
   await page.getByRole('link', { name: 'Добавить книгу' }).click()
   await expect(page).toHaveURL('/manager/catalog/new')
   await expect(page.getByRole('heading', { name: 'Новая книга' })).toBeVisible()
@@ -89,9 +86,10 @@ test('сотрудник создаёт черновик с обложкой, п
   expect((await page.request.get(`/api/catalog/products/${slug}/`)).status()).toBe(404)
 
   await page.getByRole('link', { name: 'К каталогу сотрудника' }).click()
-  await page.getByLabel('Поиск по каталогу').fill(slug)
-  await page.getByRole('button', { name: 'Найти' }).click()
+  const search = page.getByLabel('Поиск по каталогу')
+  await search.fill(slug)
   await expect(page).toHaveURL(`/manager/catalog?q=${slug}`)
+  await expect(search).toBeFocused()
   const row = page.getByRole('row').filter({ hasText: name })
   await expect(row.getByText('Скрыта')).toBeVisible()
   await row.getByRole('link', { name }).click()
@@ -101,8 +99,17 @@ test('сотрудник создаёт черновик с обложкой, п
   expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(360)
   await page.getByLabel('Цена, ₽', { exact: true }).fill('405')
   await page.getByLabel('Остаток', { exact: true }).fill('5')
-  await page.getByLabel('Показывать на витрине').check()
-  await save.click()
+  const storefrontProfile = await browser.newContext({ baseURL, ignoreHTTPSErrors: true })
+  try {
+    const buyer = await storefrontProfile.newPage()
+    await buyer.goto(`/catalog?q=${suffix}`)
+    await expect(buyer.getByText('Ничего не найдено.', { exact: false })).toBeVisible()
+    await page.getByLabel('Показывать на витрине').check()
+    await save.click()
+    await expect(buyer.getByRole('heading', { name, exact: true })).toBeVisible({ timeout: 20_000 })
+  } finally {
+    await storefrontProfile.close()
+  }
   await expect(page.getByRole('link', { name: 'Открыть на витрине' })).toBeVisible()
   await page.getByRole('link', { name: 'Открыть на витрине' }).click()
   await expect(page).toHaveURL(`/products/${slug}`)

@@ -8,7 +8,7 @@ import { logout, meQuery } from '../auth/session'
 import { server } from '../test/server'
 import FavoriteButton from './FavoriteButton'
 import NotificationsLink from './NotificationsLink'
-import { unreadQuery, wishlistQuery } from './queries'
+import { notificationsQuery, wishlistQuery } from './queries'
 
 const buyer = {
   id: 1, username: 'buyer', email: '', first_name: '', last_name: '', is_manager: false,
@@ -72,13 +72,23 @@ test.each([true, false])('избранное синхронно в двух ме
   }
 })
 
-test('счётчик обновляется каждые 30 секунд и при возврате на вкладку, после размонтирования запросов нет', async () => {
+test('счётчик обновляется по таймеру и при возврате, всплывают только новые уведомления', async () => {
   let count = 1
-  server.use(http.get('*/api/notifications/unread/', () => HttpResponse.json({ unread_count: count })))
+  server.use(http.get('*/api/notifications/', () => HttpResponse.json(
+    Array.from({ length: count }, (_, index) => ({
+      id: index + 1,
+      product_name: `Книга ${index + 1}`,
+      product_slug: `book-${index + 1}`,
+      product_is_active: true,
+      notified_at: '2026-01-01T00:00:00Z',
+      read_at: null,
+    })).reverse(),
+  )))
   const visibility = vi.spyOn(document, 'visibilityState', 'get').mockReturnValue('hidden')
   vi.useFakeTimers({ toFake: ['setInterval', 'clearInterval'] })
   const { client, unmount } = renderPersonal(<NotificationsLink userId={buyer.id} />)
   expect(await screen.findByRole('link', { name: 'Уведомления, непрочитанных: 1' })).toBeVisible()
+  expect(screen.queryByText('Книга снова в наличии')).not.toBeInTheDocument()
   const invalidate = vi.spyOn(client, 'invalidateQueries')
 
   count = 2
@@ -86,6 +96,10 @@ test('счётчик обновляется каждые 30 секунд и пр
   expect(invalidate).not.toHaveBeenCalled()
   act(() => vi.advanceTimersByTime(1))
   expect(await screen.findByRole('link', { name: 'Уведомления, непрочитанных: 2' })).toBeVisible()
+  expect(await screen.findByText('Книга 2')).toBeVisible()
+  expect(screen.getByRole('link', { name: 'К книге' })).toHaveAttribute('href', '/products/book-2')
+  fireEvent.click(screen.getByRole('button', { name: 'Закрыть' }))
+  expect(screen.queryByText('Книга снова в наличии')).not.toBeInTheDocument()
 
   invalidate.mockClear()
   count = 3
@@ -94,6 +108,8 @@ test('счётчик обновляется каждые 30 секунд и пр
   visibility.mockReturnValue('visible')
   fireEvent(document, new Event('visibilitychange'))
   expect(await screen.findByRole('link', { name: 'Уведомления, непрочитанных: 3' })).toBeVisible()
+  expect(await screen.findByText('Книга 3')).toBeVisible()
+  expect(screen.queryByText('Ещё уведомлений:', { exact: false })).not.toBeInTheDocument()
 
   unmount()
   invalidate.mockClear()
@@ -102,15 +118,15 @@ test('счётчик обновляется каждые 30 секунд и пр
   expect(invalidate).not.toHaveBeenCalled()
 })
 
-test('выход удаляет счётчик и избранное из кэша пользователя', async () => {
+test('выход удаляет уведомления и избранное из кэша пользователя', async () => {
   server.use(http.get('*/api/wishlist/', () => HttpResponse.json([entry])))
   const { client } = renderPersonal(<FavoriteButton entry={entry} />)
   expect(await screen.findByRole('button', { name: 'Избранное: Книга', pressed: true })).toBeVisible()
-  client.setQueryData(unreadQuery(buyer.id).queryKey, { unread_count: 2 })
+  client.setQueryData(notificationsQuery(buyer.id).queryKey, [])
   await act(async () => logout(client))
   expect(await screen.findByRole('link', { name: 'В избранное: Книга' })).toBeVisible()
   expect(client.getQueryData(wishlistQuery(buyer.id).queryKey)).toBeUndefined()
-  expect(client.getQueryData(unreadQuery(buyer.id).queryKey)).toBeUndefined()
+  expect(client.getQueryData(notificationsQuery(buyer.id).queryKey)).toBeUndefined()
 })
 
 test('ошибка удаления из избранного видна после повторного открытия карточки', async () => {

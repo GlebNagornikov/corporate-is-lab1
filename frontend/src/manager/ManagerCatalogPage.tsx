@@ -1,28 +1,52 @@
 import { useQuery } from '@tanstack/react-query'
-import { Form, Link, useSearchParams } from 'react-router'
+import { useLayoutEffect, useRef } from 'react'
+import { Link, useLocation, useNavigationType, useSearchParams } from 'react-router'
 import { ApiError } from '../api/client'
 import { formatPrice } from '../lib/format'
+import { useDebouncedCallback } from '../lib/useDebouncedCallback'
 import { usePageTitle } from '../lib/usePageTitle'
 import OrderPagination from '../orders/OrderPagination'
 import { catalogFilters, managerBooksQuery } from './queries'
 
 export default function ManagerCatalogPage() {
   usePageTitle('Каталог сотрудника')
-  const [search] = useSearchParams()
+  const [search, setSearch] = useSearchParams()
+  const { key } = useLocation()
+  const navigationType = useNavigationType()
   const filters = catalogFilters(search)
   const books = useQuery(managerBooksQuery(filters))
+  const searchInput = useRef<HTMLInputElement>(null)
+  const { schedule, cancel } = useDebouncedCallback(applySearch, 300)
+
+  function applySearch() {
+    const q = searchInput.current?.value.trim() ?? ''
+    if (q === (search.get('q') ?? '') && !search.has('page')) return
+    setSearch(q ? { q } : {}, { replace: true, preventScrollReset: true })
+  }
+
+  useLayoutEffect(() => {
+    // Search replaces the URL. Keep any typing that happened while it was updating.
+    if (navigationType === 'REPLACE') return
+    cancel()
+    if (searchInput.current) searchInput.current.value = filters.q ?? ''
+  }, [cancel, filters.q, key, navigationType])
+
   return (
     <section className="details">
       <h1>Каталог сотрудника</h1>
       <div className="manager-catalog-controls">
-        <Form id="manager-catalog-search" className="manager-catalog-search"
-          method="get" role="search" key={filters.q ?? ''}>
+        <form className="manager-catalog-search"
+          role="search" onSubmit={(event) => {
+            event.preventDefault()
+            cancel()
+            applySearch()
+          }}>
           <label className="form-field">Поиск по каталогу
-            <input name="q" type="search" defaultValue={filters.q} placeholder="Название, автор, SKU или ISBN" />
+            <input ref={searchInput} name="q" type="search" defaultValue={filters.q}
+              onChange={schedule} placeholder="Название, автор, SKU или ISBN" />
           </label>
-        </Form>
+        </form>
         <div className="manager-catalog-buttons">
-          <button type="submit" form="manager-catalog-search">Найти</button>
           <Link className="button" to="/manager/catalog/new">Добавить книгу</Link>
           <Link className="button" to="/manager/catalog/import">Импорт JSON</Link>
         </div>

@@ -30,6 +30,14 @@ export async function loginAs(page: Page, credentials: Credentials, next: string
   await expect(page).toHaveURL(next)
 }
 
+export async function payWithDemoCard(page: Page) {
+  await page.locator('summary').filter({ hasText: 'Оплатить' }).click()
+  await page.getByLabel('Номер карты').fill('4242424242424242')
+  await page.getByLabel('Срок действия').fill(`12/${String(new Date().getFullYear() + 1).slice(-2)}`)
+  await page.getByLabel('CVV').fill('123')
+  await page.getByRole('button', { name: /^Оплатить / }).click()
+}
+
 export async function checkoutAsGuest(page: Page, buyer: Credentials): Promise<string> {
   await page.goto('/?category=books&in_stock=true')
   const addButton = page.getByRole('button', { name: 'В корзину', exact: true }).and(page.locator(':enabled'))

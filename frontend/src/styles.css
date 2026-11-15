@@ -249,7 +249,7 @@ button:disabled { cursor: not-allowed; opacity: .65; }
 .actions.manager-account { gap: 1.25rem; }
 .manager-catalog-controls { display: flex; flex-wrap: wrap; align-items: end; gap: .75rem 1rem; }
 .manager-catalog-search { flex: 1 1 17rem; max-width: 28rem; min-width: 0; }
-.manager-catalog-buttons { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: .75rem; }
+.manager-catalog-buttons { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .75rem; max-width: 100%; }
 .manager-catalog-buttons > * {
   display: inline-flex;
   align-items: center;
@@ -285,8 +285,6 @@ button:disabled { cursor: not-allowed; opacity: .65; }
 .manager-card-actions { margin-top: 1rem; padding-top: 1rem; border-top: 1px solid var(--line); }
 button.manager-delete { background: var(--danger-bg); border-color: var(--danger); color: var(--danger); }
 @media (max-width: 42rem) {
-  .manager-catalog-buttons { grid-template-columns: repeat(2, minmax(0, 1fr)); max-width: 100%; }
-  .manager-catalog-buttons > :last-child { grid-column: 1 / -1; }
   :is(.manager-table, .cart-table, .order-table),
   :is(.manager-table, .cart-table, .order-table) tbody { display: block; }
   :is(.manager-table, .cart-table, .order-table) thead {
@@ -317,8 +315,6 @@ button.manager-delete { background: var(--danger-bg); border-color: var(--danger
 .table .order-amount { text-align: right; font-variant-numeric: tabular-nums; }
 .manager-table thead th { overflow-wrap: normal; }
 .table .manager-order-status, .table .manager-order-actions { overflow-wrap: normal; }
-.cart-table .actions { row-gap: .4rem; }
-.cart-table .actions > button { white-space: nowrap; }
 @media (max-width: 42rem) {
   :is(.cart-table, .order-table) tbody tr > * { padding-inline: .65rem; }
   .cart-table .actions { padding-top: .3rem; }
@@ -332,9 +328,25 @@ button.manager-delete { background: var(--danger-bg); border-color: var(--danger
 .order-totals dd { margin: 0; text-align: right; }
 .order-contact { grid-template-columns: max-content minmax(0, 1fr); }
 .order-contact dd { text-align: left; }
+.order-amounts { margin-block-start: 1rem; }
 .order-amounts dd { white-space: nowrap; }
 .order-payment { margin-bottom: .75rem; padding: .75rem; border: 1px solid var(--line); }
 .order-payment summary { color: var(--accent); font-weight: 700; cursor: pointer; }
+.order-status-actions { margin-block: 1.25rem; }
+.payment-card-form { margin-block: 1rem .75rem; }
+.payment-instructions p, .payment-instructions ul { margin-block: 0 .5rem; }
+.payment-instructions ul { padding-inline-start: 1.25rem; }
+.payment-card {
+  display: grid;
+  gap: .75rem;
+  width: min(100%, 24rem);
+  padding: 1rem;
+  background: var(--wash);
+  border: 1px solid var(--control);
+  border-radius: 1rem;
+}
+.payment-card-fields { display: grid; grid-template-columns: minmax(0, 3fr) minmax(0, 2fr); gap: .75rem; }
+.payment-card .error { margin: .25rem 0 0; font-size: .875rem; }
 .price { color: var(--accent); font: 600 1.35rem/1.4 var(--display); }
 .old-price, .badge { margin-left: .45rem; font: 400 .78rem/1.5 var(--body); }
 .badge { padding: .13rem .38rem; border: 1px solid var(--control); border-radius: .3rem; }
