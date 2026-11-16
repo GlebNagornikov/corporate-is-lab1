@@ -74,45 +74,6 @@
 
   Используйте то же `-p knizhnaya-polka-demo` в последующих командах для этой копии. Если предыдущий запуск уже использовал другое имя проекта, укажите его в первой команде `stop`.
 
-## Django и Vite в отдельных окнах
-
-Для показа команд из части 7 установите [Python 3.14](https://www.python.org/downloads/windows/). Убедитесь, что команда `py -3.14 --version` показывает 3.14. При первом запуске подготовьте `.env` командой `Copy-Item .env.example .env`. Если Compose уже поднял весь магазин по README, сначала остановите веб-сервисы командой `docker compose stop frontend web`.
-
-1. В первом окне запустите PostgreSQL и локальный Redis, создайте окружение Python, примените миграции и загрузите каталог.
-
-   ```powershell
-   docker compose up -d --wait db
-   docker compose run -d --name bookshop-local-redis -p 127.0.0.1:6380:6379 redis redis-server
-   py -3.14 -m venv .venv
-   .\.venv\Scripts\python.exe -m pip install -r backend/requirements.txt -r backend/requirements/dev.txt
-   $env:REDIS_CACHE_URL = 'redis://127.0.0.1:6380/1'
-   $env:REDIS_THROTTLE_URL = 'redis://127.0.0.1:6380/2'
-   $env:ORDER_EVENTS_REDIS_URL = 'redis://127.0.0.1:6380/0'
-   $env:CELERY_BROKER_URL = 'redis://127.0.0.1:6380/0'
-   .\.venv\Scripts\python.exe backend/manage.py migrate --noinput
-   .\.venv\Scripts\python.exe backend/manage.py seed_demo --password 'DemoShop2026!'
-   .\.venv\Scripts\python.exe backend/manage.py runserver 127.0.0.1:8000
-   ```
-
-   Дождитесь строки `Starting development server at http://127.0.0.1:8000/`. Если база уже подготовлена, миграции сообщат `No migrations to apply`.
-
-2. Во втором окне установите зависимости и запустите Vite. Команда `npm.cmd` работает и при запрете PowerShell-скриптов.
-
-   ```powershell
-   npm.cmd --prefix frontend ci
-   npm.cmd --prefix frontend run dev -- --host 127.0.0.1 --port 5173 --strictPort
-   ```
-
-   Откройте [ссылку Vite](http://127.0.0.1:5173/) и войдите под демопользователем из README. Для потока SSE и доставки писем используйте полный Compose или HTTPS-стенд, где запускаются ASGI и Celery.
-
-3. Для остановки нажмите Ctrl+C в обоих окнах. Уберите временный контейнер Redis и остановите базу.
-
-   ```powershell
-   docker stop bookshop-local-redis
-   docker rm bookshop-local-redis
-   docker compose stop db
-   ```
-
 ## API
 
 Базовый адрес для запросов в dev — `http://127.0.0.1:8000`. Приватные запросы принимают `Authorization: Bearer <access>`. Публичные операции доступны гостю. «Свой» означает доступ к данным текущего пользователя. Операции кабинета проверяют роль и разрешения Django соответствующего действия. CRM проверяет модельные разрешения на чтение и запись. Без авторизации приватный API отвечает 401, при недостатке прав — 403, для чужого заказа — 404.
@@ -169,26 +130,3 @@
 | `/api/cart/items/` | `{"product":1,"variant":null,"quantity":1}` |
 | `/api/orders/` | `{"full_name":"Анна Петрова"},"phone":"+79991234567","email":"anna@example.com","delivery_method":"pickup"}` |
 | `/api/manager/orders/{id}/status/` | `{"status":"confirmed"}` |
-
-## Приёмка
-
-[Команды проверок, два сквозных сценария и негативные проверки](docs/lab11-release-checks.md) входят в протокол части 7. [Приёмка шага 12](docs/lab11-step12-acceptance.md) содержит матрицу Б1–Б11 и Ф1–Ф13, замеры и ссылки на тесты.
-
-| Критерий | Как проверить |
-| --- | --- |
-| Р1 · TypeScript | `npm.cmd --prefix frontend run typecheck`, контракт в `frontend/src/api/schema.d.ts`. |
-| Р2 · TanStack Query | `frontend/src/api/queries.ts`, сценарии корзины и отката в Vitest. |
-| Р3 · Data Router | `frontend/src/appRoutes.tsx`, loaders и actions входа, регистрации, оформления и книг. |
-| Р4 · Тесты React | `npm.cmd --prefix frontend test`, в том числе формы, доступ и ошибки. |
-| Р5 · E2E | `frontend/e2e/two-profile-checkout.spec.ts` и `storefront.spec.ts`. |
-| Р6 · Ленивая загрузка | [Замеры шага 12](docs/lab11-step12-acceptance.md#замеры-production-сборок). Базовый JS gzip 80,37 → 119,83 кБ, отдельно ManagerLayout 1,15 кБ и ReportCharts 1,46 кБ. |
-| Р7 · OpenAPI | Swagger и проверка `spectacular --validate --fail-on-warn`. |
-| Р8 · Серверная корзина | Войти под одним покупателем в двух окнах, обновить второе окно после изменения корзины. |
-| Р9 · SSE | `frontend/e2e/order-events.spec.ts`, статус на сайте покупателя меняется без F5. |
-| Р10 · Тема | Переключить тему, обновить страницу, проверить её сохранение и контраст. [Визуальная проверка](docs/VISUAL_AUDIT.md). |
-| Р11 · Доступность | [Lighthouse](docs/lighthouse) для главной, издания и оформления, ручная проверка клавиатурой. |
-| Р12 · Прокрутка | `frontend/e2e/storefront.spec.ts`, возврат из карточки и открытие `?page=2` в новой вкладке. |
-| Р13 · Compose | Запуск dev и HTTPS по инструкции, F5 на вложенном маршруте, загрузка `/api` и `/media`. |
-| Р14 · CI | [GitHub Actions](https://github.com/GlebNagornikov/corporate-is-lab1/actions), Django, React, dev и HTTPS Playwright. |
-
-[Журнал изменений](CHANGELOG.md)
